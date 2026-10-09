@@ -8,30 +8,34 @@ namespace OrbusBetterMirror;
 
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
-    "OrbusVR BetterMirror",
-    "0.6.0"
+    "OrbusRebornCamera",
+    "0.7.0"
 )]
 public sealed class Plugin : BasePlugin
 {
     internal static ManualLogSource ModLogger = null!;
 
-    // General settings
+    // Existing general settings.
     internal static ConfigEntry<bool> StartEnabled = null!;
     internal static ConfigEntry<string> StartMode = null!;
 
-    // Camera settings
+    // Existing desktop camera settings.
     internal static ConfigEntry<float> HorizontalFov = null!;
     internal static ConfigEntry<float> Smoothing = null!;
 
-    // Third-person settings
+    // Existing third-person settings.
     internal static ConfigEntry<float> ThirdDistance = null!;
     internal static ConfigEntry<float> ThirdHeight = null!;
 
-    // Selfie settings
+    // Existing selfie settings.
     internal static ConfigEntry<float> SelfieDistance = null!;
 
-    // Local avatar rendering
+    // Existing avatar rendering.
     internal static ConfigEntry<bool> ShowLocalAvatar = null!;
+
+    // New physical camera prototype settings.
+    internal static ConfigEntry<bool> PrototypeVisible = null!;
+    internal static ConfigEntry<float> PrototypeSpawnDistance = null!;
 
     public override void Load()
     {
@@ -41,14 +45,14 @@ public sealed class Plugin : BasePlugin
             "General",
             "StartEnabled",
             true,
-            "Automatically enable BetterMirror when VR is ready."
+            "Automatically enable the desktop creator camera when VR is ready."
         );
 
         StartMode = Config.Bind(
             "General",
             "StartMode",
             "POV",
-            "Starting camera mode: POV, ThirdPerson or Selfie."
+            "Starting mode: POV, ThirdPerson or Selfie."
         );
 
         HorizontalFov = Config.Bind(
@@ -69,57 +73,76 @@ public sealed class Plugin : BasePlugin
             "ThirdPerson",
             "Distance",
             2.5f,
-            "Camera distance behind the player in metres."
+            "Distance behind the player in metres."
         );
 
         ThirdHeight = Config.Bind(
             "ThirdPerson",
             "Height",
             0.6f,
-            "Camera height above the headset in metres."
+            "Height above the headset in metres."
         );
 
         SelfieDistance = Config.Bind(
             "Selfie",
             "Distance",
             2.0f,
-            "Camera distance in front of the player in metres."
+            "Distance in front of the player in metres."
         );
 
         ShowLocalAvatar = Config.Bind(
             "Avatar",
             "ShowLocalAvatar",
             true,
-            "Show local Minicam-layer avatar meshes in " +
-            "BetterMirror's third-person, selfie and static modes. " +
-            "The normal VR camera is not modified."
+            "Show local Minicam-layer avatar meshes in external desktop camera modes. The headset camera is not modified."
+        );
+
+        // Physical camera prototype.
+        PrototypeVisible = Config.Bind(
+            "PhysicalCamera",
+            "PrototypeVisible",
+            true,
+            "Show the experimental physical camera placeholder in VR."
+        );
+
+        PrototypeSpawnDistance = Config.Bind(
+            "PhysicalCamera",
+            "SpawnDistance",
+            0.75f,
+            "Distance in metres in front of the headset when spawning or recalling the physical camera."
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("BetterMirror v0.6 loaded.");
-        Log.LogInfo("Full Avatar Rendering Experiment");
+        Log.LogInfo("OrbusRebornCamera v0.7.0");
+        Log.LogInfo("Physical Camera Prototype");
         Log.LogInfo("==================================");
 
-        // Existing camera controller, upgraded for v0.6.
+        // Preserve the existing desktop camera.
         AddComponent<CameraDiagnostics>();
 
-        // Keep the working v0.5 diagnostics.
+        // Preserve the existing diagnostics.
         AddComponent<AvatarDiagnostics>();
 
+        // New, independent VR prop prototype.
+        AddComponent<PhysicalCameraPrototype>();
+
+        Log.LogInfo("Desktop camera controller loaded.");
+        Log.LogInfo("Physical camera prototype controller loaded.");
+
         Log.LogInfo(
-            "F4 Avatar Scan | Shift+F4 Extended Scan"
+            "F3 = Recall physical camera | Shift+F3 = Show/Hide"
         );
 
         Log.LogInfo(
-            "F5/F6/F7 Mirror | F8 Diagnostics"
+            "F9 = Desktop camera toggle | Ctrl+F9 = Avatar toggle"
         );
 
         Log.LogInfo(
-            "F9 Camera Toggle | Ctrl+F9 Avatar Toggle"
+            "F10 = FOV | F11 = Camera mode | F12 = Freeze"
         );
 
         Log.LogInfo(
-            "F10 FOV | F11 Camera Mode | F12 Freeze"
+            "F4 = Avatar diagnostics | F8 = Camera diagnostics"
         );
 
         Log.LogInfo(
@@ -127,7 +150,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo(
-            $"Local avatar rendering: {ShowLocalAvatar.Value}"
+            $"Physical prototype visible: {PrototypeVisible.Value}"
         );
     }
 }
