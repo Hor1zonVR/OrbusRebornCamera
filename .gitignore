@@ -1,0 +1,32 @@
+
+# .NET build output
+**/bin/
+**/obj/
+**/artifacts/
+**/publish/
+
+# IDE and editor files
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs and temporary files
+*.log
+*.tmp
+*.cache
+TestResults/
+
+# Local game references
+GameReferences/
+LocalReferences/
+BepInEx/
+interop/
+
+# Operating system files
+Thumbs.db
+Desktop.ini
+.DS_Store
