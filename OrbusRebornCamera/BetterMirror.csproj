@@ -1,77 +1,47 @@
+PS C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1> Move-Item .\PhysicalCameraPrototype.cs .\OrbusRebornCamera\PhysicalCameraPrototype.cs
+PS C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1> git add OrbusRebornCamera/PhysicalCameraPrototype.cs README.md
+>> git commit -m "Add physical camera prototype source and update README"
+[main d37d590] Add physical camera prototype source and update README
+ 2 files changed, 532 insertions(+)
+ create mode 100644 OrbusRebornCamera/PhysicalCameraPrototype.cs
+PS C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1> git status
+On branch main
+Your branch is ahead of 'origin/main' by 2 commits.
+  (use "git push" to publish your local commits)
 
-<Project Sdk="Microsoft.NET.Sdk">
+nothing to commit, working tree clean
+PS C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1> .\release.ps1
 
-  <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+======================================
+   OrbusRebornCamera Release Tool
+======================================
 
-    <AssemblyName>BetterMirror</AssemblyName>
-    <RootNamespace>OrbusBetterMirror</RootNamespace>
+Plugin version: 0.7.0
+Release tag:    v0.7.0
 
-    <GameDir Condition="'$(GameDir)' == ''">$(USERPROFILE)\Downloads\OrbusVR-Reborn-Community-PC-MODTEST\OrbusVR-Reborn-Community-PC</GameDir>
-  </PropertyGroup>
+[1/4] Building camera DLL...
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1\OrbusRebornCamera\PhysicalCameraPrototype.cs(426,9): error CS0246: The type or namespace name 'Collider' could not be found (are you m
+issing a using directive or an assembly reference?) [C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1\OrbusRebornCamera\BetterMirror.csproj]
+C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1\OrbusRebornCamera\PhysicalCameraPrototype.cs(426,47): error CS0246: The type or namespace name 'Collider' could not be found (are you 
+missing a using directive or an assembly reference?) [C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1\OrbusRebornCamera\BetterMirror.csproj]
 
-  <ItemGroup>
+Build FAILED.
 
-    <Reference Include="BepInEx.Core">
-      <HintPath>$(GameDir)\BepInEx\core\BepInEx.Core.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1\OrbusRebornCamera\PhysicalCameraPrototype.cs(426,9): error CS0246: The type or namespace name 'Collider' could not be found (are you m
+issing a using directive or an assembly reference?) [C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1\OrbusRebornCamera\BetterMirror.csproj]
+C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1\OrbusRebornCamera\PhysicalCameraPrototype.cs(426,47): error CS0246: The type or namespace name 'Collider' could not be found (are you 
+missing a using directive or an assembly reference?) [C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1\OrbusRebornCamera\BetterMirror.csproj]
+    0 Warning(s)
+    2 Error(s)
 
-    <Reference Include="BepInEx.Unity.IL2CPP">
-      <HintPath>$(GameDir)\BepInEx\core\BepInEx.Unity.IL2CPP.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-
-    <Reference Include="Il2CppInterop.Runtime">
-      <HintPath>$(GameDir)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-
-    <Reference Include="Il2Cppmscorlib">
-      <HintPath>$(GameDir)\BepInEx\interop\Il2Cppmscorlib.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.CoreModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-
-    <Reference Include="UnityEngine.VRModule"
-               Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.VRModule.dll')">
-      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.VRModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-
-    <Reference Include="UnityEngine.XRModule"
-               Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.XRModule.dll')">
-      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.XRModule.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-
-  </ItemGroup>
-
-  <Target Name="CheckGameReferences" BeforeTargets="ResolveReferences">
-
-    <Error
-      Condition="!Exists('$(GameDir)\BepInEx\core\BepInEx.Unity.IL2CPP.dll')"
-      Text="BepInEx DLLs not found. Check GameDir." />
-
-    <Error
-      Condition="!Exists('$(GameDir)\BepInEx\interop\Il2Cppmscorlib.dll')"
-      Text="Il2Cppmscorlib.dll not found. Check that BepInEx generated its interop assemblies." />
-
-    <Error
-      Condition="!Exists('$(GameDir)\BepInEx\interop\UnityEngine.CoreModule.dll')"
-      Text="Unity interop DLLs not found. Run the game with BepInEx first." />
-
-    <Error
-      Condition="!Exists('$(GameDir)\BepInEx\interop\UnityEngine.VRModule.dll') and !Exists('$(GameDir)\BepInEx\interop\UnityEngine.XRModule.dll')"
-      Text="No Unity VR or XR module found." />
-
-  </Target>
-
-</Project>
+Time Elapsed 00:00:01.93
+Camera build failed (exit code 1). Release cancelled.
+At C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1\release.ps1:19 char:9
++         throw "$Step failed (exit code $LASTEXITCODE). Release cancel ...
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Camera build fa...ease cancelled.:String) [], RuntimeException
+    + FullyQualifiedErrorId : Camera build failed (exit code 1). Release cancelled.
+ 
+PS C:\Users\celti\OneDrive\Documents\OrbusRebornCamera-1> 
