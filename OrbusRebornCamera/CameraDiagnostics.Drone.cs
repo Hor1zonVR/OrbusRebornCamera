@@ -23,6 +23,7 @@ public sealed partial class CameraDiagnostics
     private float _droneYaw;
     private float _dronePitch;
     private bool _droneLooking;
+    private float _droneNextInputWarning;
     private bool _droneCursorWasVisible;
     private CursorLockMode _dronePreviousCursorLock;
 
@@ -94,9 +95,31 @@ public sealed partial class CameraDiagnostics
 
     private void HandleDroneInput()
     {
-        if (_mode != CameraMode.Drone)
+        if (_mode != CameraMode.Drone || !IsCameraActive)
+        {
+            ReleaseDronePointer();
             return;
+        }
 
+        try
+        {
+            HandleDroneInputCore();
+        }
+        catch (Exception ex)
+        {
+            ReleaseDronePointer();
+            _droneVelocity = Vector3.zero;
+            if (Time.unscaledTime >= _droneNextInputWarning)
+            {
+                _droneNextInputWarning = Time.unscaledTime + 10f;
+                Plugin.ModLogger.LogWarning(
+                    "[Drone] Input unavailable: " + ex.Message);
+            }
+        }
+    }
+
+    private void HandleDroneInputCore()
+    {
         if (!Application.isFocused || _desktop == null)
         {
             ReleaseDronePointer();
@@ -122,6 +145,8 @@ public sealed partial class CameraDiagnostics
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             _droneLooking = true;
+            // Discard the initial mouse-axis event after cursor capture.
+            return;
         }
 
         float dt = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
