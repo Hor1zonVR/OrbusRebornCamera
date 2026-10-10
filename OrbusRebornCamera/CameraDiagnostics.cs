@@ -6,7 +6,7 @@ using UnityEngine.XR;
 
 namespace OrbusBetterMirror;
 
-public sealed class CameraDiagnostics : MonoBehaviour
+public sealed partial class CameraDiagnostics : MonoBehaviour
 {
     public CameraDiagnostics(IntPtr pointer) : base(pointer)
     {
@@ -20,7 +20,8 @@ public sealed class CameraDiagnostics : MonoBehaviour
         POV,
         ThirdPerson,
         Selfie,
-        Static
+        Static,
+        Drone
     }
 
     // F5 through F12.
@@ -83,7 +84,8 @@ public sealed class CameraDiagnostics : MonoBehaviour
             true,
             out CameraMode savedMode))
         {
-            if (savedMode != CameraMode.Static)
+            if (savedMode != CameraMode.Static &&
+                savedMode != CameraMode.Drone)
             {
                 _mode = savedMode;
                 _lastFollowMode = savedMode;
@@ -234,10 +236,15 @@ public sealed class CameraDiagnostics : MonoBehaviour
             CycleFov();
 
         if (JustPressed(6))
-            CycleFollowMode();
+        {
+            if (IsCtrlDown()) ToggleExperimentalDrone();
+            else CycleFollowMode();
+        }
 
         if (JustPressed(7))
             ToggleStaticMode();
+
+        HandleDroneInput();
     }
 
     private void LateUpdate()
@@ -259,6 +266,15 @@ public sealed class CameraDiagnostics : MonoBehaviour
                 Math.Abs(fov - _lastFov) > 0.01f)
             {
                 ApplyFov();
+            }
+
+            // Drone movement is independent of the headset and never
+            // changes the actual player rig or source eye camera.
+            if (_mode == CameraMode.Drone)
+            {
+                UpdateDesktopCullingMask(false);
+                ApplyDronePose();
+                return;
             }
 
             // Static cameras keep their world pose.
@@ -347,7 +363,8 @@ public sealed class CameraDiagnostics : MonoBehaviour
                 continue;
 
             if (camera.name == "Camera (eye)" &&
-                camera.stereoEnabled)
+                (camera.stereoEnabled ||
+                 (!XRSettings.enabled || !XRSettings.isDeviceActive)))
             {
                 return camera;
             }
@@ -356,12 +373,12 @@ public sealed class CameraDiagnostics : MonoBehaviour
         return null;
     }
 
-    private bool TryEnableCamera(bool manual)
+    private bool TryEnableCamera(bool manual, bool droneAttempt = false)
     {
         try
         {
-            if (!XRSettings.enabled ||
-                !XRSettings.isDeviceActive)
+            if ((!XRSettings.enabled || !XRSettings.isDeviceActive) &&
+                !droneAttempt)
             {
                 if (manual)
                 {
@@ -514,7 +531,8 @@ public sealed class CameraDiagnostics : MonoBehaviour
         return
             _mode == CameraMode.ThirdPerson ||
             _mode == CameraMode.Selfie ||
-            _mode == CameraMode.Static;
+            _mode == CameraMode.Static ||
+            _mode == CameraMode.Drone;
     }
 
     private void UpdateDesktopCullingMask(bool logChange)
@@ -858,6 +876,7 @@ public sealed class CameraDiagnostics : MonoBehaviour
 
     private void DisableCamera()
     {
+        LeaveDrone();
         if (_desktop != null)
         {
             _desktop.enabled = false;
@@ -871,6 +890,12 @@ public sealed class CameraDiagnostics : MonoBehaviour
 
     private void CycleFollowMode()
     {
+        if (_mode == CameraMode.Drone)
+        {
+            LeaveDrone();
+            _mode = _lastFollowMode;
+        }
+
         if (_mode == CameraMode.Static)
         {
             _mode = _lastFollowMode;
@@ -918,6 +943,17 @@ public sealed class CameraDiagnostics : MonoBehaviour
     private void ToggleStaticMode()
     {
         _autoStartHandled = true;
+
+        // F12 freezes the current drone pose without returning to VR.
+        // A second F12 restores the last follow mode.
+        if (_mode == CameraMode.Drone)
+        {
+            LeaveDrone();
+            _mode = CameraMode.Static;
+            UpdateDesktopCullingMask(true);
+            Plugin.ModLogger.LogInfo("[Drone] Camera frozen at drone position (F12).");
+            return;
+        }
 
         if (!IsCameraActive)
         {
