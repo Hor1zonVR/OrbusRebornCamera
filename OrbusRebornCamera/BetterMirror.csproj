@@ -45,6 +45,11 @@
       <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.InputModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Unity IMGUI is used only on the desktop creator panel; never VR UI. -->
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
 
     <Reference Include="UnityEngine.VRModule"
                Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.VRModule.dll')">
@@ -79,6 +84,9 @@
     <Error
       Condition="!Exists('$(GameDir)\BepInEx\interop\UnityEngine.InputModule.dll')"
       Text="Unity InputModule interop DLL not found." />
+    <Error
+      Condition="!Exists('$(GameDir)\BepInEx\interop\UnityEngine.IMGUIModule.dll')"
+      Text="Unity IMGUI interop DLL not found. Start OrbusVR with BepInEx once to generate UnityEngine.IMGUIModule.dll." />
 
     <Error
       Condition="!Exists('$(GameDir)\BepInEx\interop\UnityEngine.VRModule.dll') and !Exists('$(GameDir)\BepInEx\interop\UnityEngine.XRModule.dll')"
