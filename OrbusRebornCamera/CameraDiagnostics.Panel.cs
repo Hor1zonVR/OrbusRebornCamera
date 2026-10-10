@@ -17,6 +17,9 @@ public sealed partial class CameraDiagnostics
     private bool _panelToggleWasDown;
     private bool _panelInitialized;
     private bool _panelGuiErrorLogged;
+    private bool _panelCursorManaged;
+    private bool _panelCursorWasVisible;
+    private CursorLockMode _panelPreviousCursorLock;
 
     private GUIStyle? _panelTitle;
     private GUIStyle? _panelSubtitle;
@@ -51,15 +54,16 @@ public sealed partial class CameraDiagnostics
 
     // This extra Unity callback does not replace CameraDiagnostics.Update,
     // so all existing desktop-camera hotkeys and camera modes keep working.
-    private void FixedUpdate()
+    private void FixedUpdate() => PollPanelToggle();
+
+    private void PollPanelToggle()
     {
         bool down = Application.isFocused &&
             (GetAsyncKeyState(PanelToggleVirtualKey) & 0x8000) != 0;
 
         if (down && !_panelToggleWasDown)
         {
-            _panelVisible = !_panelVisible;
-            Plugin.CreatorPanelVisible.Value = _panelVisible;
+            SetPanelVisibility(!_panelVisible);
             Plugin.ModLogger.LogInfo(
                 "[CreatorPanel] " + (_panelVisible ? "Opened" : "Hidden") +
                 " (F2)");
@@ -68,20 +72,55 @@ public sealed partial class CameraDiagnostics
         _panelToggleWasDown = down;
     }
 
+    private void SetPanelVisibility(bool visible)
+    {
+        _panelVisible = visible;
+        Plugin.CreatorPanelVisible.Value = visible;
+        if (visible) AcquirePanelCursor();
+        else ReleasePanelCursor();
+    }
+
+    private void AcquirePanelCursor()
+    {
+        if (_panelCursorManaged || !Application.isFocused)
+            return;
+
+        _panelPreviousCursorLock = Cursor.lockState;
+        _panelCursorWasVisible = Cursor.visible;
+        _panelCursorManaged = true;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    private void ReleasePanelCursor()
+    {
+        if (!_panelCursorManaged)
+            return;
+
+        _panelCursorManaged = false;
+        Cursor.lockState = _panelPreviousCursorLock;
+        Cursor.visible = _panelCursorWasVisible;
+    }
+
+    // A paused game can stop FixedUpdate, so OnGUI polls F2 as a fallback.
     private void OnGUI()
     {
-        if (!_panelVisible)
+        if (!_panelInitialized)
         {
-            // Initialize the default visibility after the BepInEx config
-            // has been read, without drawing on startup if hidden.
-            if (!_panelInitialized)
-            {
-                _panelVisible = Plugin.CreatorPanelVisible.Value;
-                _panelInitialized = true;
-            }
+            _panelInitialized = true;
+            _panelVisible = Plugin.CreatorPanelVisible.Value;
+        }
 
-            if (!_panelVisible)
-                return;
+        PollPanelToggle();
+
+        if (!_panelVisible)
+            return;
+
+        if (Application.isFocused)
+        {
+            AcquirePanelCursor();
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         try
@@ -117,6 +156,8 @@ public sealed partial class CameraDiagnostics
 
             // Never break the working creator camera due to a panel issue.
             _panelVisible = false;
+            Plugin.CreatorPanelVisible.Value = false;
+            ReleasePanelCursor();
         }
     }
 
@@ -344,8 +385,12 @@ public sealed partial class CameraDiagnostics
 
     private void HideCreatorPanel()
     {
-        _panelVisible = false;
-        Plugin.CreatorPanelVisible.Value = false;
+        SetPanelVisibility(false);
+    }
+
+    private void OnApplicationFocus(bool focused)
+    {
+        if (!focused) ReleasePanelCursor();
     }
 
     private void SetPanelMode(CameraMode next)
