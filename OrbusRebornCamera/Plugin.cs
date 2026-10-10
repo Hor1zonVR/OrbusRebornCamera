@@ -102,8 +102,9 @@ public sealed class Plugin : BasePlugin
         PrototypeVisible = Config.Bind(
             "PhysicalCamera",
             "PrototypeVisible",
-            true,
-            "Show the experimental physical camera placeholder in VR."
+            false,
+            "Show the optional experimental physical camera placeholder in VR. " +
+            "Off by default; independent of the desktop drone."
         );
 
         PrototypeSpawnDistance = Config.Bind(
