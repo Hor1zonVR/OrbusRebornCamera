@@ -16,11 +16,13 @@ Capture OrbusVR from different perspectives without affecting your normal VR hea
 - Optional avatar visibility toggle
 - Separate desktop and headset camera rendering
 - **Experimental opt-in desktop drone camera** with mouse-look and keyboard flight (private tests only)
+- In-game **desktop Creator Panel** for choosing POV / third-person / selfie / static, changing FOV, smoothing and distance, toggling local avatar and detaching the recording view
 
 ## Controls
 
 | Key | Action |
 |---|---|
+| F2 | Show or hide the desktop Creator Panel |
 | F9 | Toggle the creator camera |
 | F10 | Cycle FOV presets |
 | F11 | Switch between camera perspectives |
@@ -35,6 +37,24 @@ Capture OrbusVR from different perspectives without affecting your normal VR hea
 | Right mouse + Shift/Ctrl | Move faster/slower |
 | F12 in drone mode | Freeze the drone camera at its current position |
 | Shift + F4 | Extended avatar diagnostics |
+
+## Desktop Creator Panel (v0.8.1 prototype)
+
+Press **F2** while the OrbusVR desktop window is focused to show or hide the Creator Panel. The panel is hidden by default, and can optionally be displayed at launch with `[CreatorPanel] OpenAtStartup = true` in the BepInEx config.
+
+The desktop panel lets you:
+
+- Enable/disable the independent recording camera
+- Switch directly to **First person**, **Third person**, **Selfie** or **Static / detached** without cycling hotkeys
+- Adjust horizontal FOV (50–150°), follow smoothness (0–20), and third-person/selfie distance (0.5–8 metres)
+- Toggle local avatar rendering in external desktop views
+- Detach/freeze the camera where it is and reattach to the previous follow mode
+
+Changes to camera settings are written to the existing BepInEx configuration entries and persist across launches. Existing F9/F10/F11/F12 keyboard shortcuts continue to work. The experimental drone is **not unlocked** by the panel.
+
+**Recording note:** This first prototype uses Unity's in-game desktop IMGUI overlay, so the panel **may appear in footage** captured from the desktop game window. Press F2 to hide it before taking a clean recording. A separate creator-control window that is reliably excluded from capture is a possible later feature.
+
+**IL2CPP dependency:** The game must have generated `BepInEx/interop/UnityEngine.IMGUIModule.dll` for this version to build; the project explicitly checks for it. The build must use the same local game/BepInEx interop folder as the running mod.
 
 ## Experimental desktop drone — private testing
 
@@ -96,7 +116,7 @@ OrbusVR Classic and Preborn are not supported.
 ## Future Plans
 
 - Safe public-server drone release after randomly spawned collectibles can be excluded from footage
-- Desktop creator control panel to replace reliance on keyboard shortcuts
+- Polish the desktop Creator Panel, including a separate capture-safe window option
 - Verified headset-free game boot, if supported by Community Edition
 - Full keyframe camera paths and cinematic recording controls
 - Physical VR camera (optional; currently an experimental placeholder)
