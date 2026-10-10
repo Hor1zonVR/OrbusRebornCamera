@@ -66,6 +66,10 @@ public sealed partial class CameraDiagnostics
                 "[Drone] Could not start. The game must load a world and " +
                 "provide Camera (eye). A disconnected VR headset may prevent " +
                 "OrbusVR itself from reaching this state.");
+            // Snapshot contains XR status and available camera names.
+            // Useful for determining if headset-free sessions are possible
+            // without guessing at game-specific startup flags.
+            TakeSnapshot("drone activation unavailable");
             return;
         }
 
