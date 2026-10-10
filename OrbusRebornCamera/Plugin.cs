@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.8.0"
+    "0.8.1"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -38,6 +38,8 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<float> DroneBoostMultiplier = null!;
     internal static ConfigEntry<float> DroneMouseSensitivity = null!;
     internal static ConfigEntry<float> DroneMovementSmoothing = null!;
+
+    internal static ConfigEntry<bool> CreatorPanelVisible = null!;
 
     public override void Load()
     {
@@ -151,8 +153,16 @@ public sealed class Plugin : BasePlugin
             "Acceleration and deceleration smoothing; 0 is instant."
         );
 
+        CreatorPanelVisible = Config.Bind(
+            "CreatorPanel",
+            "OpenAtStartup",
+            false,
+            "Show the desktop creator controls when the game starts. " +
+            "Press F2 to show or hide the panel at any time."
+        );
+
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.8.0 - experimental drone prototype");
+        Log.LogInfo("OrbusRebornCamera v0.8.1 - desktop creator panel");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
@@ -170,6 +180,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Shift+F3 = Show/Hide physical camera");
         Log.LogInfo("Left/Right grip = Grab and release camera");
 
+        Log.LogInfo("F2 = Toggle desktop creator panel");
+        Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
         Log.LogInfo("F9 = Desktop camera toggle");
         Log.LogInfo("Ctrl+F9 = Desktop avatar toggle");
         Log.LogInfo("F10 = FOV | F11 = Camera mode | F12 = Freeze");
