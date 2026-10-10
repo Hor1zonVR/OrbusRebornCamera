@@ -1,20 +1,16 @@
 ﻿
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-
     <AssemblyName>BetterMirror</AssemblyName>
     <RootNamespace>OrbusBetterMirror</RootNamespace>
-
     <GameDir Condition="'$(GameDir)' == ''">$(USERPROFILE)\Downloads\OrbusVR-Reborn-Community-PC-MODTEST\OrbusVR-Reborn-Community-PC</GameDir>
   </PropertyGroup>
 
   <ItemGroup>
-
     <Reference Include="BepInEx.Core">
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.Core.dll</HintPath>
       <Private>false</Private>
@@ -44,6 +40,12 @@
       <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+
+    <Reference Include="UnityEngine.InputModule">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.InputModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
     <Reference Include="UnityEngine.VRModule"
                Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.VRModule.dll')">
       <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.VRModule.dll</HintPath>
@@ -55,27 +57,31 @@
       <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.XRModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-
   </ItemGroup>
 
   <Target Name="CheckGameReferences" BeforeTargets="ResolveReferences">
-
     <Error
       Condition="!Exists('$(GameDir)\BepInEx\core\BepInEx.Unity.IL2CPP.dll')"
       Text="BepInEx DLLs not found. Check GameDir." />
 
     <Error
       Condition="!Exists('$(GameDir)\BepInEx\interop\Il2Cppmscorlib.dll')"
-      Text="Il2Cppmscorlib.dll not found. Check that BepInEx generated its interop assemblies." />
+      Text="Il2Cppmscorlib.dll not found. Run OrbusVR with BepInEx first." />
 
     <Error
       Condition="!Exists('$(GameDir)\BepInEx\interop\UnityEngine.CoreModule.dll')"
-      Text="Unity interop DLLs not found. Run the game with BepInEx first." />
+      Text="Unity CoreModule interop DLL not found." />
+
+    <Error
+      Condition="!Exists('$(GameDir)\BepInEx\interop\UnityEngine.PhysicsModule.dll')"
+      Text="Unity PhysicsModule interop DLL not found." />
+
+    <Error
+      Condition="!Exists('$(GameDir)\BepInEx\interop\UnityEngine.InputModule.dll')"
+      Text="Unity InputModule interop DLL not found." />
 
     <Error
       Condition="!Exists('$(GameDir)\BepInEx\interop\UnityEngine.VRModule.dll') and !Exists('$(GameDir)\BepInEx\interop\UnityEngine.XRModule.dll')"
       Text="No Unity VR or XR module found." />
-
   </Target>
-
 </Project>
