@@ -183,7 +183,10 @@ public sealed partial class CameraDiagnostics
         FontStyle weight = FontStyle.Normal,
         TextAnchor align = TextAnchor.MiddleLeft)
     {
-        var result = new GUIStyle(GUI.skin.label);
+        // IL2CPP's generated GUIStyle wrapper does not expose the
+        // GUIStyle(GUIStyle) copy constructor in this game.
+        // Construct a fresh style and configure it explicitly.
+        var result = new GUIStyle();
         result.fontSize = size;
         result.fontStyle = weight;
         result.normal.textColor = color;
