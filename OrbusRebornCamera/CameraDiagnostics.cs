@@ -95,7 +95,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         ResolveAvatarLayer();
 
         Plugin.ModLogger.LogInfo(
-            $"BetterMirror v0.6 ready. " +
+            $"RebornCam v0.8.0 ready. " +
             $"Mode={_mode}, " +
             $"FOV={GetHorizontalFov():0}, " +
             $"AutoStart={Plugin.StartEnabled.Value}"
@@ -877,6 +877,9 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
     private void DisableCamera()
     {
         LeaveDrone();
+        if (_mode == CameraMode.Drone)
+            _mode = _lastFollowMode;
+
         if (_desktop != null)
         {
             _desktop.enabled = false;
