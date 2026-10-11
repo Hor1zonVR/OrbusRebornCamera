@@ -44,6 +44,7 @@ $files = @(
     "CameraDiagnostics.Drone.cs",
     "CameraDiagnostics.Panel.cs",
     "CameraDiagnostics.Keyframes.cs",
+    "AvatarDiagnostics.cs",
     "TricksterAssetDiagnostics.cs",
     "TricksterDiskDiagnostics.cs"
 )
