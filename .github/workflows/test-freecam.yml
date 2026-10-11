@@ -1,0 +1,21 @@
+name: Validate Freecam Keyframes
+
+on:
+  push:
+    paths:
+      - 'OrbusRebornCamera/CameraDiagnostics.Keyframes.cs'
+      - 'tests/FreecamKeyframes.CompileTest.csproj'
+      - 'tests/freecam/Program.cs'
+      - '.github/workflows/test-freecam.yml'
+  workflow_dispatch:
+
+jobs:
+  keyframe-compile-and-smoke-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile actual keyframe source and test path save/load/playback
+        run: dotnet run --project tests/FreecamKeyframes.CompileTest.csproj --configuration Release
