@@ -22,6 +22,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "TestClient/OrbusVR_Data" | Out-Null
           [IO.File]::WriteAllBytes("TestClient/GameAssembly.dll", [byte[]](1, 2, 3, 4))
+          [IO.File]::WriteAllBytes("TestClient/OrbusVR.exe", [byte[]](1, 2, 3, 4))
           [IO.File]::WriteAllBytes("TestClient/OrbusVR_Data/resources.assets", [Text.Encoding]::UTF8.GetBytes("prefix TreasureGoblin test and goblinstore vendor suffix"))
           python tools/scan_trickster_assets.py TestClient --output trickster-scan-test.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
