@@ -1,0 +1,28 @@
+name: Validate Freecam Installer Script
+
+on:
+  push:
+    paths:
+      - 'tools/update_freecam.ps1'
+      - '.github/workflows/test-freecam-helper.yml'
+  workflow_dispatch:
+
+jobs:
+  powershell-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check updater parses on Windows PowerShell
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "tools/update_freecam.ps1").Path,
+            [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Host
+            throw "Freecam updater has PowerShell parser errors."
+          }
+          Write-Host "PASS: freecam installer PowerShell syntax"
