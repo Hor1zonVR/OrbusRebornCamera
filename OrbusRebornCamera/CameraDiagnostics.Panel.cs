@@ -19,6 +19,7 @@ public sealed partial class CameraDiagnostics
     private bool _panelGuiErrorLogged;
     private bool _panelCursorManaged;
     private bool _panelCursorWasVisible;
+    private bool _confirmClearKeyframes;
     private CursorLockMode _panelPreviousCursorLock;
 
     private GUIStyle? _panelTitle;
@@ -76,7 +77,12 @@ public sealed partial class CameraDiagnostics
     {
         _panelVisible = visible;
         Plugin.CreatorPanelVisible.Value = visible;
-        if (visible) AcquirePanelCursor();
+        if (visible)
+        {
+            // Keep panel mouse interactions separate from RMB flight capture.
+            ReleaseDronePointer();
+            AcquirePanelCursor();
+        }
         else ReleasePanelCursor();
     }
 
@@ -131,7 +137,7 @@ public sealed partial class CameraDiagnostics
             // Always restore it so other mods' IMGUI is not affected.
             Matrix4x4 original = GUI.matrix;
             float scale = Mathf.Clamp(
-                Mathf.Min(Screen.width / 520f, Screen.height / 700f),
+                Mathf.Min(Screen.width / 520f, Screen.height / 1030f),
                 0.55f, 1f);
 
             try
@@ -208,7 +214,7 @@ public sealed partial class CameraDiagnostics
         const float x = 20f;
         const float y = 25f;
         const float w = 424f;
-        const float height = 650f;
+        const float height = 948f;
 
         FillPanelRect(new Rect(x - 1, y - 1, w + 2, height + 2),
             PanelStroke);
@@ -219,7 +225,7 @@ public sealed partial class CameraDiagnostics
         GUI.Label(new Rect(x + 19, y + 11, 320, 29),
             "REBORNCAM", _panelTitle);
         GUI.Label(new Rect(x + 20, y + 39, 305, 18),
-            "Desktop creator controls   |   F2 to hide",
+            "Creator camera  |  Freecam  |  F2 to hide",
             _panelSubtitle);
 
         if (PanelButton(new Rect(x + w - 45, y + 15, 29, 30),
@@ -314,7 +320,7 @@ public sealed partial class CameraDiagnostics
         else if (selfieMode && Mathf.Abs(newDistance - distance) > .05f)
             Plugin.SelfieDistance.Value = newDistance;
 
-        // Distance is intentionally disabled in POV/static-freeze/drone mode.
+        // Distance is intentionally disabled in POV/static-freeze/freecam mode.
         // Do not change the settings accidentally when the camera is fixed.
         if (!thirdMode && !selfieMode)
         {
@@ -340,17 +346,86 @@ public sealed partial class CameraDiagnostics
 
         pos += 44;
         if (PanelButton(new Rect(px, pos, pw, 37),
-            _mode == CameraMode.Static ? "Reattach camera" :
-            "Detach / freeze current shot",
-            _mode == CameraMode.Static))
-            ToggleStaticMode();
+            _mode == CameraMode.Drone
+                ? "Exit FREECAM  (Ctrl+F11)"
+                : "Enter FREECAM  (Ctrl+F11)",
+            _mode == CameraMode.Drone))
+        {
+            _confirmClearKeyframes = false;
+            ToggleFreecam();
+        }
 
-        pos += 48;
+        pos += 46;
+        float flightSpeed = DrawPanelSlider(px, pos, pw,
+            "Freecam movement speed",
+            Plugin.DroneMoveSpeed.Value, 0.25f, 20f,
+            Plugin.DroneMoveSpeed.Value.ToString("0.0") + " m/s");
+        flightSpeed = Mathf.Round(flightSpeed * 4f) / 4f;
+        if (Mathf.Abs(flightSpeed - Plugin.DroneMoveSpeed.Value) > .05f)
+            Plugin.DroneMoveSpeed.Value = flightSpeed;
+
+        pos += 67;
+        FillPanelRect(new Rect(px, pos, pw, 1), PanelStroke);
+        pos += 13;
+        GUI.Label(new Rect(px, pos, pw, 19), "CINEMATIC KEYFRAMES",
+            _panelHeading);
+        pos += 23;
         GUI.Label(new Rect(px, pos, pw, 19),
-            "Drone remains locked by default until coin filtering is safe.",
+            _keyframes.Count + " saved shots  |  " +
+            (_playingKeyframes ? "PLAYING" : "Ready") +
+            "  |  RMB + WASD to position",
             _panelTiny);
-        GUI.Label(new Rect(px, pos + 16, pw, 18),
-            "F9 toggle   ·   F10 FOV   ·   F11 mode   ·   F12 freeze",
+        pos += 30;
+
+        if (PanelButton(new Rect(px, pos, half, 34),
+            "Add camera shot", false))
+        {
+            _confirmClearKeyframes = false;
+            AddKeyframe();
+        }
+        if (PanelButton(new Rect(px + half + 9, pos, half, 34),
+            "Undo last shot", false))
+        {
+            _confirmClearKeyframes = false;
+            RemoveLastKeyframe();
+        }
+
+        pos += 43;
+        if (PanelButton(new Rect(px, pos, half, 34),
+            _playingKeyframes ? "Stop playback" : "Play camera path",
+            _playingKeyframes))
+        {
+            _confirmClearKeyframes = false;
+            if (_playingKeyframes) StopKeyframePlayback();
+            else StartKeyframePlayback();
+        }
+        if (PanelButton(new Rect(px + half + 9, pos, half, 34),
+            _confirmClearKeyframes ? "Confirm clear?" : "Clear path",
+            _confirmClearKeyframes))
+        {
+            if (_confirmClearKeyframes)
+            {
+                ClearKeyframes();
+                _confirmClearKeyframes = false;
+            }
+            else _confirmClearKeyframes = true;
+        }
+
+        pos += 43;
+        float duration = DrawPanelSlider(px, pos, pw,
+            "Full path duration", Plugin.KeyframeDuration.Value,
+            2f, 120f,
+            Plugin.KeyframeDuration.Value.ToString("0") + " sec");
+        duration = Mathf.Round(duration);
+        if (Mathf.Abs(duration - Plugin.KeyframeDuration.Value) > 0.5f)
+            Plugin.KeyframeDuration.Value = duration;
+
+        pos += 66;
+        GUI.Label(new Rect(px, pos, pw, 18),
+            "Shots save automatically  |  F12 freeze  |  F2 close",
+            _panelTiny);
+        GUI.Label(new Rect(px, pos + 17, pw, 18),
+            "Freecam never moves your avatar or headset.",
             _panelTiny);
     }
 
