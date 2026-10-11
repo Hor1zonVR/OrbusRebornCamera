@@ -56,6 +56,23 @@ Changes to camera settings are written to the existing BepInEx configuration ent
 
 **IL2CPP dependency:** The game must have generated `BepInEx/interop/UnityEngine.IMGUIModule.dll` for this version to build; the project explicitly checks for it. The build must use the same local game/BepInEx interop folder as the running mod.
 
+## Offline Trickster asset scan (no rare spawn required)
+
+For the first identification pass, scan the **extracted PC client files** without launching Orbus. The read-only Python script [`tools/scan_trickster_assets.py`](tools/scan_trickster_assets.py) searches asset files and IL2CPP binaries for `treasuregoblin`, `TreasureGoblin`, `trickster` and related terms. It doesn't modify the installation.
+
+On Windows with Python 3.11 installed, paste into PowerShell:
+
+```powershell
+$scanner = Join-Path $env:USERPROFILE "Downloads\scan_trickster_assets.py"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Hor1zonVR/OrbusRebornCamera/main/tools/scan_trickster_assets.py" -OutFile $scanner
+py -3 -m pip install UnityPy
+py -3 $scanner --deep
+```
+
+Choose the **extracted game folder** in the folder picker (`New-Client` or its parent for Renewed; `vrclient.exe`'s folder for Reborn). The result is `Downloads\trickster_asset_report.json`. Send only that small report for investigation, not the game files.
+
+`UnityPy` is optional: omit `--deep` and the installation command for a dependency-free raw string scan. The `--deep` option is preferred because it also parses Unity object names inside readable compressed bundles. Depending on the game build, some serialized asset files may not be parsable; any errors appear in the report. No match is **not** proof that the model is absent or that a public freecam filter is ready.
+
 ## Trickster Goblin identification (read-only developer diagnostic)
 
 The random overworld **Trickster Goblin** is a different entity from the permanent **Trickster Goblin Store** vendor. The community server exposes the monster script `content/monsters/TreasureGoblin.js` and maps `treasuregoblin` to `Treasure Goblin`. Its actual client-side Unity prefab, renderer, and camera-filter safety **have not yet been verified**.
