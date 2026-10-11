@@ -254,8 +254,20 @@ public sealed class TricksterDiskDiagnostics : MonoBehaviour
                 int index = 0;
                 while (index + needle.Length <= valid)
                 {
-                    int found = Array.IndexOf(
+                    // Unity often capitalizes prefab identifiers:
+                    // "TreasureGoblin" must match "treasuregoblin".
+                    // Look up either ASCII case for the first character.
+                    int lower = Array.IndexOf(
                         buffer, needle[0], index, valid - index);
+                    byte upperByte = needle[0] >= (byte)'a' &&
+                                     needle[0] <= (byte)'z'
+                        ? (byte)(needle[0] - 32)
+                        : needle[0];
+                    int upper = Array.IndexOf(
+                        buffer, upperByte, index, valid - index);
+                    int found = lower < 0
+                        ? upper
+                        : upper < 0 ? lower : Math.Min(lower, upper);
                     if (found < 0 || found + needle.Length > valid)
                         break;
 
