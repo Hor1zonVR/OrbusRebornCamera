@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Compile actual scanner against minimal test stubs. This checks the
+         managed scanning logic; full IL2CPP runtime integration still needs
+         in-game testing. -->
+    <Compile Include="../OrbusRebornCamera/TricksterDiskDiagnostics.cs"
+             Link="TricksterDiskDiagnostics.cs" />
+  </ItemGroup>
+</Project>
