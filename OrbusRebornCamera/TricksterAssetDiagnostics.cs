@@ -109,46 +109,42 @@ public sealed class TricksterAssetDiagnostics : MonoBehaviour
         return string.Join(" < ", parents);
     }
 
-    private static void ReportObjects<T>(
-        string kind, T[] objects, ref int matching, ref int printed)
-        where T : UnityEngine.Object
+    private static void ReportObject(
+        string kind, UnityEngine.Object obj, ref int matching, ref int printed)
     {
-        foreach (T obj in objects)
+        if (obj == null)
+            return;
+
+        try
         {
-            if (obj == null)
-                continue;
+            string name = Safe(obj.name);
+            if (!Candidate(name))
+                return;
 
-            try
+            matching++;
+            if (printed >= MaxResults)
+                return;
+
+            printed++;
+            string info = "[TricksterAssets] " + kind +
+                          " name=" + name;
+
+            if (obj is GameObject go)
             {
-                string name = Safe(obj.name);
-                if (!Candidate(name))
-                    continue;
-
-                matching++;
-                if (printed >= MaxResults)
-                    continue;
-
-                printed++;
-                string info = "[TricksterAssets] " + kind +
-                              " name=" + name;
-
-                if (obj is GameObject go)
-                {
-                    // A valid scene means this is a live object; an invalid
-                    // scene usually indicates an asset/prefab. Never output
-                    // its world location or an NPC spawn coordinate.
-                    info += " sceneObject=" + go.scene.IsValid() +
-                            " hierarchy=" + ParentsOf(go.transform);
-                }
-
-                Plugin.ModLogger.LogInfo(info);
+                // A valid scene means this is a live object; an invalid
+                // scene usually indicates an asset/prefab. Never output
+                // its world location or an NPC spawn coordinate.
+                info += " sceneObject=" + go.scene.IsValid() +
+                        " hierarchy=" + ParentsOf(go.transform);
             }
-            catch (Exception ex)
-            {
-                Plugin.ModLogger.LogWarning(
-                    "[TricksterAssets] Could not inspect one " +
-                    kind + ": " + ex.Message);
-            }
+
+            Plugin.ModLogger.LogInfo(info);
+        }
+        catch (Exception ex)
+        {
+            Plugin.ModLogger.LogWarning(
+                "[TricksterAssets] Could not inspect one " +
+                kind + ": " + ex.Message);
         }
     }
 
@@ -167,18 +163,16 @@ public sealed class TricksterAssetDiagnostics : MonoBehaviour
             int matching = 0;
             int printed = 0;
 
-            ReportObjects("GameObject",
-                Resources.FindObjectsOfTypeAll<GameObject>(),
-                ref matching, ref printed);
-            ReportObjects("Mesh",
-                Resources.FindObjectsOfTypeAll<Mesh>(),
-                ref matching, ref printed);
-            ReportObjects("Material",
-                Resources.FindObjectsOfTypeAll<Material>(),
-                ref matching, ref printed);
-            ReportObjects("Texture2D",
-                Resources.FindObjectsOfTypeAll<Texture2D>(),
-                ref matching, ref printed);
+            // Iterate the IL2CPP Unity collections directly. Avoid
+            // assuming FindObjectsOfTypeAll returns managed T[] arrays.
+            foreach (var obj in Resources.FindObjectsOfTypeAll<GameObject>())
+                ReportObject("GameObject", obj, ref matching, ref printed);
+            foreach (var obj in Resources.FindObjectsOfTypeAll<Mesh>())
+                ReportObject("Mesh", obj, ref matching, ref printed);
+            foreach (var obj in Resources.FindObjectsOfTypeAll<Material>())
+                ReportObject("Material", obj, ref matching, ref printed);
+            foreach (var obj in Resources.FindObjectsOfTypeAll<Texture2D>())
+                ReportObject("Texture2D", obj, ref matching, ref printed);
 
             Plugin.ModLogger.LogInfo(
                 "[TricksterAssets] Matches=" + matching +
