@@ -1,0 +1,32 @@
+name: Validate Trickster Asset Scanner
+
+on:
+  push:
+    paths:
+      - 'tools/scan_trickster_assets.py'
+      - '.github/workflows/test-trickster-scanner.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify Python syntax
+        run: python -m py_compile tools/scan_trickster_assets.py
+      - name: Smoke test against synthetic client asset
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "TestClient/OrbusVR_Data" | Out-Null
+          [IO.File]::WriteAllBytes("TestClient/GameAssembly.dll", [byte[]](1, 2, 3, 4))
+          [IO.File]::WriteAllBytes("TestClient/OrbusVR_Data/resources.assets", [Text.Encoding]::UTF8.GetBytes("prefix TreasureGoblin test and goblinstore vendor suffix"))
+          python tools/scan_trickster_assets.py TestClient --output trickster-scan-test.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $result = Get-Content trickster-scan-test.json -Raw | ConvertFrom-Json
+          $terms = @($result.raw_hits | ForEach-Object { $_.term })
+          if ("treasuregoblin" -notin $terms) { throw "Missing monster match" }
+          if ("goblinstore" -notin $terms) { throw "Missing vendor match" }
+          if ($result.client_kind -ne "Renewed") { throw "Wrong client edition detection" }
