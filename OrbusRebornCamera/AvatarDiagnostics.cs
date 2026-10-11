@@ -106,10 +106,12 @@ public sealed class AvatarDiagnostics : MonoBehaviour
     {
         _elapsed += Time.unscaledDeltaTime;
 
-        // Manual diagnostics work even if XR is disabled.
+        // Ctrl+F4 is reserved for the rare-goblin model inspector.
+        // Ordinary F4 and Shift+F4 avatar diagnostics stay available.
         bool f4Down =
             Application.isFocused &&
-            (GetAsyncKeyState(F4Key) & 0x8000) != 0;
+            (GetAsyncKeyState(F4Key) & 0x8000) != 0 &&
+            (GetAsyncKeyState(0x11) & 0x8000) == 0;
 
         if (f4Down && !_f4WasDown)
         {
