@@ -38,9 +38,8 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<float> DroneMovementSmoothing = null!;
     internal static ConfigEntry<float> KeyframeDuration = null!;
 
-    // Manual Unity asset-name scan for identifying the rare Trickster Goblin.
-    // OFF by default. Never changes world, cameras or collectible visibility.
-    internal static ConfigEntry<bool> EnableTricksterAssetScan = null!;
+    // Ctrl+F4 is always available on demand when a rare goblin is found.
+    // The separate, slower disk scan is opt-in.
     internal static ConfigEntry<bool> AutoScanTricksterFiles = null!;
 
     internal static ConfigEntry<bool> CreatorPanelVisible = null!;
@@ -155,20 +154,11 @@ public sealed class Plugin : BasePlugin
             "Affects the desktop recording camera only."
         );
 
-        EnableTricksterAssetScan = Config.Bind(
-            "Diagnostics",
-            "EnableTricksterAssetScan",
-            false,
-            "Private development only. Ctrl+F4 scans already-loaded " +
-            "Unity GameObject, mesh, material and texture names for possible " +
-            "Trickster Goblin asset identifiers. Read-only; no spawn locations."
-        );
-
         AutoScanTricksterFiles = Config.Bind(
             "Diagnostics",
             "AutoScanTricksterFiles",
-            true,
-            "Automatically scan installed Unity game files in the background " +
+            false,
+            "Optionally scan installed Unity game files in the background " +
             "once and write BepInEx/TricksterAssetReport.txt. No Python, " +
             "gameplay changes, or rare NPC spawn required. Delete the report " +
             "to request a new scan on the next launch."
@@ -214,8 +204,8 @@ public sealed class Plugin : BasePlugin
             "Trickster Goblin visual filtering is not implemented yet. " +
             "Use freecam only where the server owner permits it.");
         Log.LogInfo("F4/F8 = Diagnostics");
-        Log.LogInfo("Ctrl+F4 = Opt-in Trickster asset-name diagnostic (private development)");
-        Log.LogInfo("Trickster disk scan runs automatically in background once; see BepInEx/TricksterAssetReport.txt");
+        Log.LogInfo("Ctrl+F4 = Read-only Trickster model diagnostic, use if you encounter the rare enemy");
+        Log.LogInfo("Optional Trickster disk scan defaults OFF; see [Diagnostics] AutoScanTricksterFiles");
 
         Log.LogInfo(
             $"Physical camera grab radius: {PrototypeGrabRadius.Value:0.00}m"
