@@ -15,8 +15,9 @@ Capture OrbusVR from different perspectives without affecting your normal VR hea
 - Configurable camera distance and smoothing
 - Optional avatar visibility toggle
 - Separate desktop and headset camera rendering
-- **Experimental opt-in desktop drone camera** with mouse-look and keyboard flight (private tests only)
-- In-game **desktop Creator Panel** for choosing POV / third-person / selfie / static, changing FOV, smoothing and distance, toggling local avatar and detaching the recording view
+- **Universal freecam** for both VR-launched and headset-free game sessions (when Orbus itself can run without XR), with keyboard/mouse flight
+- In-game **F2 Creator Panel** for POV / third-person / selfie / static / freecam, FOV, smoothing, speed and local-avatar controls
+- **Cinematic keyframes**: add shots, undo, play or stop smooth paths, choose duration, automatically save/load paths
 
 ## Controls
 
@@ -31,14 +32,15 @@ Capture OrbusVR from different perspectives without affecting your normal VR hea
 | F5–F7 | Original VR mirror modes |
 | F8 | Camera diagnostics |
 | F4 | Avatar diagnostics |
-| Ctrl + F11 | Enter/exit experimental drone mode (only when explicitly enabled) |
-| Hold right mouse button + WASD | Look around and fly in drone mode |
+| Ctrl + F11 | Enter/exit freecam (same mode in VR and non-VR sessions) |
+| Hold right mouse button + WASD | Look around and fly in freecam |
 | Right mouse + Q/E | Descend/ascend |
 | Right mouse + Shift/Ctrl | Move faster/slower |
-| F12 in drone mode | Freeze the drone camera at its current position |
+| F12 in freecam | Freeze the camera at its current position |
 | Shift + F4 | Extended avatar diagnostics |
+| Ctrl + F4 | Inspect loaded Trickster Goblin candidate models (only when requested) |
 
-## Desktop Creator Panel (v0.8.1 prototype)
+## Desktop Creator Panel (v0.9.0)
 
 Press **F2** while the OrbusVR desktop window is focused to show or hide the Creator Panel. The panel is hidden by default, and can optionally be displayed at launch with `[CreatorPanel] OpenAtStartup = true` in the BepInEx config.
 
@@ -49,8 +51,10 @@ The desktop panel lets you:
 - Adjust horizontal FOV (50–150°), follow smoothness (0–20), and third-person/selfie distance (0.5–8 metres)
 - Toggle local avatar rendering in external desktop views
 - Detach/freeze the camera where it is and reattach to the previous follow mode
+- Enter freecam and adjust flight speed
+- Record multiple cinematic shots and play saved camera paths with position, rotation and FOV interpolation
 
-Changes to camera settings are written to the existing BepInEx configuration entries and persist across launches. Existing F9/F10/F11/F12 keyboard shortcuts continue to work. The experimental drone is **not unlocked** by the panel.
+Changes to camera settings are written to the existing BepInEx configuration entries and persist across launches. Existing F9/F10/F11/F12 keyboard shortcuts continue to work. Freecam is now available directly from the panel or Ctrl+F11 when the server owner permits it.
 
 **Recording note:** This first prototype uses Unity's in-game desktop IMGUI overlay, so the panel **may appear in footage** captured from the desktop game window. Press F2 to hide it before taking a clean recording. A separate creator-control window that is reliably excluded from capture is a possible later feature.
 
@@ -72,7 +76,7 @@ Invoke-WebRequest "https://raw.githubusercontent.com/Hor1zonVR/OrbusRebornCamera
 
 This downloads only the three C# source files needed, compiles against your installed BepInEx interop assemblies with `dotnet build`, backs up the existing mod DLL as `.bak`, then copies the new DLL to `BepInEx/plugins`. It prompts for the modded Orbus game folder if the default test path is unavailable. The previous DLL is not overwritten if the build fails. Close Orbus before running the updater.
 
-**Scan limits:** It looks for raw ASCII/UTF-16LE identifiers such as `TreasureGoblin` and `goblinstore`. Encrypted or compressed Unity bundles may not expose these strings; a negative result doesn't prove the prefab is absent. This diagnostic does not filter the goblin or unlock freecam.
+**Scan limits:** It looks for raw ASCII/UTF-16LE identifiers such as `TreasureGoblin` and `goblinstore`. Encrypted or compressed Unity bundles may not expose these strings; a negative result doesn't prove the prefab is absent. This diagnostic does not filter the goblin; freecam is a separate, owner-permitted creator feature.
 
 ## Offline Trickster asset scan (no rare spawn required)
 
@@ -91,38 +95,34 @@ Choose the **extracted game folder** in the folder picker (`New-Client` or its p
 
 `UnityPy` is optional: omit `--deep` and the installation command for a dependency-free raw string scan. The `--deep` option is preferred because it also parses Unity object names inside readable compressed bundles. Depending on the game build, some serialized asset files may not be parsable; any errors appear in the report. No match is **not** proof that the model is absent or that a public freecam filter is ready.
 
-## Trickster Goblin identification (read-only developer diagnostic)
+## Freecam and cinematic paths
 
-The random overworld **Trickster Goblin** is a different entity from the permanent **Trickster Goblin Store** vendor. The community server exposes the monster script `content/monsters/TreasureGoblin.js` and maps `treasuregoblin` to `Treasure Goblin`. Its actual client-side Unity prefab, renderer, and camera-filter safety **have not yet been verified**.
+RebornCam v0.9.0 uses **one independent desktop recording camera**, no matter whether Orbus was launched with an active headset or without one. It never changes the player position or the VR headset/controller transforms.
 
-A **manual, read-only asset inspection** is included to help identify the client prefab without hunting for a live spawn:
+- Press **F2** and choose **Enter FREECAM** (or **Ctrl+F11**).
+- Hold **right mouse** to steer using **WASD**; **Q/E** go down/up, **Shift** boosts, **Ctrl** slows. Releasing right mouse restores the cursor.
+- The F2 panel adjusts movement speed. **F12** freezes the recording view; press F12 again to return to the follow view.
+- Position the camera, click **Add camera shot**, move to the next shot, and repeat. With at least two shots, select **Play camera path**. The slider controls total path duration (2–120 seconds).
+- Shots record world position, rotation and horizontal FOV, and persist to `BepInEx/config/RebornCamKeyframes.txt`. Paths are tied to their original Unity scene; other scenes cannot play them. **Undo** removes the last shot, and **Clear** requests confirmation.
+- The F2 panel shares these exact controls in both VR and non-VR sessions.
 
-1. Start a **private/local test** with the latest RebornCam source compiled and BepInEx installed.
-2. Enable `[Diagnostics] EnableTricksterAssetScan = true` in `BepInEx/config/com.horizon.orbus.bettermirror.cfg`, then restart.
-3. While the Orbus window is focused, press **Ctrl+F4**. Check `BepInEx/LogOutput.log` for lines starting `[TricksterAssets]`.
-4. Share the matching asset names and hierarchies, especially `TreasureGoblin` matches, to determine a narrowly scoped camera-only filter.
+**Headset-free caveat:** The mod no longer blocks camera startup based only on XR status, and it can use an available non-XR game camera as a fallback. Orbus itself still needs to launch, connect and create a world camera. A genuinely headset-free game startup has not been validated and is not guaranteed by this mod.
 
-This diagnostic only reads names from Unity objects already loaded in memory. It does **not** teleport, reveal positions, force asset loads, modify the NPC, or enable unrestricted freecam. No matches does not establish that the prefab does not exist: Unity may keep it in an unloaded/compressed bundle. The existing F4 avatar diagnostic may also run when pressing Ctrl+F4; filter logs by `[TricksterAssets]`.
+**Trickster Goblin:** The rare `treasuregoblin` enemy is distinct from the shop NPC `goblinstore`. The model is **not yet hidden** from freecam, and its Unity identity has not been confirmed. The user has reported explicit approval from their server owner to use freecam while we work on the diagnostic. Do not assume this grants permission on other servers.
 
-**Do not enable freecam on public multiplayer yet.** The Trickster Goblin must be excluded from *every* freecam camera output, including keyboard-driven, keyframe and follow-player views. Ordinary gameplay must remain unaffected.
+If you encounter the rare Trickster Goblin, press **Ctrl+F4** once. The read-only inspector logs candidate GameObject names, parent hierarchies and model mesh/material names in `BepInEx/LogOutput.log` under `[TricksterAssets]`. It does not move the character, spawn creatures or collect live coordinates. If the model has a generic Unity name, the inspector may still need further refinement. The independent raw-file scanner runs once and writes `BepInEx/TricksterAssetReport.txt`.
 
-## Experimental desktop drone — private testing
+### Update from source without Python
 
-**Not suitable for public multiplayer yet.** Freecam could reveal the location of OrbusVR's randomly spawned collectible coin. The object's prefab/layer has not been identified, and collectible-specific camera filtering is **not implemented**. The drone therefore defaults to **disabled** and must not be treated as an anti-cheat-safe public feature. Do not enable it on public servers.
+Open PowerShell inside your `OrbusRebornCamera-1` source folder (with the .NET SDK and generated BepInEx interop files available), then run:
 
-The v0.8.0 prototype operates the existing **desktop recording camera**, never the player avatar or tracked headset. To test it in a private environment:
+```powershell
+$helper = Join-Path $env:TEMP "update_freecam.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Hor1zonVR/OrbusRebornCamera/main/tools/update_freecam.ps1" -OutFile $helper
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $helper
+```
 
-1. Run OrbusVR Reborn once with the updated mod installed, then close the game.
-2. Open `BepInEx/config/com.horizon.orbus.bettermirror.cfg`.
-3. Under `[ExperimentalDrone]`, set `EnableExperimentalDrone = true`.
-4. Start the game and **load into a private test world**. Focus the desktop game window and press **Ctrl+F11**.
-5. Hold **right mouse** to control the drone. Use WASD to move, Q/E for up/down, Shift to boost, and Ctrl for slower movement. Release right mouse to stop movement and regain the pointer. F12 freezes the shot. Press Ctrl+F11 again to return to the last player-follow camera. F9 turns the creator camera off.
-
-The camera has configurable movement speed, boost multiplier, mouse sensitivity and smoothing under `[ExperimentalDrone]`. Defaults are deliberately modest. Previous POV, third-person, selfie, static and F5–F11 shortcuts are preserved.
-
-**Headset-free limitation:** This prototype removes the active-XR requirement **from the drone camera activation path only**. OrbusVR itself still has to launch, load a scene, and create its `Camera (eye)` camera. Whether the Community Edition game can do that with **no headset connected** is not yet verified. If it can't, the first practical test is with a connected headset that you don't have to wear, while driving the camera using mouse and keyboard. No non-VR character control or game-login replacement is included.
-
-The drone temporarily locks the desktop mouse cursor only while right mouse is held. Leaving drone mode, closing the game window, or disabling the camera restores its previous cursor state. The prototype does not touch OrbusVR's VR camera transforms.
+Select the correct modded Reborn or Renewed instance when prompted. The helper updates the changed C# files, builds against the selected instance's generated interop assemblies, backs up the installed `BetterMirror.dll` and installs the new one **only if compilation succeeds**. If anything breaks in-game, close Orbus and restore the old DLL from `BetterMirror.dll.bak`.
 
 ## Installation
 
@@ -159,16 +159,16 @@ The original internal BetterMirror plugin identifier is preserved for compatibil
 
 ## Compatibility
 
-Designed for **OrbusVR Reborn Community Edition**.
+Designed for **OrbusVR Reborn Community Edition** and potentially compatible Renewed IL2CPP clients; build/runtime compatibility depends on each client's BepInEx interop files.
 
 OrbusVR Classic and Preborn are not supported.
 
 ## Future Plans
 
-- Safe public-server drone release after randomly spawned collectibles can be excluded from footage
+- Identify Trickster Goblin mesh and hide it from every freecam camera shot without altering normal gameplay
 - Polish the desktop Creator Panel, including a separate capture-safe window option
 - Verified headset-free game boot, if supported by Community Edition
-- Full keyframe camera paths and cinematic recording controls
+- Expand cinematic paths with a visual timeline, editable shots and multiple named paths
 - Physical VR camera (optional; currently an experimental placeholder)
 - Additional creator and recording tools
 - Improved camera controls
