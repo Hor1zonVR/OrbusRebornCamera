@@ -56,6 +56,21 @@ Changes to camera settings are written to the existing BepInEx configuration ent
 
 **IL2CPP dependency:** The game must have generated `BepInEx/interop/UnityEngine.IMGUIModule.dll` for this version to build; the project explicitly checks for it. The build must use the same local game/BepInEx interop folder as the running mod.
 
+## Trickster Goblin identification (read-only developer diagnostic)
+
+The random overworld **Trickster Goblin** is a different entity from the permanent **Trickster Goblin Store** vendor. The community server exposes the monster script `content/monsters/TreasureGoblin.js` and maps `treasuregoblin` to `Treasure Goblin`. Its actual client-side Unity prefab, renderer, and camera-filter safety **have not yet been verified**.
+
+A **manual, read-only asset inspection** is included to help identify the client prefab without hunting for a live spawn:
+
+1. Start a **private/local test** with the latest RebornCam source compiled and BepInEx installed.
+2. Enable `[Diagnostics] EnableTricksterAssetScan = true` in `BepInEx/config/com.horizon.orbus.bettermirror.cfg`, then restart.
+3. While the Orbus window is focused, press **Ctrl+F4**. Check `BepInEx/LogOutput.log` for lines starting `[TricksterAssets]`.
+4. Share the matching asset names and hierarchies, especially `TreasureGoblin` matches, to determine a narrowly scoped camera-only filter.
+
+This diagnostic only reads names from Unity objects already loaded in memory. It does **not** teleport, reveal positions, force asset loads, modify the NPC, or enable unrestricted freecam. No matches does not establish that the prefab does not exist: Unity may keep it in an unloaded/compressed bundle. The existing F4 avatar diagnostic may also run when pressing Ctrl+F4; filter logs by `[TricksterAssets]`.
+
+**Do not enable freecam on public multiplayer yet.** The Trickster Goblin must be excluded from *every* freecam camera output, including keyboard-driven, keyframe and follow-player views. Ordinary gameplay must remain unaffected.
+
 ## Experimental desktop drone — private testing
 
 **Not suitable for public multiplayer yet.** Freecam could reveal the location of OrbusVR's randomly spawned collectible coin. The object's prefab/layer has not been identified, and collectible-specific camera filtering is **not implemented**. The drone therefore defaults to **disabled** and must not be treated as an anti-cheat-safe public feature. Do not enable it on public servers.
