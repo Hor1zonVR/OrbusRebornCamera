@@ -95,7 +95,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         ResolveAvatarLayer();
 
         Plugin.ModLogger.LogInfo(
-            $"RebornCam v0.8.0 ready. " +
+            $"RebornCam v0.9.0 ready. " +
             $"Mode={_mode}, " +
             $"FOV={GetHorizontalFov():0}, " +
             $"AutoStart={Plugin.StartEnabled.Value}"
@@ -237,7 +237,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
 
         if (JustPressed(6))
         {
-            if (IsCtrlDown()) ToggleExperimentalDrone();
+            if (IsCtrlDown()) ToggleFreecam();
             else CycleFollowMode();
         }
 
@@ -245,6 +245,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
             ToggleStaticMode();
 
         HandleDroneInput();
+        UpdateKeyframePlayback(delta);
     }
 
     private void LateUpdate()
@@ -260,7 +261,9 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
             // Refresh camera FOV if resolution or
             // configuration changes.
             float aspect = GetWindowAspect();
-            float fov = GetHorizontalFov();
+            float fov = _playingKeyframes
+                ? _playbackHorizontalFov
+                : GetHorizontalFov();
 
             if (Math.Abs(aspect - _lastAspect) > 0.001f ||
                 Math.Abs(fov - _lastFov) > 0.01f)
@@ -355,41 +358,43 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
 
     private Camera? FindVRCamera()
     {
+        // First prefer Orbus's known player eye camera, whether or not
+        // an XR headset happened to be active at game launch.
         var cameras = Camera.allCameras;
-
         foreach (var camera in cameras)
         {
-            if (camera == null)
-                continue;
-
-            if (camera.name == "Camera (eye)" &&
-                (camera.stereoEnabled ||
-                 (!XRSettings.enabled || !XRSettings.isDeviceActive)))
-            {
+            if (camera != null && camera != _desktop &&
+                camera.name == "Camera (eye)")
                 return camera;
+        }
+
+        // Desktop-only startup may use a different game camera. This
+        // fallback only affects recording; it does not activate XR,
+        // move the rig, or make Orbus able to run without a headset.
+        if (!XRSettings.isDeviceActive)
+        {
+            Camera main = Camera.main;
+            if (main != null && main != _desktop &&
+                main.enabled && main.targetTexture == null)
+                return main;
+
+            foreach (var camera in cameras)
+            {
+                if (camera != null && camera != _desktop &&
+                    camera.enabled && camera.targetTexture == null &&
+                    camera.name.IndexOf("camera",
+                        StringComparison.OrdinalIgnoreCase) >= 0)
+                    return camera;
             }
         }
 
         return null;
     }
 
-    private bool TryEnableCamera(bool manual, bool droneAttempt = false)
+    private bool TryEnableCamera(bool manual)
     {
         try
         {
-            if ((!XRSettings.enabled || !XRSettings.isDeviceActive) &&
-                !droneAttempt)
-            {
-                if (manual)
-                {
-                    Plugin.ModLogger.LogWarning(
-                        "Cannot enable camera: VR is not active."
-                    );
-                }
-
-                return false;
-            }
-
             _source = FindVRCamera();
 
             if (_source == null)
@@ -397,8 +402,9 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
                 if (manual)
                 {
                     Plugin.ModLogger.LogWarning(
-                        "Camera (eye) not found. " +
-                        "Wait for OrbusVR to load."
+                        "No game view camera found. Wait for the world " +
+                        "to load; running without VR still depends on " +
+                        "Orbus creating a usable camera."
                     );
                 }
 
@@ -660,8 +666,9 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         float aspect =
             GetWindowAspect();
 
-        float horizontalDegrees =
-            GetHorizontalFov();
+        float horizontalDegrees = _playingKeyframes
+            ? Mathf.Clamp(_playbackHorizontalFov, 50f, 150f)
+            : GetHorizontalFov();
 
         // Unity Camera.fieldOfView is vertical FOV.
         // Convert horizontal FOV to vertical FOV.
@@ -876,6 +883,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
 
     private void DisableCamera()
     {
+        StopKeyframePlayback();
         LeaveDrone();
         if (_mode == CameraMode.Drone)
             _mode = _lastFollowMode;
@@ -895,6 +903,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
     {
         if (_mode == CameraMode.Drone)
         {
+            StopKeyframePlayback();
             LeaveDrone();
             _mode = _lastFollowMode;
         }
@@ -951,6 +960,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         // A second F12 restores the last follow mode.
         if (_mode == CameraMode.Drone)
         {
+            StopKeyframePlayback();
             LeaveDrone();
             _mode = CameraMode.Static;
             UpdateDesktopCullingMask(true);
