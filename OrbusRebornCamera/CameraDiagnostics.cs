@@ -93,6 +93,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         }
 
         ResolveAvatarLayer();
+        LoadKeyframes();
 
         Plugin.ModLogger.LogInfo(
             $"RebornCam v0.9.0 ready. " +
