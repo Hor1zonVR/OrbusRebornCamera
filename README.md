@@ -56,6 +56,24 @@ Changes to camera settings are written to the existing BepInEx configuration ent
 
 **IL2CPP dependency:** The game must have generated `BepInEx/interop/UnityEngine.IMGUIModule.dll` for this version to build; the project explicitly checks for it. The build must use the same local game/BepInEx interop folder as the running mod.
 
+## Automatic Trickster diagnostic in RebornCam v0.8.2 — no Python
+
+RebornCam can now check your **installed local game files while you're playing**. This runs read-only on a background thread, starts about 25 seconds after launching the game, and writes `BepInEx/TricksterAssetReport.txt`. It does not need a live goblin spawn or a hotkey. It only scans once per installation; delete the existing report to scan again.
+
+The default configuration is `[Diagnostics] AutoScanTricksterFiles = true`. Set it to `false` if you don't want disk scanning. The previous optional `Ctrl+F4` inspector is still available for loaded Unity assets.
+
+**Quick source update + local build/install (Windows):** Open PowerShell inside the existing `OrbusRebornCamera-1` project directory, then run:
+
+```powershell
+$helper = Join-Path $env:TEMP "update_trickster_diagnostic.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Hor1zonVR/OrbusRebornCamera/main/tools/update_trickster_diagnostic.ps1" -OutFile $helper
+& $helper
+```
+
+This downloads only the three C# source files needed, compiles against your installed BepInEx interop assemblies with `dotnet build`, backs up the existing mod DLL as `.bak`, then copies the new DLL to `BepInEx/plugins`. It prompts for the modded Orbus game folder if the default test path is unavailable. The previous DLL is not overwritten if the build fails. Close Orbus before running the updater.
+
+**Scan limits:** It looks for raw ASCII/UTF-16LE identifiers such as `TreasureGoblin` and `goblinstore`. Encrypted or compressed Unity bundles may not expose these strings; a negative result doesn't prove the prefab is absent. This diagnostic does not filter the goblin or unlock freecam.
+
 ## Offline Trickster asset scan (no rare spawn required)
 
 For the first identification pass, scan the **extracted PC client files** without launching Orbus. The read-only Python script [`tools/scan_trickster_assets.py`](tools/scan_trickster_assets.py) searches asset files and IL2CPP binaries for `treasuregoblin`, `TreasureGoblin`, `trickster` and related terms. It doesn't modify the installation.
