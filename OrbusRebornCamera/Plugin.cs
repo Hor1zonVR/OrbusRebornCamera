@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.8.1"
+    "0.8.2"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -42,6 +42,7 @@ public sealed class Plugin : BasePlugin
     // Manual Unity asset-name scan for identifying the rare Trickster Goblin.
     // OFF by default. Never changes world, cameras or collectible visibility.
     internal static ConfigEntry<bool> EnableTricksterAssetScan = null!;
+    internal static ConfigEntry<bool> AutoScanTricksterFiles = null!;
 
     internal static ConfigEntry<bool> CreatorPanelVisible = null!;
 
@@ -166,6 +167,16 @@ public sealed class Plugin : BasePlugin
             "Trickster Goblin asset identifiers. Read-only; no spawn locations."
         );
 
+        AutoScanTricksterFiles = Config.Bind(
+            "Diagnostics",
+            "AutoScanTricksterFiles",
+            true,
+            "Automatically scan installed Unity game files in the background " +
+            "once and write BepInEx/TricksterAssetReport.txt. No Python, " +
+            "gameplay changes, or rare NPC spawn required. Delete the report " +
+            "to request a new scan on the next launch."
+        );
+
         CreatorPanelVisible = Config.Bind(
             "CreatorPanel",
             "OpenAtStartup",
@@ -175,7 +186,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.8.1 - desktop creator panel");
+        Log.LogInfo("OrbusRebornCamera v0.8.2 - creator panel + background asset diagnostics");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
@@ -183,6 +194,7 @@ public sealed class Plugin : BasePlugin
         AddComponent<CameraDiagnostics>();
         AddComponent<AvatarDiagnostics>();
         AddComponent<TricksterAssetDiagnostics>();
+        AddComponent<TricksterDiskDiagnostics>();
 
         // Physical prototype model from v0.7.0.
         AddComponent<PhysicalCameraPrototype>();
@@ -204,6 +216,7 @@ public sealed class Plugin : BasePlugin
         Log.LogWarning("Drone is disabled by default until collectible filtering exists.");
         Log.LogInfo("F4/F8 = Diagnostics");
         Log.LogInfo("Ctrl+F4 = Opt-in Trickster asset-name diagnostic (private development)");
+        Log.LogInfo("Trickster disk scan runs automatically in background once; see BepInEx/TricksterAssetReport.txt");
 
         Log.LogInfo(
             $"Physical camera grab radius: {PrototypeGrabRadius.Value:0.00}m"
