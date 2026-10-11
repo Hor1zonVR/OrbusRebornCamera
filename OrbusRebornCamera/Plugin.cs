@@ -39,6 +39,10 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<float> DroneMouseSensitivity = null!;
     internal static ConfigEntry<float> DroneMovementSmoothing = null!;
 
+    // Manual Unity asset-name scan for identifying the rare Trickster Goblin.
+    // OFF by default. Never changes world, cameras or collectible visibility.
+    internal static ConfigEntry<bool> EnableTricksterAssetScan = null!;
+
     internal static ConfigEntry<bool> CreatorPanelVisible = null!;
 
     public override void Load()
@@ -153,6 +157,15 @@ public sealed class Plugin : BasePlugin
             "Acceleration and deceleration smoothing; 0 is instant."
         );
 
+        EnableTricksterAssetScan = Config.Bind(
+            "Diagnostics",
+            "EnableTricksterAssetScan",
+            false,
+            "Private development only. Ctrl+F4 scans already-loaded " +
+            "Unity GameObject, mesh, material and texture names for possible " +
+            "Trickster Goblin asset identifiers. Read-only; no spawn locations."
+        );
+
         CreatorPanelVisible = Config.Bind(
             "CreatorPanel",
             "OpenAtStartup",
@@ -169,6 +182,7 @@ public sealed class Plugin : BasePlugin
         // Existing working desktop camera and diagnostics.
         AddComponent<CameraDiagnostics>();
         AddComponent<AvatarDiagnostics>();
+        AddComponent<TricksterAssetDiagnostics>();
 
         // Physical prototype model from v0.7.0.
         AddComponent<PhysicalCameraPrototype>();
@@ -189,6 +203,7 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Drone: hold RMB + WASD, Q/E vertical, Shift boost, Ctrl slow");
         Log.LogWarning("Drone is disabled by default until collectible filtering exists.");
         Log.LogInfo("F4/F8 = Diagnostics");
+        Log.LogInfo("Ctrl+F4 = Opt-in Trickster asset-name diagnostic (private development)");
 
         Log.LogInfo(
             $"Physical camera grab radius: {PrototypeGrabRadius.Value:0.00}m"
