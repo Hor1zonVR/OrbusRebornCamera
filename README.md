@@ -64,7 +64,7 @@ Changes to camera settings are written to the existing BepInEx configuration ent
 
 RebornCam can now check your **installed local game files while you're playing**. This runs read-only on a background thread, starts about 25 seconds after launching the game, and writes `BepInEx/TricksterAssetReport.txt`. It does not need a live goblin spawn or a hotkey. It only scans once per installation; delete the existing report to scan again.
 
-The default configuration is `[Diagnostics] AutoScanTricksterFiles = true`. Set it to `false` if you don't want disk scanning. The previous optional `Ctrl+F4` inspector is still available for loaded Unity assets.
+Since freecam has owner approval, the v0.9.0 default is `[Diagnostics] AutoScanTricksterFiles = false` to avoid background disk I/O while playing. Set it to `true` only if you want the optional offline string scan. **Ctrl+F4 works immediately without changing any config** when you come across the rare Trickster Goblin.
 
 **Quick source update + local build/install (Windows):** Open PowerShell inside the existing `OrbusRebornCamera-1` project directory, then run:
 
@@ -110,7 +110,7 @@ RebornCam v0.9.0 uses **one independent desktop recording camera**, no matter wh
 
 **Trickster Goblin:** The rare `treasuregoblin` enemy is distinct from the shop NPC `goblinstore`. The model is **not yet hidden** from freecam, and its Unity identity has not been confirmed. The user has reported explicit approval from their server owner to use freecam while we work on the diagnostic. Do not assume this grants permission on other servers.
 
-If you encounter the rare Trickster Goblin, press **Ctrl+F4** once. The read-only inspector logs candidate GameObject names, parent hierarchies and model mesh/material names in `BepInEx/LogOutput.log` under `[TricksterAssets]`. It does not move the character, spawn creatures or collect live coordinates. If the model has a generic Unity name, the inspector may still need further refinement. The independent raw-file scanner runs once and writes `BepInEx/TricksterAssetReport.txt`.
+If you encounter the rare Trickster Goblin, press **Ctrl+F4** once. The read-only inspector logs candidate GameObject names, parent hierarchies and model mesh/material names in `BepInEx/LogOutput.log` under `[TricksterAssets]`. It does not move the character, spawn creatures or collect live coordinates. If the model has a generic Unity name, the inspector may still need further refinement. An optional raw-file scanner can also write `BepInEx/TricksterAssetReport.txt`; it is disabled by default to avoid disk I/O during ordinary play.
 
 ### Update from source without Python
 
