@@ -30,76 +30,64 @@ public sealed partial class CameraDiagnostics
     private static bool DroneKeyDown(int key) =>
         (GetAsyncKeyState(key) & 0x8000) != 0;
 
-    private void ToggleExperimentalDrone()
+    private void ToggleFreecam()
     {
-        _autoStartHandled = true;
-
         if (_mode == CameraMode.Drone)
         {
+            StopKeyframePlayback();
             LeaveDrone();
             _mode = _lastFollowMode;
             _snapNextFrame = true;
             UpdateDesktopCullingMask(true);
             Plugin.ModLogger.LogInfo(
-                "[Drone] Exited freecam. Restored " + _mode + ".");
+                "[Freecam] Returned to " + _mode + ".");
             return;
         }
 
-        if (!Plugin.EnableExperimentalDrone.Value)
-        {
-            Plugin.ModLogger.LogWarning(
-                "[Drone] Freecam is LOCKED by default until randomly spawned " +
-                "collectibles can be protected from camera scouting. " +
-                "For private testing only, enable [ExperimentalDrone] " +
-                "EnableExperimentalDrone in the BepInEx config, " +
-                "then restart the game. Do not use the prototype " +
-                "in public multiplayer.");
-            return;
-        }
+        EnterFreecam();
+    }
 
-        // Existing creator camera can already be running in follow mode.
-        // Otherwise, also try to initialize in a non-XR world. This depends
-        // on Orbus having loaded its world and Camera (eye) successfully.
-        if (!IsCameraActive && !TryEnableCamera(true, droneAttempt: true))
+    private bool EnterFreecam()
+    {
+        _autoStartHandled = true;
+
+        if (!IsCameraActive && !TryEnableCamera(true))
         {
             Plugin.ModLogger.LogWarning(
-                "[Drone] Could not start. The game must load a world and " +
-                "provide Camera (eye). A disconnected VR headset may prevent " +
-                "OrbusVR itself from reaching this state.");
-            // Snapshot contains XR status and available camera names.
-            // Useful for determining if headset-free sessions are possible
-            // without guessing at game-specific startup flags.
-            TakeSnapshot("drone activation unavailable");
-            return;
+                "[Freecam] Cannot start: Orbus has not provided a world " +
+                "camera. A headset-free launch also requires the game " +
+                "to support loading a playable world without XR.");
+            TakeSnapshot("freecam camera unavailable");
+            return false;
         }
 
         if (_desktop == null)
-            return;
+            return false;
 
+        // The current recording camera pose is the starting position.
+        // Never alter the local avatar, VR tracking, or server position.
         _dronePosition = _desktop.transform.position;
         Vector3 euler = _desktop.transform.rotation.eulerAngles;
         _droneYaw = euler.y;
-        _dronePitch = Mathf.DeltaAngle(0f, euler.x);
-        _dronePitch = Mathf.Clamp(_dronePitch, -89f, 89f);
+        _dronePitch = Mathf.Clamp(
+            Mathf.DeltaAngle(0f, euler.x), -89f, 89f);
         _droneVelocity = Vector3.zero;
         _mode = CameraMode.Drone;
         _snapNextFrame = false;
         UpdateDesktopCullingMask(true);
 
-        Plugin.ModLogger.LogWarning(
-            "[Drone] EXPERIMENTAL PRIVATE-TESTING MODE ACTIVE. " +
-            "Random collectible filtering is NOT IMPLEMENTED. " +
-            "Do not use this in public multiplayer.");
         Plugin.ModLogger.LogInfo(
-            "[Drone] Hold right mouse to steer + move with WASD; " +
-            "Q/E down/up, Shift boost, Ctrl slow, F12 freeze, " +
-            "Ctrl+F11 return to player camera. " +
-            "Only the desktop creator camera is moved.");
+            "[Freecam] Enabled. Hold right mouse + WASD to fly, " +
+            "Q/E down/up, Shift faster, Ctrl slower. " +
+            "Use F2 for keyframes and Ctrl+F11 to exit. " +
+            "The camera never moves the player.");
+        return true;
     }
 
     private void HandleDroneInput()
     {
-        if (_mode != CameraMode.Drone || !IsCameraActive)
+        if (_mode != CameraMode.Drone || !IsCameraActive ||
+            _playingKeyframes || _panelVisible)
         {
             ReleaseDronePointer();
             return;
@@ -212,7 +200,7 @@ public sealed partial class CameraDiagnostics
         if (_desktop == null)
             return;
 
-        // Camera (eye) may be recreated on world changes; do not permanently
+        // The game camera may be recreated on world changes; do not permanently
         // point the recording camera at a destroyed or unrelated scene object.
         if (_source == null)
         {
