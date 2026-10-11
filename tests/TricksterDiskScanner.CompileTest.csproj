@@ -5,7 +5,11 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="TestRunner.cs" />
+  </ItemGroup>
   <ItemGroup>
     <!-- Compile actual scanner against minimal test stubs. This checks the
          managed scanning logic; full IL2CPP runtime integration still needs
