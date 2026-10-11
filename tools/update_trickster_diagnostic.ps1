@@ -18,9 +18,16 @@ if (Get-Process -Name vrclient,OrbusVR -ErrorAction SilentlyContinue) {
 }
 
 $game = Join-Path $env:USERPROFILE "Downloads\OrbusVR-Reborn-Community-PC-MODTEST\OrbusVR-Reborn-Community-PC"
-if (-not (Test-Path (Join-Path $game "BepInEx\interop\UnityEngine.CoreModule.dll"))) {
-    Write-Host "Could not find the usual modded Orbus client folder." -ForegroundColor Yellow
-    $game = (Read-Host "Paste the full path to your MODDED Orbus game folder").Trim().Trim('"')
+if (Test-Path (Join-Path $game "BepInEx\interop\UnityEngine.CoreModule.dll")) {
+    Write-Host "Found the old modded Reborn test game:" -ForegroundColor Cyan
+    Write-Host $game
+    $confirm = Read-Host "Use that game? Press Enter for yes, or N for Renewed/another instance"
+    if ($confirm -match '^(?i)n(o)?$') {
+        $game = (Read-Host "Paste the full path to the MODDED Orbus game folder").Trim().Trim('"')
+    }
+} else {
+    Write-Host "Please choose your modded Orbus game." -ForegroundColor Yellow
+    $game = (Read-Host "Paste the full path to the MODDED Orbus game folder").Trim().Trim('"')
 }
 if (-not (Test-Path (Join-Path $game "BepInEx\interop\UnityEngine.CoreModule.dll"))) {
     throw "No generated IL2CPP interop DLLs found at $game. Choose your modded copy with BepInEx."
