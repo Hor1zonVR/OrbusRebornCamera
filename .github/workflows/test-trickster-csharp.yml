@@ -1,0 +1,21 @@
+name: Validate CSharp Trickster Diagnostic
+
+on:
+  push:
+    paths:
+      - 'OrbusRebornCamera/TricksterDiskDiagnostics.cs'
+      - 'tests/TricksterDiskScanner.CompileTest.csproj'
+      - 'tests/TestRunner.cs'
+      - '.github/workflows/test-trickster-csharp.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile and smoke-test scanner against a synthetic client
+        run: dotnet run --project tests/TricksterDiskScanner.CompileTest.csproj --configuration Release
