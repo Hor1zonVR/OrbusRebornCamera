@@ -42,10 +42,9 @@ public sealed class TricksterAssetDiagnostics : MonoBehaviour
     private void Start()
     {
         Plugin.ModLogger.LogInfo(
-            "[TricksterAssets] Inspector available (OFF by default). " +
-            "For private development only: enable " +
-            "[Diagnostics] EnableTricksterAssetScan = true " +
-            "and press Ctrl+F4 to inspect loaded Unity asset names.");
+            "[TricksterAssets] Manual monster asset diagnostics ready. " +
+            "If you encounter the rare Trickster Goblin, " +
+            "press Ctrl+F4 to log loaded candidate object and mesh names.");
     }
 
     private static bool KeyDown(int code) =>
@@ -56,20 +55,8 @@ public sealed class TricksterAssetDiagnostics : MonoBehaviour
         bool chord = Application.isFocused &&
                      KeyDown(CtrlVirtualKey) && KeyDown(F4VirtualKey);
 
-        if (chord && !_hotkeyWasDown)
-        {
-            if (!Plugin.EnableTricksterAssetScan.Value)
-            {
-                Plugin.ModLogger.LogInfo(
-                    "[TricksterAssets] Read-only scan not enabled. " +
-                    "Set [Diagnostics] EnableTricksterAssetScan=true " +
-                    "in the BepInEx config for private tests.");
-            }
-            else if (!_scanning)
-            {
-                ScanLoadedAssets();
-            }
-        }
+        if (chord && !_hotkeyWasDown && !_scanning)
+            ScanLoadedAssets();
 
         _hotkeyWasDown = chord;
     }
@@ -139,6 +126,40 @@ public sealed class TricksterAssetDiagnostics : MonoBehaviour
             }
 
             Plugin.ModLogger.LogInfo(info);
+
+            // Report a few child renderers and the actual model mesh
+            // identifiers of any matching live/prefab GameObject.
+            // This is the important evidence when a rare goblin appears.
+            if (obj is GameObject candidate)
+            {
+                int shown = 0;
+                foreach (var renderer in
+                    candidate.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (renderer == null || shown++ >= 8)
+                        break;
+
+                    string detail = "[TricksterAssets]   renderer=" +
+                        Safe(renderer.name);
+                    if (renderer is SkinnedMeshRenderer skin &&
+                        skin.sharedMesh != null)
+                        detail += " skinnedMesh=" + Safe(skin.sharedMesh.name);
+                    else
+                    {
+                        var filter = renderer.GetComponent<MeshFilter>();
+                        if (filter != null && filter.sharedMesh != null)
+                            detail += " mesh=" + Safe(filter.sharedMesh.name);
+                    }
+
+                    int materials = 0;
+                    foreach (var material in renderer.sharedMaterials)
+                    {
+                        if (material != null && materials++ < 3)
+                            detail += " material=" + Safe(material.name);
+                    }
+                    Plugin.ModLogger.LogInfo(detail);
+                }
+            }
         }
         catch (Exception ex)
         {
