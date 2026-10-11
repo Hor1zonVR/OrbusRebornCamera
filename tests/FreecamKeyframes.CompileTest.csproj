@@ -5,7 +5,11 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="freecam/Program.cs" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="../OrbusRebornCamera/CameraDiagnostics.Keyframes.cs"
              Link="CameraDiagnostics.Keyframes.cs" />
