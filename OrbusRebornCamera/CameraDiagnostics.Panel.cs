@@ -137,7 +137,7 @@ public sealed partial class CameraDiagnostics
             // Always restore it so other mods' IMGUI is not affected.
             Matrix4x4 original = GUI.matrix;
             float scale = Mathf.Clamp(
-                Mathf.Min(Screen.width / 520f, Screen.height / 1030f),
+                Mathf.Min(Screen.width / 520f, Screen.height / 1150f),
                 0.55f, 1f);
 
             try
@@ -214,7 +214,7 @@ public sealed partial class CameraDiagnostics
         const float x = 20f;
         const float y = 25f;
         const float w = 424f;
-        const float height = 948f;
+        const float height = 1080f;
 
         FillPanelRect(new Rect(x - 1, y - 1, w + 2, height + 2),
             PanelStroke);
@@ -237,6 +237,18 @@ public sealed partial class CameraDiagnostics
         float px = x + 18;
         float pw = w - 36;
         float pos = y + 81;
+
+        float tabWidth = (pw - 10) / 2;
+        if (PanelButton(new Rect(px, pos, tabWidth, 36),
+            "CAMERA", !_presetTab)) _presetTab = false;
+        if (PanelButton(new Rect(px + tabWidth + 10, pos, tabWidth, 36),
+            "PRESETS", _presetTab)) _presetTab = true;
+        pos += 49;
+        if (_presetTab)
+        {
+            DrawPresetPanel(px, pw, pos);
+            return;
+        }
 
         // A status card that does not claim recording itself is active.
         FillPanelRect(new Rect(px, pos, pw, 49), PanelCard);
