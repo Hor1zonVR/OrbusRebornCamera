@@ -60,6 +60,20 @@ Changes to camera settings are written to the existing BepInEx configuration ent
 
 **IL2CPP dependency:** The game must have generated `BepInEx/interop/UnityEngine.IMGUIModule.dll` for this version to build; the project explicitly checks for it. The build must use the same local game/BepInEx interop folder as the running mod.
 
+## Portable Cinematic Presets (development branch)
+
+This feature is currently on the `feature/cinematic-presets-v1` branch and **requires in-game testing** before merging or installing as a release.
+
+Open **F2 > PRESETS** to save a scene-specific keyframe path as a reusable `.rcpreset` movement under `BepInEx/config/RebornCamPresets/`. Camera-relative presets express all motion and rotation relative to the first keyframe, allowing reuse at a completely different location or angle. Preset files store relative FOV changes, not absolute scene coordinates. The original scene path continues to use `RebornCamKeyframes.txt`.
+
+1. In **CAMERA**, enter freecam and create two or more keyframes, then open **PRESETS**.
+2. Enter a name and choose **SAVE MODE: CAMERA RELATIVE**; click **Save current keyframes as preset**.
+3. Move the camera to a new location, select that preset from the library with the arrows, and click **Apply + Play**.
+4. **REVERSE** reverses the frames; **MIRROR** flips the 3D camera move left/right (never the rendered image). Speed adjusts the duration from 0.25× to 4×.
+5. For a **manual fixed-point Match Shot**, position the camera in front of the original subject, set its distance and **Capture subject anchor at view centre** before saving using **SUBJECT RELATIVE**. At a new scene, repeat anchor capture at the new subject before applying the same preset.
+
+Subject anchors are **fixed world points**, not automatic player tracking. A subject moving away from the anchor will not remain framed. This feature does not record networked gameplay, create a replay, or move the player / headset / controllers. Applying a preset backs up the previous persisted camera path to `RebornCamKeyframes.txt.before-preset` before overwriting that path. Keep your own backups of significant shots before editing.
+
 ## Automatic Trickster diagnostic in RebornCam v0.8.2 — no Python
 
 RebornCam can now check your **installed local game files while you're playing**. This runs read-only on a background thread, starts about 25 seconds after launching the game, and writes `BepInEx/TricksterAssetReport.txt`. It does not need a live goblin spawn or a hotkey. It only scans once per installation; delete the existing report to scan again.
