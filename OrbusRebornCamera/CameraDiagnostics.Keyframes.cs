@@ -170,7 +170,7 @@ public sealed partial class CameraDiagnostics
         }
 
         float seconds = Mathf.Clamp(
-            Plugin.KeyframeDuration.Value, 2f, 120f);
+            Plugin.KeyframeDuration.Value, 0.2f, 120f);
         _pathElapsed = Mathf.Min(seconds,
             _pathElapsed + Mathf.Max(0f, delta));
 
