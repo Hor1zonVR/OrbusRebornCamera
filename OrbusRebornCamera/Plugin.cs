@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.0"
+    "0.9.1"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -173,7 +173,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.0 + Desktop Startup Probe v0.1");
+        Log.LogInfo("OrbusRebornCamera v0.9.1 - experimental desktop startup probe");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
