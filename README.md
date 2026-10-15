@@ -5,6 +5,30 @@ A creator and recording camera mod for **OrbusVR Reborn Community Edition**, bui
 
 Capture OrbusVR from different perspectives without affecting your normal VR headset view.
 
+## Experimental Desktop Startup Probe v0.1 (development branch)
+
+This **does not yet make Orbus a flatscreen game**. It is a read-only feasibility probe to determine whether Community Edition loads without an active Quest/SteamVR headset, which scene and cameras initialize, and whether Unity physics raycasts from the desktop mouse hit world objects. It does not emulate VR controllers, click Orbus menus, teleport a character, or join a server.
+
+Source branch: `feature/desktop-startup-probe-v0.1`. Install only in an isolated modded test instance. Open PowerShell on Windows and run:
+
+```powershell
+$script = Join-Path $env:TEMP "install_desktop_probe.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Hor1zonVR/OrbusRebornCamera/feature/desktop-startup-probe-v0.1/tools/install_desktop_probe.ps1" -OutFile $script
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script
+```
+
+The helper clones the branch into a new temporary directory, builds against your **own** game-generated BepInEx IL2CPP interop DLLs, and replaces the mod DLL **only after** a successful build. It creates a timestamped backup of any existing installed `BetterMirror.dll`. The new probe runs alongside the unchanged v0.9.0 creator camera.
+
+**Testing checklist:**
+
+1. Close Orbus and disconnect Quest Link/Air Link, then start the **modded** Orbus client normally. Do not bypass server authentication or other game restrictions.
+2. Note whether the process reaches the main menu or world. If yes, press **F1** and inspect the probe overlay for scene, XR state and available cameras.
+3. Move the mouse over the main menu / world. Left click to log the target of a physics raycast. A miss does **not** mean the interface is impossible to click with future virtual controller code: some UI uses a GraphicRaycaster without colliders.
+4. If the game launches, send the lines starting with `[DesktopProbe]` from `BepInEx/LogOutput.log`. If it fails before BepInEx starts, send the Unity Player.log and the startup error message instead. Avoid sharing sensitive account or authentication details from logs.
+5. If needed, revert the installed DLL by restoring the timestamped `.bak-desktopprobe-...` file to `BetterMirror.dll`, with Orbus closed.
+
+The probe never injects UI button presses; the next development step is to inspect the actual Orbus menu interaction implementation before designing mouse-controlled laser input.
+
 ## Features
 
 - Independent desktop camera for recording and streaming

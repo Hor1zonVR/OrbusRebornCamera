@@ -173,12 +173,13 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.0 - freecam + cinematic keyframes");
+        Log.LogInfo("OrbusRebornCamera v0.9.0 + Desktop Startup Probe v0.1");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
         // Existing working desktop camera and diagnostics.
         AddComponent<CameraDiagnostics>();
+        AddComponent<DesktopStartupProbe>();
         AddComponent<AvatarDiagnostics>();
         AddComponent<TricksterAssetDiagnostics>();
         AddComponent<TricksterDiskDiagnostics>();
@@ -193,6 +194,7 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Shift+F3 = Show/Hide physical camera");
         Log.LogInfo("Left/Right grip = Grab and release camera");
 
+        Log.LogInfo("[DesktopProbe] F1 = desktop status and mouse-ray feasibility overlay");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
         Log.LogInfo("F9 = Desktop camera toggle");

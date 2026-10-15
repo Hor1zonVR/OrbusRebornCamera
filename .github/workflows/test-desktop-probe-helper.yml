@@ -1,0 +1,28 @@
+name: Validate Desktop Probe Installer
+
+on:
+  push:
+    paths:
+      - 'tools/install_desktop_probe.ps1'
+      - '.github/workflows/test-desktop-probe-helper.yml'
+  workflow_dispatch:
+
+jobs:
+  powershell-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse desktop probe installation helper
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "tools/install_desktop_probe.ps1").Path,
+            [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Host
+            throw "Desktop probe helper has syntax errors."
+          }
+          Write-Host "PASS: Desktop probe helper syntax"
