@@ -5,13 +5,34 @@ A creator and recording camera mod for **OrbusVR Reborn Community Edition**, bui
 
 Capture OrbusVR from different perspectives without affecting your normal VR headset view.
 
-## Updating through RebornManager
+## One-click GitHub publishing to RebornManager
 
-RebornManager's curated catalogue points to this repository and installs the **latest stable GitHub Release** asset named \`BetterMirror.dll\`. Pushing source to \`main\` alone will **not** update the installed mod. This project must be compiled on Windows against the target OrbusVR BepInEx IL2CPP interop assemblies before publishing a release.
+RebornCam now has a [Publish RebornCam Update](https://github.com/Hor1zonVR/OrbusRebornCamera/actions/workflows/publish-camera.yml) GitHub Actions workflow. With the one-time private reference setup complete, commit changes to main, choose **Actions → Publish RebornCam Update → Run workflow → main**, and select Preview or Stable.
 
-**Development status:** main currently contains the experimental **v0.9.1 Desktop Startup Probe**. No v0.9.1 binary is published until a maintainer compiles it and deliberately releases it. The experimental probe is not a complete flatscreen Orbus client, does not emulate controllers or click menus, and may not work without a headset.
+- **Preview** (default) publishes a test pre-release. RM ignores prereleases.
+- **Stable** publishes a public GitHub Release with exactly one binary asset, `BetterMirror.dll`. RM already tracks this repository and can offer the new update when Orbus is closed.
 
-The repository includes \`tools/publish_rm_camera.ps1\` for the maintainer: it checks for Git, GitHub CLI, .NET, and the installed modded game's IL2CPP interop, clones the latest \`main\`, builds \`BetterMirror.dll\`, and requires an explicit \`PUBLISH\` confirmation before creating a stable GitHub release that RM can detect. **Publishing will enable updates for all RM users of this mod; test in an isolated instance first.** GitHub CLI must be authenticated with \`gh auth login\`.
+The action tests keyframe code, builds against actual BepInEx/Unity IL2CPP reference DLLs, and blocks publishing on compilation failure or an existing version tag. The version comes from `Plugin.cs`; bump it before each subsequent release.
+
+### One-time CI dependency setup
+
+GitHub's hosted runner does not have the Orbus-generated BepInEx/IL2CPP references. Provide them **once**, privately, before running the publishing workflow:
+
+1. Install GitHub CLI (gh) on the development PC and sign in using `gh auth login`. The modded test game must already contain generated interop DLLs.
+2. Open PowerShell and run the setup helper:
+
+```powershell
+$script = Join-Path $env:TEMP "setup_ci_refs.ps1"
+Invoke-WebRequest "https://raw.githubusercontent.com/Hor1zonVR/OrbusRebornCamera/main/tools/setup_ci_refs.ps1" -OutFile $script
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script
+```
+
+3. The helper uploads an archive of **only the necessary reference DLLs** to a separate **private** repository named `Hor1zonVR/RebornCamBuildRefs`, under tag `refs-v1`. It refuses to upload to a public repo. Make sure any use/sharing of these generated libraries is allowed under applicable game/tool licenses.
+4. Create a **fine-grained GitHub personal access token** scoped only to `Hor1zonVR/RebornCamBuildRefs` with **Contents: Read-only**, then add it to the public camera repo under **Settings → Secrets and variables → Actions** as secret `REBORNCAM_BUILD_REFS_TOKEN`. The helper creates the repository variable `REBORNCAM_BUILD_REFS_REPO` automatically.
+
+Never commit those generated references to the public repository or use a broadly scoped token. After this one-time setup, future GitHub publishing needs only the Run workflow button.
+
+**Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
 ## Experimental Desktop Startup Probe v0.1 (merged into main)
 
