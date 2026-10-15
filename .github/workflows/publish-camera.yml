@@ -1,0 +1,100 @@
+name: Publish RebornCam Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Preview does not update RM; Stable is offered through RM"
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - stable
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reborncam-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate ref and dependency configuration
+        shell: pwsh
+        env:
+          REFS_REPO: ${{ vars.REBORNCAM_BUILD_REFS_REPO }}
+          REFS_TOKEN: ${{ secrets.REBORNCAM_BUILD_REFS_TOKEN }}
+        run: |
+          if ($env:GITHUB_REF -ne "refs/heads/main") { throw "Select the main branch." }
+          if ([string]::IsNullOrWhiteSpace($env:REFS_REPO) -or [string]::IsNullOrWhiteSpace($env:REFS_TOKEN)) {
+            throw "One-time setup needed: configure REBORNCAM_BUILD_REFS_REPO variable and REBORNCAM_BUILD_REFS_TOKEN secret. See README."
+          }
+          if ($env:REFS_REPO -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw "Reference repository must be owner/repo." }
+      - name: Download private build references
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.REBORNCAM_BUILD_REFS_TOKEN }}
+          REFS_REPO: ${{ vars.REBORNCAM_BUILD_REFS_REPO }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path .build-refs | Out-Null
+          gh release download refs-v1 --repo $env:REFS_REPO --pattern "RebornCamBuildRefs.zip" --dir .build-refs
+          if ($LASTEXITCODE -ne 0) { throw "Failed to download private BepInEx/interop build references." }
+          $game = Join-Path (Resolve-Path .build-refs).Path "game"
+          Expand-Archive .build-refs/RebornCamBuildRefs.zip -DestinationPath $game
+          foreach ($p in @("BepInEx/core/BepInEx.Core.dll", "BepInEx/core/BepInEx.Unity.IL2CPP.dll",
+            "BepInEx/core/Il2CppInterop.Runtime.dll", "BepInEx/interop/Il2Cppmscorlib.dll",
+            "BepInEx/interop/UnityEngine.CoreModule.dll", "BepInEx/interop/UnityEngine.InputModule.dll",
+            "BepInEx/interop/UnityEngine.PhysicsModule.dll", "BepInEx/interop/UnityEngine.IMGUIModule.dll",
+            "BepInEx/interop/UnityEngine.TextRenderingModule.dll")) {
+            if (-not (Test-Path (Join-Path $game $p))) { throw "Missing reference $p" }
+          }
+          "RC_GAME_REFS=$game" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Run keyframe smoke tests
+        shell: pwsh
+        run: |
+          dotnet run --project tests/FreecamKeyframes.CompileTest.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw "Keyframe smoke tests failed." }
+      - name: Compile real camera DLL
+        shell: pwsh
+        run: |
+          dotnet build OrbusRebornCamera/BetterMirror.csproj -c Release "-p:GameDir=$env:RC_GAME_REFS"
+          if ($LASTEXITCODE -ne 0) { throw "Build failed: no GitHub release created." }
+          if (-not (Test-Path OrbusRebornCamera/bin/Release/net6.0/BetterMirror.dll)) { throw "Built DLL missing." }
+      - name: Read version and block duplicate tags
+        id: version
+        shell: pwsh
+        run: |
+          $source = Get-Content OrbusRebornCamera/Plugin.cs -Raw
+          $m = [regex]::Match($source, '(?s)\[BepInPlugin\(\s*"[^"]+"\s*,\s*"[^"]+"\s*,\s*"(?<v>\d+\.\d+\.\d+)"')
+          if (-not $m.Success) { throw "Missing camera version." }
+          $tag = "v" + $m.Groups["v"].Value
+          if ((git tag --list $tag) -eq $tag) { throw "Tag $tag already exists. Update the version first." }
+          "tag=$tag" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - name: Tag and publish the tested DLL
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          $dll = (Resolve-Path OrbusRebornCamera/bin/Release/net6.0/BetterMirror.dll).Path
+          git tag $env:TAG
+          git push origin "refs/tags/$env:TAG"
+          if ($LASTEXITCODE -ne 0) { throw "Could not publish tag." }
+          $notes = "Experimental desktop diagnostics (F1) plus v0.9 camera/freecam/keyframe code. Desktop server joining and virtual laser interaction are not implemented or verified."
+          $args = @("release", "create", $env:TAG, $dll, "--repo", $env:GITHUB_REPOSITORY,
+                    "--title", "OrbusRebornCamera $env:TAG", "--notes", $notes, "--verify-tag")
+          if ($env:CHANNEL -eq "preview") { $args += "--prerelease" }
+          gh @args
+          if ($LASTEXITCODE -ne 0) { throw "Release publication failed. Tag may need attention." }
