@@ -5,7 +5,15 @@ A creator and recording camera mod for **OrbusVR Reborn Community Edition**, bui
 
 Capture OrbusVR from different perspectives without affecting your normal VR headset view.
 
-## Experimental Desktop Startup Probe v0.1 (development branch)
+## Updating through RebornManager
+
+RebornManager's curated catalogue points to this repository and installs the **latest stable GitHub Release** asset named \`BetterMirror.dll\`. Pushing source to \`main\` alone will **not** update the installed mod. This project must be compiled on Windows against the target OrbusVR BepInEx IL2CPP interop assemblies before publishing a release.
+
+**Development status:** main currently contains the experimental **v0.9.1 Desktop Startup Probe**. No v0.9.1 binary is published until a maintainer compiles it and deliberately releases it. The experimental probe is not a complete flatscreen Orbus client, does not emulate controllers or click menus, and may not work without a headset.
+
+The repository includes \`tools/publish_rm_camera.ps1\` for the maintainer: it checks for Git, GitHub CLI, .NET, and the installed modded game's IL2CPP interop, clones the latest \`main\`, builds \`BetterMirror.dll\`, and requires an explicit \`PUBLISH\` confirmation before creating a stable GitHub release that RM can detect. **Publishing will enable updates for all RM users of this mod; test in an isolated instance first.** GitHub CLI must be authenticated with \`gh auth login\`.
+
+## Experimental Desktop Startup Probe v0.1 (merged into main)
 
 This **does not yet make Orbus a flatscreen game**. It is a read-only feasibility probe to determine whether Community Edition loads without an active Quest/SteamVR headset, which scene and cameras initialize, and whether Unity physics raycasts from the desktop mouse hit world objects. It does not emulate VR controllers, click Orbus menus, teleport a character, or join a server.
 
