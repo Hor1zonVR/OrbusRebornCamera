@@ -121,5 +121,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          gh release edit $env:TAG --repo $env:GITHUB_REPOSITORY --prerelease=false --latest
-          if ($LASTEXITCODE -ne 0) { throw "Could not promote preview release." }
+          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:TAG" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $null -eq $release.id) { throw "Could not read preview release ID." }
+          gh api --method PATCH "repos/$env:GITHUB_REPOSITORY/releases/$($release.id)" -F prerelease=false -f make_latest=true
+          if ($LASTEXITCODE -ne 0) { throw "Could not promote preview release to stable." }
