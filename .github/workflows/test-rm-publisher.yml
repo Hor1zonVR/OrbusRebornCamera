@@ -1,0 +1,28 @@
+name: Validate RM Release Publisher
+
+on:
+  push:
+    paths:
+      - 'tools/publish_rm_camera.ps1'
+      - '.github/workflows/test-rm-publisher.yml'
+  workflow_dispatch:
+
+jobs:
+  powershell-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse RM publisher
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "tools/publish_rm_camera.ps1").Path,
+            [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Host
+            throw "RM release publisher syntax failed."
+          }
+          Write-Host "PASS: RM release publisher syntax"
