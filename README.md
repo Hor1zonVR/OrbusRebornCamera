@@ -12,7 +12,7 @@ RebornCam now has a [Publish RebornCam Update](https://github.com/Hor1zonVR/Orbu
 - **Preview** (default) publishes a test pre-release. RM ignores prereleases.
 - **Stable** publishes a public GitHub Release with exactly one binary asset, `BetterMirror.dll`. RM already tracks this repository and can offer the new update when Orbus is closed.
 
-The action tests keyframe code, builds against actual BepInEx/Unity IL2CPP reference DLLs, and blocks publishing on compilation failure or an existing version tag. The version comes from `Plugin.cs`; bump it before each subsequent release.
+The action tests keyframe code, builds against actual BepInEx/Unity IL2CPP reference DLLs, and blocks publication if compilation fails. The version comes from `Plugin.cs`; bump it before each **new** release. After testing a Preview build, you can run the workflow again with Stable to **promote the same tag** (provided main still points to that tagged commit).
 
 ### One-time CI dependency setup
 
