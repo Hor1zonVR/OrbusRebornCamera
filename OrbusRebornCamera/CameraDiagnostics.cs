@@ -242,13 +242,18 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
 
         if (JustPressed(6))
         {
-            if (IsCtrlDown()) ToggleFreecam();
+            if (IsCtrlDown() &&
+                (GetAsyncKeyState(0x10) & 0x8000) != 0 &&
+                _mode == CameraMode.Drone)
+                RecenterDroneToPlayer("Ctrl+Shift+F11 manual camera reset");
+            else if (IsCtrlDown()) ToggleFreecam();
             else CycleFollowMode();
         }
 
         if (JustPressed(7))
             ToggleStaticMode();
 
+        MonitorDroneWorld();
         HandleDroneInput();
         UpdateKeyframePlayback(delta);
         DesktopFreecamActive = _mode == CameraMode.Drone;

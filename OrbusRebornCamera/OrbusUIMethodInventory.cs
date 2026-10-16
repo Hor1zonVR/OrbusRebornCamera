@@ -16,7 +16,7 @@ namespace OrbusBetterMirror;
 /// </summary>
 internal static class OrbusUIMethodInventory
 {
-    private const int MaxObjects = 14000;
+    private const int MaxObjects = 40000;
     private const int MaxMethodsPerClass = 48;
     private const int MaxFieldsPerClass = 30;
     private const int MaxMethodEnumerations = 400;
@@ -249,10 +249,14 @@ internal static class OrbusUIMethodInventory
         {
             foreach (Transform transform in Resources.FindObjectsOfTypeAll<Transform>())
             {
-                if (transform == null || ++objects > MaxObjects) break;
+                if (transform == null) continue;
                 GameObject go = transform.gameObject;
                 if (go == null || !go.scene.IsValid() || !go.scene.isLoaded)
                     continue;
+                // The old cap counted prefab/asset transforms BEFORE scene
+                // filtering, exhausting its 14k budget before it reached
+                // persistent PlayerRigv4 components in DontDestroyOnLoad.
+                if (++objects > MaxObjects) break;
                 foreach (Component component in go.GetComponents<Component>())
                 {
                     if (component == null) continue;
@@ -267,8 +271,8 @@ internal static class OrbusUIMethodInventory
                 }
                 if (found.Count == Targets.Length) break;
             }
-            output.AppendLine("Scanned transforms=" + objects +
-                "; targeted classes located=" + found.Count +
+            output.AppendLine("Scanned loaded-scene transforms=" + objects +
+                " (assets/prefabs excluded); targeted classes located=" + found.Count +
                 "/" + Targets.Length);
             foreach (string full in Targets)
             {

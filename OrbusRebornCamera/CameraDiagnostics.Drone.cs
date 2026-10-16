@@ -1,6 +1,8 @@
 using System;
 using UnityEngine;
 using UnityEngine.XR;
+using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 
 namespace OrbusBetterMirror;
 
@@ -26,6 +28,135 @@ public sealed partial class CameraDiagnostics
     private float _droneNextInputWarning;
     private bool _droneCursorWasVisible;
     private CursorLockMode _dronePreviousCursorLock;
+
+    // The game streams scenery and remote player objects around the REAL
+    // local player, not this cinematic camera. Observations only: never
+    // move the rig, request remote entities or spoof a streaming origin.
+    internal static string StreamingStatus { get; private set; } =
+        "Freecam distance: not active";
+
+    private const float StreamingAdvisoryDistance = 35f; // Warning, not a measured loading radius.
+    private const float LargePlayerRepositionDistance = 80f; // Conservative warp diagnostic.
+    private string _droneWorldSignature = "";
+    private float _nextDroneWorldCheck;
+    private float _droneWorldChangedAt;
+    private bool _droneRecenterPending;
+    private bool _droneDistanceWarningLogged;
+    private bool _droneHasObservedEye;
+    private Vector3 _droneLastObservedEye;
+
+    private static string LoadedWorldSignature()
+    {
+        var loaded = new List<string>();
+        for (int index = 0; index < SceneManager.sceneCount; index++)
+        {
+            var scene = SceneManager.GetSceneAt(index);
+            if (!scene.IsValid() || !scene.isLoaded) continue;
+            if (scene.name == "BootstrapWeathermaker" ||
+                scene.name == "DontDestroyOnLoad")
+                continue;
+            loaded.Add(scene.name);
+        }
+        loaded.Sort(StringComparer.Ordinal);
+        return string.Join("|", loaded);
+    }
+
+    private void ScheduleDroneRecenter(string reason)
+    {
+        _droneRecenterPending = true;
+        _droneWorldChangedAt = Time.unscaledTime;
+        Plugin.ModLogger.LogInfo(
+            "[Freecam] World/position transition observed (" + reason +
+            "). Recenter will wait for the game camera and world to settle.");
+    }
+
+    private bool RecenterDroneToPlayer(string reason)
+    {
+        Camera? playerEye = FindVRCamera();
+        if (playerEye == null || _desktop == null)
+            return false;
+
+        // The eye camera supplies the location of the local player. Its
+        // transform is only READ. This affects _desktop, never the actual
+        // player's position, avatar, gameplay movement or streamed entities.
+        _source = playerEye;
+        ConfigureDesktopCamera();
+        StopKeyframePlayback();
+        ReleaseDronePointer();
+        _dronePosition = playerEye.transform.position;
+        Vector3 euler = playerEye.transform.rotation.eulerAngles;
+        _droneYaw = euler.y;
+        _dronePitch = Mathf.Clamp(
+            Mathf.DeltaAngle(0f, euler.x), -89f, 89f);
+        _droneVelocity = Vector3.zero;
+        _droneLastObservedEye = _dronePosition;
+        _droneHasObservedEye = true;
+        StreamingStatus = "Freecam: recentered to local player";
+        Plugin.ModLogger.LogInfo("[Freecam] Camera recentered: " + reason +
+            " | real player was NOT moved.");
+        return true;
+    }
+
+    private void MonitorDroneWorld()
+    {
+        if (_mode != CameraMode.Drone)
+        {
+            StreamingStatus = "Freecam distance: not active";
+            return;
+        }
+        if (Time.unscaledTime < _nextDroneWorldCheck)
+            return;
+        _nextDroneWorldCheck = Time.unscaledTime + 0.4f;
+
+        string world = LoadedWorldSignature();
+        if (world != _droneWorldSignature)
+        {
+            _droneWorldSignature = world;
+            ScheduleDroneRecenter("loaded zone changed");
+        }
+
+        Camera? playerEye = FindVRCamera();
+        if (playerEye != null)
+        {
+            Vector3 eye = playerEye.transform.position;
+            if (_droneHasObservedEye &&
+                Vector3.Distance(eye, _droneLastObservedEye) >
+                    LargePlayerRepositionDistance)
+                ScheduleDroneRecenter("large local-player reposition");
+            _droneLastObservedEye = eye;
+            _droneHasObservedEye = true;
+
+            float distance = Vector3.Distance(_dronePosition, eye);
+            StreamingStatus = "Freecam " + distance.ToString("0") +
+                "m from player" +
+                (distance > StreamingAdvisoryDistance
+                    ? " - distant scenery/players may unload" : "");
+            if (distance > StreamingAdvisoryDistance &&
+                !_droneDistanceWarningLogged)
+            {
+                _droneDistanceWarningLogged = true;
+                Plugin.ModLogger.LogWarning(
+                    "[Freecam] Camera is " + distance.ToString("0") +
+                    "m from the local player. Orbus streaming can unload scenery " +
+                    "and other players. Ctrl+Shift+F11 recenters the CAMERA only.");
+            }
+            else if (distance < StreamingAdvisoryDistance * 0.7f)
+                _droneDistanceWarningLogged = false;
+        }
+        else
+            StreamingStatus = "Freecam: waiting for local game eye";
+
+        // Require a loaded zone and stable scene for at least one second
+        // before recentering. Never snap to stale headset/selection-menu
+        // coordinates during a loading transition.
+        if (_droneRecenterPending && world.Length > 0 &&
+            Time.unscaledTime - _droneWorldChangedAt >= 1.0f &&
+            RecenterDroneToPlayer("world switch / player warp"))
+        {
+            _droneRecenterPending = false;
+            _droneDistanceWarningLogged = false;
+        }
+    }
 
     private static bool DroneKeyDown(int key) =>
         (GetAsyncKeyState(key) & 0x8000) != 0;
@@ -74,8 +205,17 @@ public sealed partial class CameraDiagnostics
         _droneVelocity = Vector3.zero;
         _mode = CameraMode.Drone;
         _snapNextFrame = false;
+        _droneWorldSignature = LoadedWorldSignature();
+        _droneRecenterPending = false;
+        _droneHasObservedEye = false;
+        _droneDistanceWarningLogged = false;
+        _nextDroneWorldCheck = 0f;
+        StreamingStatus = "Freecam: measuring player distance";
         UpdateDesktopCullingMask(true);
 
+        Plugin.ModLogger.LogInfo(
+            "[Freecam] Enabled. Ctrl+Shift+F11 resets camera to player. " +
+            "The game streams objects around your avatar, not freecam.");
         Plugin.ModLogger.LogInfo(
             "[Freecam] Enabled. Hold right mouse + WASD to fly, " +
             "Q/E down/up, Shift faster, Ctrl slower. " +
@@ -218,6 +358,8 @@ public sealed partial class CameraDiagnostics
     {
         ReleaseDronePointer();
         _droneVelocity = Vector3.zero;
+        _droneRecenterPending = false;
+        StreamingStatus = "Freecam distance: not active";
     }
 
     private void ReleaseDronePointer()
