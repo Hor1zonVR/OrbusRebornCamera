@@ -60,7 +60,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
     {
 #if ORBUS_UI_AVAILABLE
         Plugin.ModLogger.LogInfo(
-            "[DesktopUI] v0.9.2 Unity UI adapter loaded. TAB toggles pointer; " +
+            "[DesktopUI] v0.9.4 UI-layer-aware desktop pointer loaded. TAB toggles pointer; " +
             "left click activates supported Unity UI controls.");
 #else
         Plugin.ModLogger.LogWarning(
@@ -253,7 +253,11 @@ public sealed class DesktopMenuInput : MonoBehaviour
         _uiCollider = null;
         _uiColliderPath = "(no UI-Interactable collider)";
         _uiHitDistance = 0f;
-        if (MouseOverOurOverlay()) return;
+        if (MouseOverOurOverlay())
+        {
+            PhysicsUiStatus = "RC diagnostics overlay under cursor";
+            return;
+        }
         Camera? camera = GetDisplayCamera();
         if (camera == null)
         {
@@ -294,6 +298,11 @@ public sealed class DesktopMenuInput : MonoBehaviour
         {
             _uiCollider = null;
             PhysicsUiStatus = "UI ray error: " + ex.GetType().Name;
+            if (Time.unscaledTime >= _nextErrorLog)
+            {
+                _nextErrorLog = Time.unscaledTime + 5f;
+                Plugin.ModLogger.LogWarning("[DesktopUI] UI-layer raycast failed: " + ex);
+            }
         }
     }
 
