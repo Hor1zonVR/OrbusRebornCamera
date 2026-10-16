@@ -12,11 +12,7 @@
 
   <!-- Legacy Unity UI lives in its own generated IL2CPP assembly.
        If unavailable, the diagnostic-only DesktopMenuInput still compiles. -->
-  <!-- XR input polling is optional for installations using VRModule alone. -->
-  <PropertyGroup Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.XRModule.dll')">
-    <DefineConstants>$(DefineConstants);ORBUS_XRINPUT_AVAILABLE</DefineConstants>
-  </PropertyGroup>
-
+  <!-- VR trigger polling is runtime-probed for legacy Unity 2018 interop. -->
   <PropertyGroup Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.UI.dll') and Exists('$(GameDir)\BepInEx\interop\UnityEngine.UIModule.dll')">
     <DefineConstants>$(DefineConstants);ORBUS_UI_AVAILABLE</DefineConstants>
   </PropertyGroup>
