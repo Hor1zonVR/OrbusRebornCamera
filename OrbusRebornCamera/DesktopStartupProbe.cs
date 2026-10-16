@@ -78,7 +78,8 @@ public sealed class DesktopStartupProbe : MonoBehaviour
 
         bool focus = Application.isFocused;
         bool f1Down = focus && IsHeld(F1);
-        if (f1Down && !_f1WasDown)
+        bool inspectChord = IsHeld(0x11) && IsHeld(0x10);
+        if (f1Down && !_f1WasDown && !inspectChord)
         {
             _panelOpen = !_panelOpen;
             OverlayOpen = _panelOpen;
@@ -295,7 +296,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
             const float x = 16f;
             const float y = 16f;
             const float w = 565f;
-            GUI.Box(new Rect(x, y, w, 273f), "RC DESKTOP DIAGNOSTICS v0.9.2");
+            GUI.Box(new Rect(x, y, w, 300f), "RC DESKTOP DIAGNOSTICS v0.9.3");
             GUI.Label(new Rect(x + 15f, y + 28f, w - 30f, 20f),
                 "Scene: " + _lastScene +
                 "     XR active: " + _lastXR +
@@ -314,6 +315,8 @@ public sealed class DesktopStartupProbe : MonoBehaviour
                 "Hover: " + DesktopMenuInput.HoverStatus);
             GUI.Label(new Rect(x + 15f, y + 235f, w - 30f, 25f),
                 "Last action: " + DesktopMenuInput.ActionStatus);
+            GUI.Label(new Rect(x + 15f, y + 263f, w - 30f, 22f),
+                OrbusUIInspector.LastStatus);
         }
         catch (Exception ex)
         {
