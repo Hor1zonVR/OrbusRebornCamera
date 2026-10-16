@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.5"
+    "0.9.6"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -198,7 +198,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Left/Right grip = Grab and release camera");
 
         Log.LogInfo("[DesktopProbe] F1 = desktop UI / camera diagnostics");
-        Log.LogInfo("Ctrl+Shift+F1 = save UI hierarchy and native methods; in VR also start/stop a 60-second read-only controller ray capture");
+        Log.LogInfo("Ctrl+Shift+F1 = UI report / VR input capture");
+        Log.LogInfo("Ctrl+Shift+F11 = recenter freecam to local player (CAMERA ONLY)");
+        Log.LogInfo("Freecam warns beyond 35m from player; world streaming follows avatar");
         Log.LogInfo("TAB = desktop-only mouse menu pointer (VR headset must be inactive)");
         Log.LogInfo("Left click = verified Unity UI handler only; Orbus custom clicks remain diagnostic");
         Log.LogInfo("UI-Interactable layer 19 is targeted behind terrain without moving the rig");
