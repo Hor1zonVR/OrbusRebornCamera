@@ -212,6 +212,7 @@ public sealed partial class CameraDiagnostics
         _nextDroneWorldCheck = 0f;
         StreamingStatus = "Freecam: measuring player distance";
         UpdateDesktopCullingMask(true);
+        BeginCinematicRendering();
 
         Plugin.ModLogger.LogInfo(
             "[Freecam] Enabled. Ctrl+Shift+F11 resets camera to player. " +
@@ -356,6 +357,7 @@ public sealed partial class CameraDiagnostics
 
     private void LeaveDrone()
     {
+        EndCinematicRendering();
         ReleaseDronePointer();
         _droneVelocity = Vector3.zero;
         _droneRecenterPending = false;
