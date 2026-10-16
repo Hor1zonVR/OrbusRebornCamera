@@ -127,6 +127,9 @@ public sealed class DesktopMenuInput : MonoBehaviour
 
         if (!_pointerEnabled || blocked)
         {
+            _uiCollider = null;
+            _uiColliderPath = "(pointer inactive)";
+            PhysicsUiStatus = blocked ? "Pointer paused" : "Pointer disabled";
             ReleaseCursor();
             _leftWasDown = Held(LeftMouseKey);
             PointerStatus = blocked
@@ -301,7 +304,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
         // Existing F1 desktop diagnostic overlay is at top left.
         // This also prevents selecting hidden UI behind our text editor.
         bool overTop = DesktopStartupProbe.OverlayOpen &&
-            m.x < 585f && topY >= 0f && topY < 305f;
+            m.x < 585f && topY >= 0f && topY < 355f;
         bool overEditor = m.x < 735f && topY > Screen.height - 43f;
         return overEditor || overTop;
     }
