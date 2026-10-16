@@ -220,16 +220,16 @@ public sealed partial class CameraDiagnostics
                 Resources.FindObjectsOfTypeAll<Renderer>())
             {
                 if (renderer == null) continue;
-                if (++visited > 60000) break;
                 GameObject go = renderer.gameObject;
                 if (go == null) continue;
                 Scene scene = go.scene;
                 if (!scene.IsValid() || !scene.isLoaded ||
                     scene.name == "DontDestroyOnLoad")
-                {
-                    excluded++;
                     continue;
-                }
+                // The source object collection includes unloaded prefab
+                // assets. Count only ACTUAL loaded scene renderers so it
+                // doesn't exhaust the scan budget before reaching the zone.
+                if (++visited > 60000) break;
                 // Avoid collecting local/remote player objects, enemies,
                 // nametags and any server gameplay entity details.
                 string layerName = LayerMask.LayerToName(go.layer);
