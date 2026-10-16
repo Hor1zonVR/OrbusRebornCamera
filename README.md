@@ -34,6 +34,19 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.8: Compare camera-side rendering vs actual world streaming
+
+The already merged v0.9.7 system extends far clip, disables desktop-camera occlusion, and attempts to remove per-layer cull limits **for objects already loaded in Unity**. v0.9.8 improves the tools for finding out why scenery still disappears far from your avatar:
+
+- **Ctrl+Shift+F9** while in freecam toggles the experimental camera-only rendering boost ON/OFF in-place. Standard **Ctrl+F9** still toggles local avatar visibility.
+- **Ctrl+Shift+F8** still writes `BepInEx/config/RebornCam/StreamingReports/Scenery_*.txt`, but now **the same report compares zone scenery renderers around both the recording camera and your actual player**, at 0–75m, 75–250m and 250–700m. This makes it possible to identify a client-side player-centred loading pattern from a single snapshot. Data includes active/enabled/static counts but no player positions or identities.
+- The report also lists up to 55 **native component class names** that look related to streaming, terrain, chunks, zone loading, LODs and culling. This is read-only metadata and does not call game loading methods or inspect private player coordinates.
+- Leaving freecam now immediately restores the detached camera's original rendering settings, even if the camera is disabled before its next render update.
+
+**To test:** fly to a place where buildings or scenery disappear, take a Ctrl+Shift+F8 report, then turn the boost OFF/ON with Ctrl+Shift+F9 while looking at that *same* missing scenery. Send the report and tell us if the render toggle brings any geometry back. **This does not yet add a second chunk-streaming origin**, so if scenery is genuinely absent from the client's loaded scene, that still needs an Orbus-specific static-world loader investigation.
+
+Any future attempts at camera-driven loading must be limited to permitted **local static scenery**. They must not force replication of unseen PvP players, reveal remote player coordinates, change the player's instance/shard, or teleport their avatar.
+
 ## RC v0.9.7: Extended cinematic rendering — experimental
 
 When freecam flies away from the local avatar, Orbus appears to unload or hide terrain and other objects. **A camera by itself does not cause a game to instantiate missing objects**; increasing draw distance only helps objects that are **already loaded but culled**. This version implements the safe, client-only rendering half first and adds a diagnostic to find out if there is a separate zone-streaming system.
