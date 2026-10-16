@@ -273,7 +273,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
             return;
         }
 
-        Selectable[] controls = UnityEngine.Object.FindObjectsOfType<Selectable>();
+        var controls = UnityEngine.Object.FindObjectsOfType<Selectable>();
         _lastSelectableCount = controls.Length;
         Vector2 point = Input.mousePosition;
         float best = float.MaxValue;
@@ -360,8 +360,8 @@ public sealed class DesktopMenuInput : MonoBehaviour
     {
         try
         {
-            Canvas[] canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
-            Selectable[] controls = UnityEngine.Object.FindObjectsOfType<Selectable>();
+            var canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
+            var controls = UnityEngine.Object.FindObjectsOfType<Selectable>();
             _lastCanvasCount = canvases.Length;
             _lastSelectableCount = controls.Length;
             UiStatus = "Canvases=" + _lastCanvasCount +
