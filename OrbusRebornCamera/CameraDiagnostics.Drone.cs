@@ -384,10 +384,12 @@ public sealed partial class CameraDiagnostics
     private void OnDisable()
     {
         LeaveDrone();
+        RestoreCinematicRendering();
     }
 
     private void OnDestroy()
     {
         LeaveDrone();
+        RestoreCinematicRendering();
     }
 }
