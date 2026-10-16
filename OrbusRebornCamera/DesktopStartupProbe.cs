@@ -118,7 +118,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
         bool leftDown = IsHeld(LeftMouse);
         if (leftDown && !_leftWasDown)
         {
-            _lastClicked = _lastResult;
+            _lastClicked = _lastResult + " | " + DescribeNearestRenderer(ray);
             Plugin.ModLogger.LogInfo("[DesktopProbe] Mouse pressed: " +
                                      _lastClicked);
         }
@@ -128,6 +128,47 @@ public sealed class DesktopStartupProbe : MonoBehaviour
         {
             _lastStatusTime = _elapsed;
             RefreshStatus();
+        }
+    }
+
+    private static string DescribeNearestRenderer(Ray ray)
+    {
+        // Read-only fallback for menus rendered as meshes rather than Unity UI.
+        // Renderer bounds are broad-phase only and can overlap unrelated art.
+        try
+        {
+            Renderer? closest = null;
+            float closestDistance = 300f;
+            foreach (Renderer renderer in UnityEngine.Object.FindObjectsOfType<Renderer>())
+            {
+                if (renderer == null || !renderer.enabled ||
+                    !renderer.gameObject.activeInHierarchy)
+                    continue;
+                if (!renderer.bounds.IntersectRay(ray, out float distance))
+                    continue;
+                if (distance < 0f || distance >= closestDistance)
+                    continue;
+                closest = renderer;
+                closestDistance = distance;
+            }
+
+            if (closest == null) return "No renderer bounds on ray";
+            string parent = closest.transform.parent != null
+                ? closest.transform.parent.gameObject.name : "(root)";
+            string result = "Renderer=" + closest.gameObject.name +
+                " parent=" + parent + " distance=" +
+                closestDistance.ToString("0.0") + "m";
+            int count = 0;
+            foreach (Component component in closest.GetComponents<Component>())
+            {
+                if (component == null || count++ >= 8) continue;
+                result += " [" + component.GetType().Name + "]";
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            return "Renderer probe error: " + ex.Message;
         }
     }
 
@@ -182,7 +223,10 @@ public sealed class DesktopStartupProbe : MonoBehaviour
             " | XR active=" + _lastXR +
             " | Cameras=" + _lastCameraCount +
             " | GameCamera=" + _lastCamera +
-            " | Focused=" + Application.isFocused);
+            " | Focused=" + Application.isFocused +
+            " | HeadLocalY=" + InputTracking.GetLocalPosition(XRNode.Head).y.ToString("0.00") +
+            " | GameEyeY=" + (FindGameCamera() != null
+                ? FindGameCamera()!.transform.position.y.ToString("0.00") : "(none)"));
         try
         {
             int i = 0;
