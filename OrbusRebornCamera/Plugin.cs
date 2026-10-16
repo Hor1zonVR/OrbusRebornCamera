@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.4"
+    "0.9.5"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -173,7 +173,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.4 - layer-aware UI and native input metadata");
+        Log.LogInfo("OrbusRebornCamera v0.9.5 - VR input interaction recorder");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
@@ -182,6 +182,7 @@ public sealed class Plugin : BasePlugin
         AddComponent<DesktopStartupProbe>();
         AddComponent<DesktopMenuInput>();
         AddComponent<OrbusUIInspector>();
+        AddComponent<VrUiInteractionRecorder>();
         AddComponent<AvatarDiagnostics>();
         AddComponent<TricksterAssetDiagnostics>();
         AddComponent<TricksterDiskDiagnostics>();
@@ -197,7 +198,7 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Left/Right grip = Grab and release camera");
 
         Log.LogInfo("[DesktopProbe] F1 = desktop UI / camera diagnostics");
-        Log.LogInfo("Ctrl+Shift+F1 = save UI hierarchy AND native input method signatures");
+        Log.LogInfo("Ctrl+Shift+F1 = save UI hierarchy and native methods; in VR also start/stop a 60-second read-only controller ray capture");
         Log.LogInfo("TAB = desktop-only mouse menu pointer (VR headset must be inactive)");
         Log.LogInfo("Left click = verified Unity UI handler only; Orbus custom clicks remain diagnostic");
         Log.LogInfo("UI-Interactable layer 19 is targeted behind terrain without moving the rig");
