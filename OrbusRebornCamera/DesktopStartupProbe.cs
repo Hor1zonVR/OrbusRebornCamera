@@ -260,6 +260,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
         catch (Exception ex)
         {
             _panelOpen = false;
+            OverlayOpen = false;
             RestoreCursor();
             Plugin.ModLogger.LogWarning(
                 "[DesktopProbe] Overlay failed: " + ex.Message);
