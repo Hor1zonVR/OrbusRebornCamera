@@ -225,7 +225,13 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
             SetMirrorMode(GameViewRenderMode.BothEyes, "F7");
 
         if (JustPressed(3))
-            TakeSnapshot("F8");
+        {
+            if (IsCtrlDown() &&
+                (GetAsyncKeyState(0x10) & 0x8000) != 0)
+                SaveLocalSceneReport();
+            else
+                TakeSnapshot("F8");
+        }
 
         // F9 toggles the camera.
         // Ctrl+F9 toggles desktop avatar visibility.
@@ -288,6 +294,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
             {
                 UpdateDesktopCullingMask(false);
                 ApplyDronePose();
+                ApplyCinematicRendering();
                 return;
             }
 
