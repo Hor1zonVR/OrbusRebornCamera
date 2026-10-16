@@ -179,6 +179,16 @@ public sealed class DesktopStartupProbe : MonoBehaviour
     private static Camera? FindGameCamera()
     {
         Camera[] all = Camera.allCameras;
+        // In monitor-only sessions inspect the camera actually rendering the
+        // desktop screen, not a dormant game eye camera below the floor.
+        if (!XRSettings.isDeviceActive)
+        {
+            foreach (Camera camera in all)
+                if (camera != null && camera.enabled &&
+                    camera.name == "BetterMirror Creator Camera" &&
+                    camera.targetTexture == null)
+                    return camera;
+        }
         foreach (Camera camera in all)
             if (camera != null && camera.name == "Camera (eye)" &&
                 camera.enabled)
@@ -296,7 +306,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
             const float x = 16f;
             const float y = 16f;
             const float w = 565f;
-            GUI.Box(new Rect(x, y, w, 300f), "RC DESKTOP DIAGNOSTICS v0.9.3");
+            GUI.Box(new Rect(x, y, w, 333f), "RC DESKTOP DIAGNOSTICS v0.9.4");
             GUI.Label(new Rect(x + 15f, y + 28f, w - 30f, 20f),
                 "Scene: " + _lastScene +
                 "     XR active: " + _lastXR +
@@ -317,6 +327,8 @@ public sealed class DesktopStartupProbe : MonoBehaviour
                 "Last action: " + DesktopMenuInput.ActionStatus);
             GUI.Label(new Rect(x + 15f, y + 263f, w - 30f, 22f),
                 OrbusUIInspector.LastStatus);
+            GUI.Label(new Rect(x + 15f, y + 291f, w - 30f, 22f),
+                "Layer-aware: " + DesktopMenuInput.PhysicsUiStatus);
         }
         catch (Exception ex)
         {

@@ -34,6 +34,30 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.4: Real UI collider targeting and input-class method survey
+
+This is an **experimental desktop UI investigation**, not a verified replacement for VR controllers.
+
+### What's changed
+
+- **TAB** toggles the existing desktop-only pointer. When enabled, the new pointer scans **all physics raycast hits** and specifically identifies the nearest active collider on the actual `UI-Interactable` layer. This prevents the terrain grid's closer collider from silently hiding the target menu collider, as shown in the October 16 character-select UI report.
+- Ordinary **F1** now displays the target UI collider, its distance, mouse hover and any supported Unity UI action. Its physics ray also prefers the actual desktop creator camera while no headset is active.
+- For mouse clicks, RC will only invoke a **known, active Unity UI Selectable** found under the cursor or on the UI collider/ancestor. If the collider belongs to a custom Orbus VR menu script, RC logs the hit and **does not invoke unknown methods**.
+- **Ctrl+Shift+F1** now creates the existing full text report **plus a new section** called `ORBUS NATIVE UI/INPUT CLASS METHODS AND FIELDS`. This inventories native IL2CPP class method signatures (method names, return types, parameter types) and field **names/types only, never values**, for:
+  `Wacki.LaserPointerInputModule`, `MagicalActual.VREventSystem`, `Wacki.ViveUILaserPointer`, `MagicalActual.LaserPointer`, `CharacterSelect`, `CanvasInit`, `OrbusKeyboard`, `MagicalActual.AppearanceOptionClicker`, `MagicalActual.PlayerRig`, and `MagicalActual.JournalButton`.
+- Metadata enumeration is bounded, triggered manually and never invokes instance methods. If a native method API is missing on a particular Il2CppInterop version, the report notes its absence rather than treating that as proof the game lacks it.
+- **Freecam remains display-camera-only.** The UI pointer remains suspended while freecam is active, the F2 creator panel is visible, or an actual XR headset is active.
+
+### Testing (local game references required)
+
+1. Pull main and build the updated `BetterMirror.csproj`. Do this before creating a stable Release; gameplay behavior is not verified by source changes.
+2. In a test instance, start Orbus without an active VR device. Keep freecam off and close F2. Press **TAB**, then **F1**. Point at the menu. Look for `Layer-aware: UI layer 19: interactionMenu at ...m`.
+3. Try a click. If the target is only a custom VR input surface, the last action should explicitly report that no custom callback was sent. If a standard Unity button is recognised, it may receive its existing onClick event.
+4. Aim at the character-select menu and press **Ctrl+Shift+F1**. Find the newest file at `BepInEx/config/RebornCam/UIReports/`. Search it for `ORBUS NATIVE UI/INPUT CLASS METHODS AND FIELDS` and send it after checking any names for privacy.
+5. We can then write a targeted VR-menu input adapter based on actual signatures and event flow, instead of faking controller movement or invoking guessed methods.
+
+**Known from v0.9.3's character-select scan:** zero active standard Unity UI Selectables, the `VRInputModule` with `Wacki.LaserPointerInputModule` and `MagicalActual.VREventSystem` was active, and the menu's `interactionMenu` collider appeared on the `UI-Interactable` layer, behind a terrain hit. These observations support targeting and inspection; they **do not yet prove how to send click/trigger events safely**.
+
 ## RC v0.9.3: On-demand UI Inspector (read-only)
 
 The new UI discovery tool investigates how Orbus menus work, including custom VR/3D menus, without modifying them. Unlike the F1 overlay, it inspects currently loaded scene objects **including inactive UI objects** and saves a report for future UI-mod work.

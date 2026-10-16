@@ -388,7 +388,7 @@ public sealed class OrbusUIInspector : MonoBehaviour
         try
         {
             var output = new StringBuilder(64 * 1024);
-            output.AppendLine("REBORNCAM ORBUS UI INSPECTOR v0.9.3");
+            output.AppendLine("REBORNCAM ORBUS UI INSPECTOR v0.9.4");
             output.AppendLine("Created: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             output.AppendLine("Scope: loaded scene objects, including inactive transforms.");
             output.AppendLine("Read-only. NO text field values, saved passwords, server addresses,");
@@ -406,6 +406,7 @@ public sealed class OrbusUIInspector : MonoBehaviour
             output.AppendLine("Screen: " + Screen.width + "x" + Screen.height);
 
             AppendUiSurvey(output);
+            OrbusUIMethodInventory.Append(output);
             InspectCursor(output);
 
             output.AppendLine();

@@ -38,6 +38,10 @@ public sealed class DesktopMenuInput : MonoBehaviour
     private string _action = "TAB enables the desktop menu pointer.";
     private int _lastSelectableCount;
     private int _lastCanvasCount;
+    private Collider? _uiCollider;
+    private string _uiColliderPath = "(none)";
+    private float _uiHitDistance;
+
 
 #if ORBUS_UI_AVAILABLE
     private Selectable? _hover;
@@ -50,12 +54,13 @@ public sealed class DesktopMenuInput : MonoBehaviour
     internal static string HoverStatus { get; private set; } = "(none)";
     internal static string ActionStatus { get; private set; } = "Not used";
     internal static string UiStatus { get; private set; } = "Not scanned";
+    internal static string PhysicsUiStatus { get; private set; } = "Not checked";
 
     private void Start()
     {
 #if ORBUS_UI_AVAILABLE
         Plugin.ModLogger.LogInfo(
-            "[DesktopUI] v0.9.2 Unity UI adapter loaded. TAB toggles pointer; " +
+            "[DesktopUI] v0.9.4 UI-layer-aware desktop pointer loaded. TAB toggles pointer; " +
             "left click activates supported Unity UI controls.");
 #else
         Plugin.ModLogger.LogWarning(
@@ -122,6 +127,9 @@ public sealed class DesktopMenuInput : MonoBehaviour
 
         if (!_pointerEnabled || blocked)
         {
+            _uiCollider = null;
+            _uiColliderPath = "(pointer inactive)";
+            PhysicsUiStatus = blocked ? "Pointer paused" : "Pointer disabled";
             ReleaseCursor();
             _leftWasDown = Held(LeftMouseKey);
             PointerStatus = blocked
@@ -132,7 +140,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
         }
 
         AcquireCursor();
-        PointerStatus = "TAB: pointer on | Left click: select | F1: diagnostics";
+        PointerStatus = "TAB: pointer on | UI collider inspection | F1: diagnostics";
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         if (Held(RightMouseKey))
@@ -141,23 +149,35 @@ public sealed class DesktopMenuInput : MonoBehaviour
             return;
         }
 
-#if ORBUS_UI_AVAILABLE
         if (Time.unscaledTime >= _nextScan)
         {
             _nextScan = Time.unscaledTime + 0.08f;
+            FindUiCollider();
+#if ORBUS_UI_AVAILABLE
             FindHoveredControl();
+#else
+            _hoverName = _uiCollider != null
+                ? "UI collider: " + _uiColliderPath
+                : "(no UI collider)";
+#endif
         }
         bool leftDown = Held(LeftMouseKey);
-        if (leftDown && !_leftWasDown && _editingField == null &&
-            !MouseOverOurOverlay())
+        if (leftDown && !_leftWasDown && !MouseOverOurOverlay())
         {
-            FindHoveredControl();
-            ClickHoveredControl();
+            FindUiCollider();
+#if ORBUS_UI_AVAILABLE
+            if (_editingField == null)
+            {
+                FindHoveredControl();
+                ClickHoveredControl();
+            }
+#else
+            SetAction(_uiCollider != null
+                ? "UI collider found (Unity UI click handler unavailable)"
+                : "No UI collider; no game action sent");
+#endif
         }
         _leftWasDown = leftDown;
-#else
-        PointerStatus = "UI interop unavailable: F1 diagnostics only";
-#endif
         HoverStatus = _hoverName;
         ActionStatus = _action;
     }
@@ -213,6 +233,79 @@ public sealed class DesktopMenuInput : MonoBehaviour
         return eye ?? primary ?? Camera.main;
     }
 
+    private static string HierarchyPath(Transform? item)
+    {
+        if (item == null) return "(null)";
+        var names = new System.Collections.Generic.List<string>();
+        for (int i = 0; item != null && i < 9; i++, item = item.parent)
+            names.Add(item.gameObject.name);
+        names.Reverse();
+        return string.Join("/", names);
+    }
+
+    /// <summary>
+    /// Distinguish UI-Interactable colliders from terrain and general world
+    /// physics. Uses ALL hits, not the nearest hit, so a terrain grid in front
+    /// of the menu doesn't hide the actual UI collider. Discovery only.
+    /// </summary>
+    private void FindUiCollider()
+    {
+        _uiCollider = null;
+        _uiColliderPath = "(no UI-Interactable collider)";
+        _uiHitDistance = 0f;
+        if (MouseOverOurOverlay())
+        {
+            PhysicsUiStatus = "RC diagnostics overlay under cursor";
+            return;
+        }
+        Camera? camera = GetDisplayCamera();
+        if (camera == null)
+        {
+            PhysicsUiStatus = "No display camera";
+            return;
+        }
+
+        int uiLayer = LayerMask.NameToLayer("UI-Interactable");
+        if (uiLayer < 0 || uiLayer >= 32)
+        {
+            PhysicsUiStatus = "UI-Interactable layer not found";
+            return;
+        }
+        try
+        {
+            Ray ray = camera.ScreenPointToRay(Input.mousePosition);
+            float nearest = 300f;
+            foreach (RaycastHit hit in Physics.RaycastAll(ray, 300f))
+            {
+                if (hit.collider == null ||
+                    hit.collider.gameObject.layer != uiLayer ||
+                    !hit.collider.gameObject.activeInHierarchy ||
+                    hit.distance >= nearest)
+                    continue;
+
+                nearest = hit.distance;
+                _uiCollider = hit.collider;
+                _uiHitDistance = hit.distance;
+                _uiColliderPath = HierarchyPath(hit.collider.transform);
+            }
+            PhysicsUiStatus = _uiCollider == null
+                ? "UI layer " + uiLayer + ": no collider under cursor"
+                : "UI layer " + uiLayer + ": " +
+                  _uiCollider.gameObject.name + " at " +
+                  _uiHitDistance.ToString("0.00") + "m";
+        }
+        catch (Exception ex)
+        {
+            _uiCollider = null;
+            PhysicsUiStatus = "UI ray error: " + ex.GetType().Name;
+            if (Time.unscaledTime >= _nextErrorLog)
+            {
+                _nextErrorLog = Time.unscaledTime + 5f;
+                Plugin.ModLogger.LogWarning("[DesktopUI] UI-layer raycast failed: " + ex);
+            }
+        }
+    }
+
     private static bool MouseOverOurOverlay()
     {
         Vector3 m = Input.mousePosition;
@@ -220,7 +313,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
         // Existing F1 desktop diagnostic overlay is at top left.
         // This also prevents selecting hidden UI behind our text editor.
         bool overTop = DesktopStartupProbe.OverlayOpen &&
-            m.x < 585f && topY >= 0f && topY < 305f;
+            m.x < 585f && topY >= 0f && topY < 355f;
         bool overEditor = m.x < 735f && topY > Screen.height - 43f;
         return overEditor || overTop;
     }
@@ -263,7 +356,9 @@ public sealed class DesktopMenuInput : MonoBehaviour
     private void FindHoveredControl()
     {
         _hover = null;
-        _hoverName = "(no Unity UI control under cursor)";
+        _hoverName = _uiCollider != null
+            ? "UI collider: " + _uiColliderPath
+            : "(no Unity UI control / UI collider)";
         if (MouseOverOurOverlay()) { _hoverName = "(RC overlay)"; return; }
 
         Camera? camera = GetDisplayCamera();
@@ -302,9 +397,24 @@ public sealed class DesktopMenuInput : MonoBehaviour
 
     private void ClickHoveredControl()
     {
+        if (_hover == null && _uiCollider != null)
+        {
+            // Only activate a STANDARD, enabled Unity UI control attached
+            // directly to the hit collider or an actual ancestor. Never
+            // guess at a child or invoke a custom Orbus VR script.
+            _hover = _uiCollider.GetComponent<Selectable>();
+            if (_hover == null)
+                _hover = _uiCollider.GetComponentInParent<Selectable>();
+            if (_hover != null && (!_hover.isActiveAndEnabled ||
+                !_hover.IsInteractable() || !_hover.gameObject.activeInHierarchy))
+                _hover = null;
+        }
         if (_hover == null)
         {
-            SetAction("No Unity Selectable hit. F1 reports physics colliders.");
+            SetAction(_uiCollider != null
+                ? "UI collider identified: " + _uiColliderPath +
+                  " | custom VR click withheld pending method signatures"
+                : "No standard UI handler or UI collider found; no click sent");
             return;
         }
 
