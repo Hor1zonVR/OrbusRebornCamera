@@ -216,6 +216,21 @@ public sealed class DesktopStartupProbe : MonoBehaviour
     private void Snapshot(string reason)
     {
         RefreshStatus();
+        string localHeadHeight = "(not tracked)";
+        string gameEyeHeight = "(none)";
+        try
+        {
+            Vector3 localHead = InputTracking.GetLocalPosition(XRNode.Head);
+            localHeadHeight = localHead.y.ToString("0.00");
+            Camera? eye = FindGameCamera();
+            if (eye != null)
+                gameEyeHeight = eye.transform.position.y.ToString("0.00");
+        }
+        catch (Exception ex)
+        {
+            Plugin.ModLogger.LogWarning(
+                "[DesktopProbe] XR pose read unavailable: " + ex.Message);
+        }
         Plugin.ModLogger.LogInfo("[DesktopProbe] " + reason +
             " | elapsed=" + _elapsed.ToString("0.0") + "s" +
             " | Scene=" + _lastScene +
@@ -224,9 +239,8 @@ public sealed class DesktopStartupProbe : MonoBehaviour
             " | Cameras=" + _lastCameraCount +
             " | GameCamera=" + _lastCamera +
             " | Focused=" + Application.isFocused +
-            " | HeadLocalY=" + InputTracking.GetLocalPosition(XRNode.Head).y.ToString("0.00") +
-            " | GameEyeY=" + (FindGameCamera() != null
-                ? FindGameCamera()!.transform.position.y.ToString("0.00") : "(none)"));
+            " | HeadLocalY=" + localHeadHeight +
+            " | GameEyeY=" + gameEyeHeight);
         try
         {
             int i = 0;
