@@ -139,7 +139,7 @@ public sealed partial class CameraDiagnostics
             if (Mathf.Abs(_desktop.farClipPlane - desired) > 1f)
                 _desktop.farClipPlane = desired;
 
-            if (!_layerCullOverridden)
+            if (_layerCullWasRead && !_layerCullOverridden)
             {
                 object? unrestricted = NewUnrestrictedLayerCull();
                 if (unrestricted != null &&
