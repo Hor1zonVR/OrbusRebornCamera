@@ -356,6 +356,9 @@ public sealed partial class CameraDiagnostics
 
     private void LeaveDrone()
     {
+        // The detached camera may be disabled before LateUpdate runs, so
+        // restore cinema-only settings immediately whenever freecam exits.
+        RestoreCinematicRendering();
         ReleaseDronePointer();
         _droneVelocity = Vector3.zero;
         _droneRecenterPending = false;

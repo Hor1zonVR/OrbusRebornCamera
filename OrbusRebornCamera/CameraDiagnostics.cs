@@ -238,7 +238,10 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         // Ctrl+F9 toggles desktop avatar visibility.
         if (JustPressed(4))
         {
-            if (IsCtrlDown())
+            if (IsCtrlDown() &&
+                (GetAsyncKeyState(0x10) & 0x8000) != 0)
+                ToggleCinematicRenderBoost();
+            else if (IsCtrlDown())
                 ToggleLocalAvatar();
             else
                 ToggleCamera();

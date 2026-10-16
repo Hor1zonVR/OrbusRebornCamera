@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.7"
+    "0.9.8"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -188,7 +188,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.7 - extended cinematic draw range");
+        Log.LogInfo("OrbusRebornCamera v0.9.8 - cinematic boost comparison + scene streaming clues");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
@@ -217,7 +217,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+Shift+F11 = recenter freecam to local player (CAMERA ONLY)");
         Log.LogInfo("Freecam warns beyond 35m from player; world streaming follows avatar");
         Log.LogInfo("Extended far clipping / occlusion for ALREADY LOADED objects (desktop camera only)");
-        Log.LogInfo("Ctrl+Shift+F8 = scenery streaming report while in freecam");
+        Log.LogInfo("Ctrl+Shift+F8 = compare loaded scenery near freecam and player");
+        Log.LogInfo("Ctrl+Shift+F9 = toggle detached camera's extended rendering live");
         Log.LogInfo("TAB = desktop-only mouse menu pointer (VR headset must be inactive)");
         Log.LogInfo("Left click = verified Unity UI handler only; Orbus custom clicks remain diagnostic");
         Log.LogInfo("UI-Interactable layer 19 is targeted behind terrain without moving the rig");
