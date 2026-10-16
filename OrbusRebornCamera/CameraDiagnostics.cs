@@ -73,6 +73,10 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
     private float _mirrorCheckTimer;
     private GameViewRenderMode _requestedMirrorMode;
 
+    // Exposed only for suppressing desktop mouse input while flying.
+    // This flag never changes the real VR rig or its camera.
+    internal static bool DesktopFreecamActive { get; private set; }
+
     private bool IsCameraActive =>
         _desktop != null && _desktop.enabled;
 
@@ -247,6 +251,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
 
         HandleDroneInput();
         UpdateKeyframePlayback(delta);
+        DesktopFreecamActive = _mode == CameraMode.Drone;
     }
 
     private void LateUpdate()
