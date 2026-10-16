@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.6"
+    "0.9.7"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -36,7 +36,11 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<float> DroneBoostMultiplier = null!;
     internal static ConfigEntry<float> DroneMouseSensitivity = null!;
     internal static ConfigEntry<float> DroneMovementSmoothing = null!;
+
     internal static ConfigEntry<float> KeyframeDuration = null!;
+    internal static ConfigEntry<bool> CinematicRenderBoost = null!;
+    internal static ConfigEntry<float> CinematicFarClip = null!;
+    internal static ConfigEntry<bool> CinematicDisableOcclusion = null!;
 
     // Ctrl+F4 is always available on demand when a rare goblin is found.
     // The separate, slower disk scan is opt-in.
@@ -154,6 +158,19 @@ public sealed class Plugin : BasePlugin
             "Affects the desktop recording camera only."
         );
 
+        CinematicRenderBoost = Config.Bind(
+            "CinematicRendering", "Enabled", true,
+            "Freecam only: render already-loaded geometry farther away, on " +
+            "the detached desktop camera. Does not load missing world chunks.");
+        CinematicFarClip = Config.Bind(
+            "CinematicRendering", "FarClipMetres", 1500f,
+            "Freecam-only camera far clipping plane, 300 to 5000 metres. " +
+            "This is NOT the game's streaming or network visibility radius.");
+        CinematicDisableOcclusion = Config.Bind(
+            "CinematicRendering", "DisableOcclusion", true,
+            "Freecam only: disable optional Unity camera occlusion culling. " +
+            "Can reduce FPS, does not spawn absent terrain/players.");
+
         AutoScanTricksterFiles = Config.Bind(
             "Diagnostics",
             "AutoScanTricksterFiles",
@@ -173,7 +190,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.5 - VR input interaction recorder");
+        Log.LogInfo("OrbusRebornCamera v0.9.7 - cinematic local rendering / stream diagnosis");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
@@ -201,6 +218,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+Shift+F1 = UI report / VR input capture");
         Log.LogInfo("Ctrl+Shift+F11 = recenter freecam to local player (CAMERA ONLY)");
         Log.LogInfo("Freecam warns beyond 35m from player; world streaming follows avatar");
+        Log.LogInfo("Cinematic freecam extends the detached camera's draw distance / disables occlusion");
+        Log.LogInfo("Ctrl+Shift+F8 = save local scene streaming comparison to StreamingReports");
         Log.LogInfo("TAB = desktop-only mouse menu pointer (VR headset must be inactive)");
         Log.LogInfo("Left click = verified Unity UI handler only; Orbus custom clicks remain diagnostic");
         Log.LogInfo("UI-Interactable layer 19 is targeted behind terrain without moving the rig");
