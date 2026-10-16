@@ -88,15 +88,20 @@ public sealed partial class CameraDiagnostics
                 _desktop.farClipPlane = desired;
 
             bool? occlusion = ReadOcclusion(_desktop);
-            if (Plugin.CinematicDisableOcclusion.Value &&
-                occlusion == true && !WriteOcclusion(_desktop, false) &&
-                !_cinematicOcclusionWarned)
+            if (Plugin.CinematicDisableOcclusion.Value)
             {
-                _cinematicOcclusionWarned = true;
-                Plugin.ModLogger.LogWarning(
-                    "[CinematicRender] Cannot disable camera occlusion " +
-                    "on this game's Unity interop.");
+                if (occlusion == true && !WriteOcclusion(_desktop, false) &&
+                    !_cinematicOcclusionWarned)
+                {
+                    _cinematicOcclusionWarned = true;
+                    Plugin.ModLogger.LogWarning(
+                        "[CinematicRender] Cannot disable camera occlusion " +
+                        "on this game's Unity interop.");
+                }
             }
+            else if (_preCinematicOcclusion.HasValue &&
+                     occlusion != _preCinematicOcclusion)
+                WriteOcclusion(_desktop, _preCinematicOcclusion.Value);
         }
         else if (_cinematicSettingsSaved)
         {
@@ -111,6 +116,22 @@ public sealed partial class CameraDiagnostics
             "m | occlusion " +
             (ReadOcclusion(_desktop)?.ToString() ?? "unknown") +
             " | boost " + (Plugin.CinematicRenderBoost.Value ? "ON" : "OFF");
+    }
+
+    private void ToggleCinematicRenderBoost()
+    {
+        if (_mode != CameraMode.Drone || _desktop == null)
+        {
+            Plugin.ModLogger.LogInfo(
+                "[CinematicRender] Enter freecam before toggling render boost.");
+            return;
+        }
+        Plugin.CinematicRenderBoost.Value = !Plugin.CinematicRenderBoost.Value;
+        ApplyCinematicRendering(true);
+        Plugin.ModLogger.LogInfo(
+            "[CinematicRender] Camera-only boost " +
+            (Plugin.CinematicRenderBoost.Value ? "ON" : "OFF") +
+            ". Compare the same shot; unloaded world geometry will NOT reappear.");
     }
 
     private void EndCinematicRendering()
