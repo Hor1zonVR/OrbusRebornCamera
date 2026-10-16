@@ -10,6 +10,12 @@
     <GameDir Condition="'$(GameDir)' == ''">$(USERPROFILE)\Downloads\OrbusVR-Reborn-Community-PC-MODTEST\OrbusVR-Reborn-Community-PC</GameDir>
   </PropertyGroup>
 
+  <!-- Legacy Unity UI lives in its own generated IL2CPP assembly.
+       If unavailable, the diagnostic-only DesktopMenuInput still compiles. -->
+  <PropertyGroup Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.UI.dll')">
+    <DefineConstants>$(DefineConstants);ORBUS_UI_AVAILABLE</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="BepInEx.Core">
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.Core.dll</HintPath>
@@ -33,6 +39,18 @@
 
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <Reference Include="UnityEngine.UI"
+               Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.UI.dll')">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <Reference Include="UnityEngine.UIModule"
+               Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.UIModule.dll')">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.UIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
