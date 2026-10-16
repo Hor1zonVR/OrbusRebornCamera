@@ -23,6 +23,9 @@ public sealed partial class CameraDiagnostics
     private bool? _preCinematicOcclusion;
     private float _nextCinematicSettingsCheck;
     private bool _cinematicOcclusionWarned;
+    private object? _savedLayerCullDistances;
+    private bool _layerCullWasRead;
+    private bool _layerCullOverridden;
 
     internal static string CinematicRenderStatus { get; private set; } =
         "Cinematic rendering: inactive";
@@ -32,6 +35,52 @@ public sealed partial class CameraDiagnostics
     private static readonly PropertyInfo? OcclusionProperty =
         typeof(Camera).GetProperty("useOcclusionCulling",
             BindingFlags.Public | BindingFlags.Instance);
+
+    // Legacy IL2CPP may expose this property as an Il2CppStructArray<float>
+    // rather than float[]. Runtime reflection avoids assuming either shape.
+    private static readonly PropertyInfo? LayerCullProperty =
+        typeof(Camera).GetProperty("layerCullDistances",
+            BindingFlags.Public | BindingFlags.Instance);
+
+    private static object? ReadLayerCull(Camera camera)
+    {
+        if (LayerCullProperty == null || !LayerCullProperty.CanRead)
+            return null;
+        try { return LayerCullProperty.GetValue(camera); }
+        catch { return null; }
+    }
+
+    private static object? NewUnrestrictedLayerCull()
+    {
+        if (LayerCullProperty == null || !LayerCullProperty.CanWrite)
+            return null;
+        try
+        {
+            Type type = LayerCullProperty.PropertyType;
+            if (type == typeof(float[])) return new float[32];
+            var lengthCtor = type.GetConstructor(new[] { typeof(long) });
+            if (lengthCtor != null)
+                return lengthCtor.Invoke(new object[] { 32L });
+            lengthCtor = type.GetConstructor(new[] { typeof(int) });
+            if (lengthCtor != null)
+                return lengthCtor.Invoke(new object[] { 32 });
+        }
+        catch { /* Optional interop shape not supported. */ }
+        return null;
+    }
+
+    private static bool WriteLayerCull(Camera camera, object? value)
+    {
+        if (value == null || LayerCullProperty == null ||
+            !LayerCullProperty.CanWrite)
+            return false;
+        try
+        {
+            LayerCullProperty.SetValue(camera, value);
+            return true;
+        }
+        catch { return false; }
+    }
 
     private static bool? ReadOcclusion(Camera camera)
     {
@@ -59,6 +108,9 @@ public sealed partial class CameraDiagnostics
         if (_desktop == null) return;
         _preCinematicFarClip = _desktop.farClipPlane;
         _preCinematicOcclusion = ReadOcclusion(_desktop);
+        _savedLayerCullDistances = ReadLayerCull(_desktop);
+        _layerCullWasRead = _savedLayerCullDistances != null;
+        _layerCullOverridden = false;
         _cinematicSettingsSaved = true;
         _nextCinematicSettingsCheck = 0f;
         _cinematicOcclusionWarned = false;
@@ -87,6 +139,19 @@ public sealed partial class CameraDiagnostics
             if (Mathf.Abs(_desktop.farClipPlane - desired) > 1f)
                 _desktop.farClipPlane = desired;
 
+            if (!_layerCullOverridden)
+            {
+                object? unrestricted = NewUnrestrictedLayerCull();
+                if (unrestricted != null &&
+                    WriteLayerCull(_desktop, unrestricted))
+                {
+                    _layerCullOverridden = true;
+                    Plugin.ModLogger.LogInfo(
+                        "[CinematicRender] Detached camera's layer-cull " +
+                        "distance overrides cleared (camera only).");
+                }
+            }
+
             bool? occlusion = ReadOcclusion(_desktop);
             if (Plugin.CinematicDisableOcclusion.Value)
             {
@@ -109,12 +174,16 @@ public sealed partial class CameraDiagnostics
             _desktop.farClipPlane = _preCinematicFarClip;
             if (_preCinematicOcclusion.HasValue)
                 WriteOcclusion(_desktop, _preCinematicOcclusion.Value);
+            if (_layerCullOverridden && _layerCullWasRead)
+                WriteLayerCull(_desktop, _savedLayerCullDistances);
+            _layerCullOverridden = false;
         }
 
         CinematicRenderStatus =
             "Freecam clip " + _desktop.farClipPlane.ToString("0") +
             "m | occlusion " +
             (ReadOcclusion(_desktop)?.ToString() ?? "unknown") +
+            " | layer-cull " + (_layerCullOverridden ? "unrestricted" : "default") +
             " | boost " + (Plugin.CinematicRenderBoost.Value ? "ON" : "OFF");
     }
 
@@ -143,6 +212,8 @@ public sealed partial class CameraDiagnostics
                 _desktop.farClipPlane = _preCinematicFarClip;
                 if (_preCinematicOcclusion.HasValue)
                     WriteOcclusion(_desktop, _preCinematicOcclusion.Value);
+                if (_layerCullOverridden && _layerCullWasRead)
+                    WriteLayerCull(_desktop, _savedLayerCullDistances);
             }
             catch (Exception ex)
             {
@@ -151,6 +222,9 @@ public sealed partial class CameraDiagnostics
             }
         }
         _cinematicSettingsSaved = false;
+        _savedLayerCullDistances = null;
+        _layerCullWasRead = false;
+        _layerCullOverridden = false;
         CinematicRenderStatus = "Cinematic rendering: inactive";
     }
 
@@ -263,6 +337,8 @@ public sealed partial class CameraDiagnostics
                     : "unknown"));
             report.AppendLine("Desktop occlusion: " +
                 (ReadOcclusion(_desktop)?.ToString() ?? "unknown"));
+            report.AppendLine("Layer-culling camera override applied: " +
+                _layerCullOverridden);
             report.AppendLine("Freecam cinematic boost: " +
                 Plugin.CinematicRenderBoost.Value);
 
