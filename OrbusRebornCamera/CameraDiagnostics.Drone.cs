@@ -41,7 +41,6 @@ public sealed partial class CameraDiagnostics
     private float _nextDroneWorldCheck;
     private float _droneWorldChangedAt;
     private bool _droneRecenterPending;
-    private bool _droneWorldWarningLogged;
     private bool _droneDistanceWarningLogged;
     private bool _droneHasObservedEye;
     private Vector3 _droneLastObservedEye;
