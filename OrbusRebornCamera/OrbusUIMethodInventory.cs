@@ -59,16 +59,26 @@ internal static class OrbusUIMethodInventory
 
     // Resolve known runtime METADATA calls by name to tolerate variation
     // between Il2CppInterop.Runtime versions and their generated exports.
+    private static readonly Dictionary<string, MethodInfo?> MetadataCalls = new();
+
     private static MethodInfo? FindMetadataCall(string symbol, int args)
     {
+        string key = symbol + "/" + args;
+        if (MetadataCalls.TryGetValue(key, out MethodInfo? cached))
+            return cached;
+        MethodInfo? found = null;
         foreach (MethodInfo method in typeof(IL2CPP).GetMethods(
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
         {
             if ((method.Name == symbol || method.Name == symbol + "_") &&
                 method.GetParameters().Length == args)
-                return method;
+            {
+                found = method;
+                break;
+            }
         }
-        return null;
+        MetadataCalls[key] = found;
+        return found;
     }
 
     private static object? Call(string symbol, params object?[] args)
@@ -225,6 +235,14 @@ internal static class OrbusUIMethodInventory
         output.AppendLine("Names and TYPE SIGNATURES only; NO game methods invoked.");
         output.AppendLine("Field names only, never values or credentials.");
         output.AppendLine("Use these signatures to decide whether desktop input is safe.");
+        output.AppendLine("Native IL2CPP exports: class_get_methods=" +
+            (FindMetadataCall("il2cpp_class_get_methods", 2) != null) +
+            ", method_get_name=" +
+            (FindMetadataCall("il2cpp_method_get_name", 1) != null) +
+            ", class_get_fields=" +
+            (FindMetadataCall("il2cpp_class_get_fields", 2) != null) +
+            ", field_get_name=" +
+            (FindMetadataCall("il2cpp_field_get_name", 1) != null));
         var found = new Dictionary<string, IntPtr>(StringComparer.Ordinal);
         int objects = 0;
         try
