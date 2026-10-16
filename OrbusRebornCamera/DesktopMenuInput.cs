@@ -221,7 +221,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
         // This also prevents selecting hidden UI behind our text editor.
         bool overTop = DesktopStartupProbe.OverlayOpen &&
             m.x < 585f && topY >= 0f && topY < 305f;
-        bool overEditor = m.x < 650f && topY > Screen.height - 180f;
+        bool overEditor = m.x < 735f && topY > Screen.height - 43f;
         return overEditor || overTop;
     }
 
