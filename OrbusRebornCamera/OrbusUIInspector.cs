@@ -6,6 +6,7 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR;
+using Il2CppInterop.Runtime;
 
 #if ORBUS_UI_AVAILABLE
 using UnityEngine.UI;
@@ -140,6 +141,33 @@ public sealed class OrbusUIInspector : MonoBehaviour
         return score;
     }
 
+    private static string ActualComponentType(Component component)
+    {
+        // GetType() often only shows UnityEngine.Component for custom
+        // IL2CPP game scripts. Query the NATIVE runtime class metadata
+        // instead, without touching fields or invoking game callbacks.
+        try
+        {
+            IntPtr clazz = IL2CPP.il2cpp_object_get_class(component.Pointer);
+            if (clazz != IntPtr.Zero)
+            {
+                string nativeName = IL2CPP.il2cpp_class_get_name_(clazz) ?? "";
+                string nativeSpace = IL2CPP.il2cpp_class_get_namespace_(clazz) ?? "";
+                string assembly = IL2CPP.il2cpp_class_get_assemblyname_(clazz) ?? "";
+                if (!string.IsNullOrEmpty(nativeName))
+                    return (string.IsNullOrEmpty(nativeSpace) ? "" : nativeSpace + ".") +
+                        nativeName + (string.IsNullOrEmpty(assembly)
+                            ? "" : " [" + assembly + "]");
+            }
+        }
+        catch
+        {
+            // Do not allow missing native symbols or destroyed components
+            // to stop the rest of the diagnostic.
+        }
+        return component.GetType().FullName ?? component.GetType().Name;
+    }
+
     private static string ComponentNames(GameObject go,
         Dictionary<string, int> histogram, out int score)
     {
@@ -150,7 +178,7 @@ public sealed class OrbusUIInspector : MonoBehaviour
             foreach (Component component in go.GetComponents<Component>())
             {
                 if (component == null) continue;
-                string type = Clean(component.GetType().FullName, 130);
+                string type = Clean(ActualComponentType(component), 150);
                 if (histogram.TryGetValue(type, out int count))
                     histogram[type] = count + 1;
                 else histogram[type] = 1;
@@ -473,7 +501,7 @@ public sealed class OrbusUIInspector : MonoBehaviour
             output.AppendLine("- Canvas + GraphicRaycaster + Selectable -> likely standard Unity UI.");
             output.AppendLine("- RectTransform/text meshes without Selectable -> custom UI or display-only controls.");
             output.AppendLine("- MeshRenderer/Collider/laser scripts -> likely 3D interaction.");
-            output.AppendLine("- Actual Orbus class types may be unavailable through managed wrappers.");
+            output.AppendLine("- Native IL2CPP class and assembly names are included when available.");
             output.AppendLine("- This is a discovery snapshot, not proof that clicks can be injected.");
             output.AppendLine("- To diagnose one button, aim at it before pressing Ctrl+Shift+F1.");
             output.AppendLine("- No game objects were modified or button handlers invoked.");
