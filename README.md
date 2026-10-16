@@ -34,6 +34,35 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.6: World-aware camera resets and streaming safeguards
+
+This version addresses an important limitation discovered in VR playtesting: **Orbus streams nearby environment and remote players based on the local player, not the detached recording camera**. Moving the camera does **not** force faraway terrain, entities or players to load.
+
+### World transition recovery
+
+- Freecam tracks the names of currently loaded non-bootstrap Unity scenes and checks the *local game's eye camera* for large, abrupt position changes. These provide **best-effort** signals of zone switching, teleporting, character selection → gameplay, or other player reposition events.
+- On a detected change, freecam waits at least one second for a real loaded world and valid player eye, then **moves ONLY the recording camera** back to the player's current eye view. It never changes game-player transforms, XR tracking or network movement. Transitions not accompanied by a scene change or sufficiently large player move can still be missed; report these with the BepInEx log.
+- **Ctrl+Shift+F11** is the new manual recenter shortcut whenever freecam is active. **Ctrl+F11** still toggles freecam.
+- The **F1 overlay** now includes the detached camera's approximate distance to the player's eye. Beyond **35m** it displays an advisory that distant scenery and players may unload. The 35m warning threshold is **not the game's measured streaming radius**, and RC doesn't restrict camera movement.
+- Freecam remains independent in VR; this release does **not** try to request additional streams or teleport the real player.
+
+### Fixing the diagnostic report
+
+The v0.9.4/v0.9.5 full UI reports often said **0/10 native UI/input classes located**, despite listing those components elsewhere. The metadata scanner previously counted unloaded/prefab transforms against a **14,000-object cutoff before filtering**; v0.9.6 now counts only loaded-scene transforms and allows 40,000 of those. Run **Ctrl+Shift+F1** again and examine the `ORBUS NATIVE UI/INPUT CLASS METHODS AND FIELDS` section. If it still says 0/10, more targeted class discovery is needed; the scan remains read-only.
+
+The **VR input recorder** separately writes `OrbusVRInput_...txt` when started during active VR, while the UI inspector writes `OrbusUI_...txt`. Three UI reports alone do not capture actual controller trigger edges. You can stop an active VR recorder with the same hotkey, or wait up to 60 seconds.
+
+### Safe camera-on-player design (NOT implemented)
+
+A future spectator camera must **never behave as a player locator**. This is not as simple as detecting someone anywhere on `orbus.reborn.xyz`:
+
+- Only consider remote entities **already replicated to and normally visible to the client**, within the **current instance/shard** and streaming area. Do not enumerate hidden/remote account positions or force their loading.
+- **Default to camera-on-player OFF.** Treat PvP status as unknown unless the actual game or a trusted server system exposes a **current, authoritative** PvP/spectator eligibility signal. Unknown means no target. Any possible attach mode would also need explicit permission/consent and should detach if the player is unavailable, changes shard or becomes PvP-eligible.
+- A camera must remain a visual observer of what a normal client already has. Do not teleport the avatar, extend network relevancy, alter the game's visibility checks, or grant new location information.
+- If no safe API exists, ship a **self-camera-only** version instead; being outside PvP alone is not sufficient authorization to track someone.
+
+**Local test:** start freecam in an instance, switch world/character or teleport through a normal game transition, and check whether the camera recenters. Then try **Ctrl+Shift+F11** as a manual fallback. Fly approximately 35m from the player and confirm F1 warns about streaming, then return to the player and verify the warning clears. Separately verify the headset still follows normally and the player never moves with the freecam.
+
 ## RC v0.9.5: Learn from real VR menu clicks
 
 Previous diagnostics showed that Orbus has a custom VR input module and that the main character-selection menu uses a collider on the UI-Interactable layer. The standalone desktop pointer still intentionally pauses in freecam, and it **cannot yet activate custom Orbus VR menus**.
