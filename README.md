@@ -48,6 +48,7 @@ By default, while Ctrl+F11 freecam is enabled:
 - `[CinematicRendering] Enabled = true`: raises the desktop camera's far clipping distance to **at least 1500m**, retaining the original value if already greater.
 - `FarClipMetres = 1500`: configurable within 300–5000m. Larger values may noticeably reduce FPS or rendering precision, but don't increase Orbus's chunk-loading radius.
 - `DisableOcclusion = true`: disables optional Unity camera occlusion culling for the detached camera only, if the game interop supports this property.
+- Also attempts to clear `layerCullDistances` on the **detached camera only** when the game's generated Unity arrays support a safely restorable override. This avoids per-layer draw limits for already-present objects.
 - On exit, the previous desktop-camera render settings are restored. **The VR headset camera is never modified**. This option does not forcibly enable hidden GameObjects or renderers and does not affect server-sent player visibility.
 
 **Ctrl+Shift+F9:** switch the new cinematic render boost ON/OFF in freecam, to compare the **same shot** without restarting (regular Ctrl+F9 avatar visibility remains unchanged). The toggle is persisted to RC's BepInEx configuration.
