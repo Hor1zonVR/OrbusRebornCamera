@@ -133,6 +133,8 @@ public sealed class DesktopMenuInput : MonoBehaviour
 
         AcquireCursor();
         PointerStatus = "TAB: pointer on | Left click: select | F1: diagnostics";
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
         if (Held(RightMouseKey))
         {
             _leftWasDown = Held(LeftMouseKey);
@@ -146,7 +148,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
             FindHoveredControl();
         }
         bool leftDown = Held(LeftMouseKey);
-        if (leftDown && !_leftWasDown && !_editingField &&
+        if (leftDown && !_leftWasDown && _editingField == null &&
             !MouseOverOurOverlay())
         {
             FindHoveredControl();
@@ -217,7 +219,8 @@ public sealed class DesktopMenuInput : MonoBehaviour
         float topY = Screen.height - m.y;
         // Existing F1 desktop diagnostic overlay is at top left.
         // This also prevents selecting hidden UI behind our text editor.
-        bool overTop = m.x < 585f && topY >= 0f && topY < 225f;
+        bool overTop = DesktopStartupProbe.OverlayOpen &&
+            m.x < 585f && topY >= 0f && topY < 305f;
         bool overEditor = m.x < 650f && topY > Screen.height - 180f;
         return overEditor || overTop;
     }
