@@ -34,6 +34,47 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.7: Experimental cinematic rendering and streaming diagnosis
+
+**Goal:** Orbus's detached freecam should be usable for cinematic filming without requiring the local avatar to follow it everywhere. There are two fundamentally different technical limits:
+
+1. **Rendering/culling:** the world mesh already exists in the client but its camera clip range, occlusion culling, or other local visibility logic stops it appearing. This release experimentally improves the first two on **only the detached desktop camera**.
+2. **Game / network streaming:** the client has not loaded a chunk or the server has not sent a distant player. **Extending camera far clipping cannot create that missing object**. The local player remains the game's actual location/streaming origin; RC does not spoof positions, request unseen players or change PvP/network visibility.
+
+### New experimental settings (freecam only)
+
+By default, while Ctrl+F11 freecam is enabled:
+
+- `[CinematicRendering] Enabled = true`: raises the desktop camera's far clipping distance to **at least 1500m**, retaining the original value if already greater.
+- `FarClipMetres = 1500`: configurable within 300–5000m. Larger values may noticeably reduce FPS or rendering precision, but don't increase Orbus's chunk-loading radius.
+- `DisableOcclusion = true`: disables optional Unity camera occlusion culling for the detached camera only, if the game interop supports this property.
+- On exit, the previous desktop-camera render settings are restored. **The VR headset camera is never modified**. This option does not forcibly enable hidden GameObjects or renderers and does not affect server-sent player visibility.
+
+**Ctrl+Shift+F9:** switch the new cinematic render boost ON/OFF in freecam, to compare the **same shot** without restarting (regular Ctrl+F9 avatar visibility remains unchanged). The toggle is persisted to RC's BepInEx configuration.
+
+### Local scene streaming report
+
+**Ctrl+Shift+F8** saves `BepInEx/config/RebornCam/StreamingReports/OrbusStreaming_*.txt`. This reads Unity scene objects **already present on this client**, including inactive renderers, and records:
+
+- Current loaded scene names and detached/eye-camera clipping and occlusion settings
+- Approximate detached camera distance from the local player, without exporting raw coordinates
+- The aggregate number of already-present local-scenery renderers within **25/75/150/300m** of the camera, compared with around the local player's eye
+- Active versus inactive/disabled renderer counts, and a histogram of possible local `Load`, `Terrain`, `Stream`, `LOD`, `Chunk`, `Cull` and `Pool` **component type names**
+- **No player identities, remote player positions, player-tracking tools, gameplay events or network requests**. The scanner does not enable disabled objects.
+
+This report may cause a short frame hitch because it enumerates loaded scene components **only when manually requested**.
+
+### The test that determines the next implementation
+
+1. Start from a populated area of Highsteppe; enable Ctrl+F11 freecam with your player stationary.
+2. Record a normal nearby shot. Fly to a location where buildings/terrain visibly stop loading.
+3. Take the first streaming report (`Ctrl+Shift+F8`) **while the shot is incomplete**.
+4. Toggle `Ctrl+Shift+F9` OFF then ON and see if distant geometry reappears. Take a second report from the same position.
+5. Return to the player (Ctrl+Shift+F11), and save a third baseline report.
+6. Send the reports and tell us which, if any, meshes reappeared. If changing far clip/occlusion does not help and few renderers exist near the camera, the next step is **researching Orbus's local chunk loaders**. A separate rendering camera cannot solve missing server-replicated players.
+
+**This release is a test of real camera-side rendering improvements and a diagnostic for the remaining local-streaming limit, not a verified fix for all-distance freecam.** Other-player follow/remote surveillance remains off; any future target must already be replicated and legitimately visible to the local client, in the same instance, with safe spectator eligibility/consent.
+
 ## RC v0.9.6: World-aware camera resets and streaming safeguards
 
 This version addresses an important limitation discovered in VR playtesting: **Orbus streams nearby environment and remote players based on the local player, not the detached recording camera**. Moving the camera does **not** force faraway terrain, entities or players to load.
