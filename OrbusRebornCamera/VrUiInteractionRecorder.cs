@@ -175,12 +175,8 @@ public sealed class VrUiInteractionRecorder : MonoBehaviour
         _uiLayer = LayerMask.NameToLayer("UI-Interactable");
         _events.Clear();
         _startScene = Clean(SceneManager.GetActiveScene().name);
-        _startXrInput =
-#if ORBUS_XRINPUT_AVAILABLE
-            "UnityEngine.XR.InputDevices supported by build";
-#else
-            "InputDevices API not referenced in this build; ray-only diagnostics";
-#endif
+        ProbeXrTriggerApi();
+        _startXrInput = _xrTriggerApiStatus;
 
         ResolveHand(_left);
         ResolveHand(_right);
@@ -221,45 +217,162 @@ public sealed class VrUiInteractionRecorder : MonoBehaviour
                 "[VrUiRecorder] Event limit reached; remaining observations omitted.");
     }
 
+    // Unity 2018 installations do not necessarily expose InputDevices or
+    // CommonUsages in their generated interop. Discover those APIs at runtime
+    // rather than referencing missing C# types and breaking the entire mod.
+    private static bool _xrTriggerApiChecked;
+    private static string _xrTriggerApiStatus = "not inspected";
+    private static System.Reflection.MethodInfo? _getDeviceAtNode;
+    private static System.Reflection.MethodInfo? _readDigital;
+    private static System.Reflection.MethodInfo? _readAnalog;
+    private static System.Reflection.PropertyInfo? _isValid;
+    private static object? _digitalUsage;
+    private static object? _analogUsage;
+
+    private static System.Type? FindManagedType(string fullName)
+    {
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                System.Type? type = assembly.GetType(fullName, false);
+                if (type != null) return type;
+            }
+            catch { /* Optional Unity assembly may not load. */ }
+        }
+        return null;
+    }
+
+    private static object? ReadStaticUsage(System.Type type, string name)
+    {
+        const System.Reflection.BindingFlags flags =
+            System.Reflection.BindingFlags.Public |
+            System.Reflection.BindingFlags.Static;
+        try
+        {
+            var field = type.GetField(name, flags);
+            if (field != null) return field.GetValue(null);
+            var property = type.GetProperty(name, flags);
+            return property != null ? property.GetValue(null) : null;
+        }
+        catch { return null; }
+    }
+
+    private static System.Reflection.MethodInfo? FeatureMethod(
+        System.Type deviceType, object? usage, System.Type outputType)
+    {
+        if (usage == null) return null;
+        foreach (var method in deviceType.GetMethods(
+            System.Reflection.BindingFlags.Public |
+            System.Reflection.BindingFlags.Instance))
+        {
+            if (method.Name != "TryGetFeatureValue") continue;
+            var parameters = method.GetParameters();
+            if (parameters.Length == 2 &&
+                parameters[0].ParameterType == usage.GetType() &&
+                parameters[1].ParameterType ==
+                    outputType.MakeByRefType())
+                return method;
+        }
+        return null;
+    }
+
+    private static void ProbeXrTriggerApi()
+    {
+        if (_xrTriggerApiChecked) return;
+        _xrTriggerApiChecked = true;
+        try
+        {
+            System.Type? devices = FindManagedType("UnityEngine.XR.InputDevices");
+            System.Type? usages = FindManagedType("UnityEngine.XR.CommonUsages");
+            if (devices == null || usages == null)
+            {
+                _xrTriggerApiStatus =
+                    "Legacy XR API: InputDevices/CommonUsages not exposed";
+                return;
+            }
+            _getDeviceAtNode = devices.GetMethod("GetDeviceAtXRNode",
+                new[] { typeof(XRNode) });
+            if (_getDeviceAtNode == null)
+            {
+                _xrTriggerApiStatus =
+                    "InputDevices found; GetDeviceAtXRNode unavailable";
+                return;
+            }
+            System.Type deviceType = _getDeviceAtNode.ReturnType;
+            _isValid = deviceType.GetProperty("isValid");
+            _digitalUsage = ReadStaticUsage(usages, "triggerButton");
+            _analogUsage = ReadStaticUsage(usages, "trigger");
+            _readDigital = FeatureMethod(
+                deviceType, _digitalUsage, typeof(bool));
+            _readAnalog = FeatureMethod(
+                deviceType, _analogUsage, typeof(float));
+
+            _xrTriggerApiStatus = _readDigital != null || _readAnalog != null
+                ? "Runtime Unity XR trigger polling available"
+                : "Unity XR types found; trigger features unavailable";
+        }
+        catch (Exception ex)
+        {
+            _xrTriggerApiStatus =
+                "XR API probe failed: " + ex.GetType().Name;
+        }
+    }
+
     private static bool TryTrigger(XRNode node, out bool pressed,
         out string kind)
     {
         pressed = false;
-#if ORBUS_XRINPUT_AVAILABLE
+        ProbeXrTriggerApi();
+        kind = _xrTriggerApiStatus;
+        if (_getDeviceAtNode == null) return false;
+
         try
         {
-            var device = InputDevices.GetDeviceAtXRNode(node);
-            if (!device.isValid)
+            object? device = _getDeviceAtNode.Invoke(null,
+                new object[] { node });
+            if (device == null)
+            {
+                kind = "XR input device not available";
+                return false;
+            }
+            if (_isValid != null &&
+                _isValid.GetValue(device) is bool valid && !valid)
             {
                 kind = "XR device not valid";
                 return false;
             }
-            if (device.TryGetFeatureValue(CommonUsages.triggerButton,
-                out bool digital))
+            if (_readDigital != null && _digitalUsage != null)
             {
-                pressed = digital;
-                kind = "triggerButton";
-                return true;
+                object?[] args = { _digitalUsage, false };
+                object? ok = _readDigital.Invoke(device, args);
+                if (ok is bool received && received &&
+                    args[1] is bool digital)
+                {
+                    pressed = digital;
+                    kind = "XR triggerButton";
+                    return true;
+                }
             }
-            if (device.TryGetFeatureValue(CommonUsages.trigger,
-                out float analog))
+            if (_readAnalog != null && _analogUsage != null)
             {
-                pressed = analog >= 0.70f;
-                kind = "analog trigger >=0.70";
-                return true;
+                object?[] args = { _analogUsage, 0f };
+                object? ok = _readAnalog.Invoke(device, args);
+                if (ok is bool received && received &&
+                    args[1] is float analog)
+                {
+                    pressed = analog >= 0.70f;
+                    kind = "XR analog trigger >=0.70";
+                    return true;
+                }
             }
-            kind = "device has no triggerButton/trigger feature";
-            return false;
+            kind = "XR trigger feature not returned by device";
         }
         catch (Exception ex)
         {
-            kind = "trigger read unavailable: " + ex.GetType().Name;
-            return false;
+            kind = "XR trigger poll error: " + ex.GetType().Name;
         }
-#else
-        kind = "XR InputDevices not available at build time";
         return false;
-#endif
     }
 
     private static string RaySummary(Transform source, Vector3 direction,
