@@ -225,7 +225,14 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
             SetMirrorMode(GameViewRenderMode.BothEyes, "F7");
 
         if (JustPressed(3))
-            TakeSnapshot("F8");
+        {
+            if (IsCtrlDown() &&
+                (GetAsyncKeyState(0x10) & 0x8000) != 0 &&
+                _mode == CameraMode.Drone)
+                CaptureCinematicRendererSurvey();
+            else
+                TakeSnapshot("F8");
+        }
 
         // F9 toggles the camera.
         // Ctrl+F9 toggles desktop avatar visibility.
@@ -281,6 +288,10 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
             {
                 ApplyFov();
             }
+
+            // Apply extended clipping/occlusion settings ONLY to RC's
+            // separate desktop recording camera (never to VR eye).
+            ApplyCinematicRenderSettings();
 
             // Drone movement is independent of the headset and never
             // changes the actual player rig or source eye camera.

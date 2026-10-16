@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.6"
+    "0.9.7"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -37,6 +37,8 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<float> DroneMouseSensitivity = null!;
     internal static ConfigEntry<float> DroneMovementSmoothing = null!;
     internal static ConfigEntry<float> KeyframeDuration = null!;
+    internal static ConfigEntry<bool> ExtendedRenderEnabled = null!;
+    internal static ConfigEntry<float> ExtendedRenderFarClip = null!;
 
     // Ctrl+F4 is always available on demand when a rare goblin is found.
     // The separate, slower disk scan is opt-in.
@@ -154,6 +156,19 @@ public sealed class Plugin : BasePlugin
             "Affects the desktop recording camera only."
         );
 
+        ExtendedRenderEnabled = Config.Bind(
+            "CinematicRender", "EnableExtendedRendering", true,
+            "When freecam is active, expand only the separate desktop " +
+            "camera's draw distance, disable its occlusion culling, and " +
+            "try disabling per-layer distance culling. Cannot load absent geometry."
+        );
+
+        ExtendedRenderFarClip = Config.Bind(
+            "CinematicRender", "FarClipMeters", 1200f,
+            "Desired freecam draw distance for ALREADY LOADED objects " +
+            "(150 to 5000 Unity units). Desktop creator camera only."
+        );
+
         AutoScanTricksterFiles = Config.Bind(
             "Diagnostics",
             "AutoScanTricksterFiles",
@@ -173,7 +188,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.5 - VR input interaction recorder");
+        Log.LogInfo("OrbusRebornCamera v0.9.7 - extended cinematic draw range");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
@@ -201,6 +216,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+Shift+F1 = UI report / VR input capture");
         Log.LogInfo("Ctrl+Shift+F11 = recenter freecam to local player (CAMERA ONLY)");
         Log.LogInfo("Freecam warns beyond 35m from player; world streaming follows avatar");
+        Log.LogInfo("Extended far clipping / occlusion for ALREADY LOADED objects (desktop camera only)");
+        Log.LogInfo("Ctrl+Shift+F8 = scenery streaming report while in freecam");
         Log.LogInfo("TAB = desktop-only mouse menu pointer (VR headset must be inactive)");
         Log.LogInfo("Left click = verified Unity UI handler only; Orbus custom clicks remain diagnostic");
         Log.LogInfo("UI-Interactable layer 19 is targeted behind terrain without moving the rig");

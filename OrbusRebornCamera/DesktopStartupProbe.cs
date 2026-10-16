@@ -306,7 +306,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
             const float x = 16f;
             const float y = 16f;
             const float w = 565f;
-            GUI.Box(new Rect(x, y, w, 394f), "RC DESKTOP DIAGNOSTICS v0.9.6");
+            GUI.Box(new Rect(x, y, w, 419f), "RC DESKTOP DIAGNOSTICS v0.9.7");
             GUI.Label(new Rect(x + 15f, y + 28f, w - 30f, 20f),
                 "Scene: " + _lastScene +
                 "     XR active: " + _lastXR +
@@ -333,6 +333,8 @@ public sealed class DesktopStartupProbe : MonoBehaviour
                 VrUiInteractionRecorder.Status);
             GUI.Label(new Rect(x + 15f, y + 345f, w - 30f, 24f),
                 CameraDiagnostics.StreamingStatus);
+            GUI.Label(new Rect(x + 15f, y + 373f, w - 30f, 24f),
+                CameraDiagnostics.CinematicRenderStatus);
         }
         catch (Exception ex)
         {

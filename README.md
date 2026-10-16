@@ -34,6 +34,38 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.7: Extended cinematic rendering — experimental
+
+When freecam flies away from the local avatar, Orbus appears to unload or hide terrain and other objects. **A camera by itself does not cause a game to instantiate missing objects**; increasing draw distance only helps objects that are **already loaded but culled**. This version implements the safe, client-only rendering half first and adds a diagnostic to find out if there is a separate zone-streaming system.
+
+### New camera-only rendering options
+
+When **Ctrl+F11** enables freecam, the separate **desktop recording camera** uses:
+- `CinematicRender/EnableExtendedRendering = true` (default): experimental mode on.
+- `CinematicRender/FarClipMeters = 1200` (configurable from 150 to 5000): extend the **recording camera's** far clip. The mode never reduces a higher VR source-camera far clip.
+- Disable occlusion culling on that desktop camera.
+- Attempt to replace per-layer distance culling with an all-zero distance array **on the desktop camera only**. This optional change may be unavailable in a particular Unity IL2CPP interop, in which case the log reports a fallback.
+
+When leaving freecam or disabling the mod component, these camera-specific settings are restored. VR eye cameras, avatar position, networking/visibility, global quality settings, renderer active flags and live players remain untouched. Expect lower FPS at longer draw ranges.
+
+**Important:** the mode does not magically load game assets, spawn missing environments, alter the avatar's streaming origin or request other players beyond the normal client visibility range. If a distant shot still has unloaded buildings or terrain, this first pass has not solved that portion of the issue.
+
+### Measure actual scenery availability (new shortcut)
+
+Press **Ctrl+Shift+F8** while freecam is active. RC saves a bounded read-only report to:
+
+`BepInEx/config/RebornCam/StreamingReports/Scenery_YYYYMMDD_HHMMSS_mmm.txt`
+
+The report samples currently loaded scene renderers within 0–75m, 75–250m and 250–700m of the **recording camera**. It records aggregate active/enabled/static counts, camera settings and which zone scenes are loaded. It **does not** list other player positions, object names, or coordinates.
+
+For a useful comparison, save **two** snapshots in the same Highsteppe instance:
+1. **Near your real avatar** while scenery is present.
+2. **Far enough away for scenery to disappear**, while the real avatar remains stationary.
+
+Compare the two reports. If the distant scene has plenty of active drawable renderers, investigate render layers, LODs, shaders and camera-specific settings. If it has few/no scene renderers, the game may genuinely disable or unload the environment; fixing that requires identifying **a real client-side static-world loader**, not changing camera settings.
+
+The 35m warning from v0.9.6 is only an advisory and does not block camera travel. Same-instance and PvP privacy restrictions still apply to any future player-follow feature. This extension NEVER creates or requests hidden entities.
+
 ## RC v0.9.6: World-aware camera resets and streaming safeguards
 
 This version addresses an important limitation discovered in VR playtesting: **Orbus streams nearby environment and remote players based on the local player, not the detached recording camera**. Moving the camera does **not** force faraway terrain, entities or players to load.
