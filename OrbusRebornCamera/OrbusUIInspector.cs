@@ -105,7 +105,16 @@ public sealed class OrbusUIInspector : MonoBehaviour
         string lower = name.ToLowerInvariant();
         foreach (string term in UiTerms)
         {
-            if (lower.Contains(term)) return true;
+            // Avoid treating ordinary names like "build", "player"
+            // and "equipment" as menu UI because they contain "ui".
+            if (term == "ui")
+            {
+                if (lower == "ui" || lower.StartsWith("ui_") ||
+                    lower.StartsWith("ui-") || lower.EndsWith("_ui") ||
+                    lower.Contains("userinterface"))
+                    return true;
+            }
+            else if (lower.Contains(term)) return true;
         }
         return false;
     }
@@ -117,7 +126,13 @@ public sealed class OrbusUIInspector : MonoBehaviour
         int score = 10;
         foreach (string term in UiTerms)
         {
-            if (lower.Contains(term)) score += 4;
+            if (term == "ui")
+            {
+                if (lower == "ui" || lower.StartsWith("ui_") ||
+                    lower.EndsWith("_ui") || lower.Contains("userinterface"))
+                    score += 4;
+            }
+            else if (lower.Contains(term)) score += 4;
         }
         if (lower.Contains("connect") || lower.Contains("server") ||
             lower.Contains("menu") || lower.Contains("button"))
@@ -249,9 +264,11 @@ public sealed class OrbusUIInspector : MonoBehaviour
                 "," + mouse.y.ToString("0.0") +
                 " (position only, never text input)");
             Ray ray = camera.ScreenPointToRay(mouse);
-            RaycastHit[] hits = Physics.RaycastAll(ray, 300f);
-            Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-            if (hits.Length == 0)
+            var hits = new List<RaycastHit>();
+            foreach (RaycastHit hit in Physics.RaycastAll(ray, 300f))
+                hits.Add(hit);
+            hits.Sort((a, b) => a.distance.CompareTo(b.distance));
+            if (hits.Count == 0)
                 output.AppendLine("Physics hits: 0 (UI may not have colliders).");
             int count = 0;
             foreach (RaycastHit hit in hits)
