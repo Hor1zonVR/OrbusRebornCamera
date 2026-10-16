@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.1"
+    "0.9.2"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -173,13 +173,14 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.1 - experimental desktop startup probe");
+        Log.LogInfo("OrbusRebornCamera v0.9.2 - experimental desktop menu input");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
         // Existing working desktop camera and diagnostics.
         AddComponent<CameraDiagnostics>();
         AddComponent<DesktopStartupProbe>();
+        AddComponent<DesktopMenuInput>();
         AddComponent<AvatarDiagnostics>();
         AddComponent<TricksterAssetDiagnostics>();
         AddComponent<TricksterDiskDiagnostics>();
@@ -194,7 +195,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Shift+F3 = Show/Hide physical camera");
         Log.LogInfo("Left/Right grip = Grab and release camera");
 
-        Log.LogInfo("[DesktopProbe] F1 = desktop status and mouse-ray feasibility overlay");
+        Log.LogInfo("[DesktopProbe] F1 = desktop UI / camera diagnostics");
+        Log.LogInfo("TAB = desktop-only mouse menu pointer (VR headset must be inactive)");
+        Log.LogInfo("Left click = Unity UI button / input field, F1 = pointer diagnostics");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
         Log.LogInfo("F9 = Desktop camera toggle");

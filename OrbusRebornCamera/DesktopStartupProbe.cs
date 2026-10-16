@@ -23,6 +23,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
     private const float RayDistance = 300f;
 
     private bool _panelOpen;
+    internal static bool OverlayOpen { get; private set; }
     private bool _f1WasDown;
     private bool _leftWasDown;
     private bool _cursorOwned;
@@ -80,6 +81,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
         if (f1Down && !_f1WasDown)
         {
             _panelOpen = !_panelOpen;
+            OverlayOpen = _panelOpen;
             if (_panelOpen) TakeCursor();
             else RestoreCursor();
             Snapshot(_panelOpen ? "F1 opened" : "F1 closed");
@@ -116,7 +118,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
         bool leftDown = IsHeld(LeftMouse);
         if (leftDown && !_leftWasDown)
         {
-            _lastClicked = _lastResult;
+            _lastClicked = _lastResult + " | " + DescribeNearestRenderer(ray);
             Plugin.ModLogger.LogInfo("[DesktopProbe] Mouse pressed: " +
                                      _lastClicked);
         }
@@ -126,6 +128,47 @@ public sealed class DesktopStartupProbe : MonoBehaviour
         {
             _lastStatusTime = _elapsed;
             RefreshStatus();
+        }
+    }
+
+    private static string DescribeNearestRenderer(Ray ray)
+    {
+        // Read-only fallback for menus rendered as meshes rather than Unity UI.
+        // Renderer bounds are broad-phase only and can overlap unrelated art.
+        try
+        {
+            Renderer? closest = null;
+            float closestDistance = 300f;
+            foreach (Renderer renderer in UnityEngine.Object.FindObjectsOfType<Renderer>())
+            {
+                if (renderer == null || !renderer.enabled ||
+                    !renderer.gameObject.activeInHierarchy)
+                    continue;
+                if (!renderer.bounds.IntersectRay(ray, out float distance))
+                    continue;
+                if (distance < 0f || distance >= closestDistance)
+                    continue;
+                closest = renderer;
+                closestDistance = distance;
+            }
+
+            if (closest == null) return "No renderer bounds on ray";
+            string parent = closest.transform.parent != null
+                ? closest.transform.parent.gameObject.name : "(root)";
+            string result = "Renderer=" + closest.gameObject.name +
+                " parent=" + parent + " distance=" +
+                closestDistance.ToString("0.0") + "m";
+            int count = 0;
+            foreach (Component component in closest.GetComponents<Component>())
+            {
+                if (component == null || count++ >= 8) continue;
+                result += " [" + component.GetType().Name + "]";
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            return "Renderer probe error: " + ex.Message;
         }
     }
 
@@ -173,6 +216,21 @@ public sealed class DesktopStartupProbe : MonoBehaviour
     private void Snapshot(string reason)
     {
         RefreshStatus();
+        string localHeadHeight = "(not tracked)";
+        string gameEyeHeight = "(none)";
+        try
+        {
+            Vector3 localHead = InputTracking.GetLocalPosition(XRNode.Head);
+            localHeadHeight = localHead.y.ToString("0.00");
+            Camera? eye = FindGameCamera();
+            if (eye != null)
+                gameEyeHeight = eye.transform.position.y.ToString("0.00");
+        }
+        catch (Exception ex)
+        {
+            Plugin.ModLogger.LogWarning(
+                "[DesktopProbe] XR pose read unavailable: " + ex.Message);
+        }
         Plugin.ModLogger.LogInfo("[DesktopProbe] " + reason +
             " | elapsed=" + _elapsed.ToString("0.0") + "s" +
             " | Scene=" + _lastScene +
@@ -180,7 +238,9 @@ public sealed class DesktopStartupProbe : MonoBehaviour
             " | XR active=" + _lastXR +
             " | Cameras=" + _lastCameraCount +
             " | GameCamera=" + _lastCamera +
-            " | Focused=" + Application.isFocused);
+            " | Focused=" + Application.isFocused +
+            " | HeadLocalY=" + localHeadHeight +
+            " | GameEyeY=" + gameEyeHeight);
         try
         {
             int i = 0;
@@ -235,7 +295,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
             const float x = 16f;
             const float y = 16f;
             const float w = 565f;
-            GUI.Box(new Rect(x, y, w, 204f), "RC DESKTOP STARTUP PROBE v0.1");
+            GUI.Box(new Rect(x, y, w, 273f), "RC DESKTOP DIAGNOSTICS v0.9.2");
             GUI.Label(new Rect(x + 15f, y + 28f, w - 30f, 20f),
                 "Scene: " + _lastScene +
                 "     XR active: " + _lastXR +
@@ -246,18 +306,33 @@ public sealed class DesktopStartupProbe : MonoBehaviour
                 _lastResult);
             GUI.Label(new Rect(x + 15f, y + 120f, w - 30f, 42f),
                 "Last click: " + _lastClicked);
-            GUI.Label(new Rect(x + 15f, y + 169f, w - 30f, 20f),
-                "F1 hide | Observation only - no menu selection or XR simulation");
+            GUI.Label(new Rect(x + 15f, y + 164f, w - 30f, 20f),
+                DesktopMenuInput.PointerStatus);
+            GUI.Label(new Rect(x + 15f, y + 187f, w - 30f, 20f),
+                "UI: " + DesktopMenuInput.UiStatus);
+            GUI.Label(new Rect(x + 15f, y + 209f, w - 30f, 25f),
+                "Hover: " + DesktopMenuInput.HoverStatus);
+            GUI.Label(new Rect(x + 15f, y + 235f, w - 30f, 25f),
+                "Last action: " + DesktopMenuInput.ActionStatus);
         }
         catch (Exception ex)
         {
             _panelOpen = false;
+            OverlayOpen = false;
             RestoreCursor();
             Plugin.ModLogger.LogWarning(
                 "[DesktopProbe] Overlay failed: " + ex.Message);
         }
     }
 
-    private void OnDisable() => RestoreCursor();
-    private void OnDestroy() => RestoreCursor();
+    private void OnDisable()
+    {
+        OverlayOpen = false;
+        RestoreCursor();
+    }
+    private void OnDestroy()
+    {
+        OverlayOpen = false;
+        RestoreCursor();
+    }
 }
