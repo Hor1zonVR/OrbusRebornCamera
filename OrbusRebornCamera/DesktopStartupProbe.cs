@@ -296,7 +296,7 @@ public sealed class DesktopStartupProbe : MonoBehaviour
             const float x = 16f;
             const float y = 16f;
             const float w = 565f;
-            GUI.Box(new Rect(x, y, w, 300f), "RC DESKTOP DIAGNOSTICS v0.9.3");
+            GUI.Box(new Rect(x, y, w, 333f), "RC DESKTOP DIAGNOSTICS v0.9.4");
             GUI.Label(new Rect(x + 15f, y + 28f, w - 30f, 20f),
                 "Scene: " + _lastScene +
                 "     XR active: " + _lastXR +
@@ -317,6 +317,8 @@ public sealed class DesktopStartupProbe : MonoBehaviour
                 "Last action: " + DesktopMenuInput.ActionStatus);
             GUI.Label(new Rect(x + 15f, y + 263f, w - 30f, 22f),
                 OrbusUIInspector.LastStatus);
+            GUI.Label(new Rect(x + 15f, y + 291f, w - 30f, 22f),
+                "Layer-aware: " + DesktopMenuInput.PhysicsUiStatus);
         }
         catch (Exception ex)
         {
