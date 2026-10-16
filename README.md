@@ -34,6 +34,28 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.5: Learn from real VR menu clicks
+
+Previous diagnostics showed that Orbus has a custom VR input module and that the main character-selection menu uses a collider on the UI-Interactable layer. The standalone desktop pointer still intentionally pauses in freecam, and it **cannot yet activate custom Orbus VR menus**.
+
+Rather than guess at the click API, we can observe a **real click in VR** and use the event/ray information as a design reference for future mouse control. The v0.9.5 VR Input Recorder is **read-only**. It does not move the player/controller transforms, send clicks, or patch game methods.
+
+### VR test
+
+1. Make sure the new BetterMirror.dll is installed in the separate RC test instance. Connect the Quest and start Orbus normally **in VR**, staying on the character-selection/menu screen.
+2. With the headset still active, press **Ctrl+Shift+F1** on the PC keyboard. This immediately saves the familiar scene/method-signature UI Inspector report and **also starts 60 seconds of VR ray/trigger observation**. Check the console for `[VrUiRecorder] Recording started`.
+3. Put the headset on, aim your **right-hand laser** at a familiar menu item, and click it 2-3 times using your normal controller trigger. Do the same with the **left hand**, if possible. Clicking normal menu items is enough; there is no need to enter credentials or join a server.
+4. After 60 seconds a report is written automatically, or press **Ctrl+Shift+F1** again (while XR is still active) to stop early. Find both reports in `BepInEx/config/RebornCam/UIReports/`. The new file is named `OrbusVRInput_YYYYMMDD_HHMMSS_mmm.txt`.
+5. Send the `OrbusVRInput_...txt` report and the matching `OrbusUI_...txt` report after reviewing their GameObject paths for private names. We can compare observed pointer hits and trigger edges with real native input class method names.
+
+**What is captured:** each controller's actual hierarchy and pointer Transform (if found); read-only physics hits from the pointer/controller along forward and reverse axes; nearest UI-Interactable collider, distance and other first-hit object; digital or analog trigger press/release changes if Unity XR InputDevices supplies them; and periodic samples for up to 60 seconds. No raw controller locations, text field values, password inputs or server addresses are exported. If the game's SteamVR input is not exposed through Unity XR InputDevices, the report still provides ray observations but marks trigger state as unavailable.
+
+**Limits:** This is not a direct trace of the actual Wacki pointer callback; the scene and metadata reports help us decide which method or event to inspect next. It is a safe first experiment, not evidence that the desktop version can click yet.
+
+### Freecam testing during the same VR session
+
+After finishing the UI recording, keep the Quest connected, focus the Orbus desktop window, press **Ctrl+F11** to enter freecam and hold **right mouse + WASD** to fly the **PC recording camera only**. Your VR headset should continue following its normal tracked view and your avatar must stay in place. **Do not use the Tab pointer in freecam**; it is still intentionally paused, pending a separate desktop UI mode that never moves the real player.
+
 ## RC v0.9.4: Real UI collider targeting and input-class method survey
 
 This is an **experimental desktop UI investigation**, not a verified replacement for VR controllers.
