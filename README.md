@@ -34,6 +34,24 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.3: On-demand UI Inspector (read-only)
+
+The new UI discovery tool investigates how Orbus menus work, including custom VR/3D menus, without modifying them. Unlike the F1 overlay, it inspects currently loaded scene objects **including inactive UI objects** and saves a report for future UI-mod work.
+
+**How to run**
+
+1. Launch your modded Orbus instance. Navigate to the screen of interest without a headset or in VR.
+2. To inspect a specific button, first position your mouse over it. TAB can show the desktop pointer, but is not required to run the report.
+3. Press **Ctrl+Shift+F1** once. A short pause is possible while Unity objects are scanned. Ordinary **F1** still opens/closes the mini diagnostics overlay, which displays the last UI Inspector status.
+4. Open the report at **`<game folder>/BepInEx/config/RebornCam/UIReports/OrbusUI_YYYYMMDD_HHMMSS_mmm.txt`**. The exact filename is also printed to `BepInEx/LogOutput.log` on a line starting `[UIInspector]`.
+5. Repeat in character selection, settings, and other menus when relevant.
+
+**The report covers:** currently loaded scene names, camera and headset context, detected Unity UI Canvas/Selectable/GraphicRaycaster components, mouse physics raycast and renderer bounds candidates, ancestor paths/component types, a ranked list of UI-like objects with hierarchy paths and active/inactive status, rect dimensions, and a component-class histogram. When available, the inspector queries native IL2CPP class names and their assemblies, including game-specific MonoBehaviour scripts. These names are much more useful for planning a custom UI mod than just seeing `UnityEngine.Component`.
+
+**Limits and privacy:** no menu events are triggered, no UI is altered, the camera and avatar do not move, and the inspector does not read any text field values, passwords, authentication tokens or entered server addresses. It does log GameObject names, which might contain player/server identifiers: **review/redact the report before sharing**. Scanning only runs when you request it and caps the inspection at 35,000 scene transforms with up to 900 reported UI-like candidates.
+
+For the first test, put your cursor over **Connect** in the server menu and press Ctrl+Shift+F1. Send the report, and we can identify Orbus's UI system and choose the right interaction approach based on evidence.
+
 ## RC v0.9.2: Desktop Menu Input experiment
 
 **Status:** untested in Orbus. The existing headset-free startup/freecam already worked on the desktop, but menu controls previously only supported physics hit diagnostics. This update adds a **desktop-only**, **opt-in** adapter for **standard Unity UI** with no changes to the XR tracking rig or avatar position.
