@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Il2CppInterop.Runtime;
 
 namespace OrbusBetterMirror;
 
@@ -89,6 +90,12 @@ public sealed partial class CameraDiagnostics
                     new[] { typeof(int) });
                 if (ctor != null)
                     emptyDistances = ctor.Invoke(new object[] { 32 });
+                else
+                {
+                    ctor = arrayType.GetConstructor(new[] { typeof(long) });
+                    if (ctor != null)
+                        emptyDistances = ctor.Invoke(new object[] { 32L });
+                }
             }
             if (emptyDistances == null) return;
             prop.SetValue(desktop, emptyDistances);
@@ -162,6 +169,95 @@ public sealed partial class CameraDiagnostics
         }
     }
 
+    private void ToggleCinematicRenderBoost()
+    {
+        if (_mode != CameraMode.Drone)
+        {
+            Plugin.ModLogger.LogInfo(
+                "[CinematicRender] Enter freecam before toggling the boost.");
+            return;
+        }
+        Plugin.ExtendedRenderEnabled.Value =
+            !Plugin.ExtendedRenderEnabled.Value;
+        ApplyCinematicRenderSettings();
+        Plugin.ModLogger.LogInfo(
+            "[CinematicRender] Freecam rendering boost " +
+            (Plugin.ExtendedRenderEnabled.Value ? "ON" : "OFF") +
+            ". Only already-loaded geometry can reappear.");
+    }
+
+    /// <summary>
+    /// List only native CLASS NAMES of possibly relevant local scenery
+    /// loaders/cullers. Never call methods, read fields, list objects/players
+    /// or change any scene state. Runs exclusively on the user hotkey.
+    /// </summary>
+    private static void AppendLoadingClassCandidates(StringBuilder sb)
+    {
+        sb.AppendLine();
+        sb.AppendLine("POSSIBLE LOCAL SCENERY LOADING/CULLING COMPONENT CLASSES");
+        sb.AppendLine("Metadata names only; no values or gameplay callbacks.");
+        var names = new Dictionary<string, int>(StringComparer.Ordinal);
+        int inspected = 0;
+        try
+        {
+            foreach (Component component in
+                Resources.FindObjectsOfTypeAll<Component>())
+            {
+                if (component == null) continue;
+                GameObject go = component.gameObject;
+                if (go == null) continue;
+                Scene scene = go.scene;
+                if (!scene.IsValid() || !scene.isLoaded ||
+                    scene.name == "DontDestroyOnLoad")
+                    continue;
+                if (++inspected > 30000) break;
+                string layer = LayerMask.LayerToName(go.layer);
+                if (layer == "Player" || layer == "Enemy" ||
+                    layer == "Minicam")
+                    continue;
+                string full;
+                try
+                {
+                    IntPtr klass =
+                        IL2CPP.il2cpp_object_get_class(component.Pointer);
+                    if (klass == IntPtr.Zero) continue;
+                    string name = IL2CPP.il2cpp_class_get_name_(klass) ?? "";
+                    string ns = IL2CPP.il2cpp_class_get_namespace_(klass) ?? "";
+                    full = ns.Length == 0 ? name : ns + "." + name;
+                }
+                catch { continue; }
+                string lower = full.ToLowerInvariant();
+                if (!lower.Contains("load") &&
+                    !lower.Contains("stream") &&
+                    !lower.Contains("cull") &&
+                    !lower.Contains("chunk") &&
+                    !lower.Contains("terrain") &&
+                    !lower.Contains("sector") &&
+                    !lower.Contains("lod") &&
+                    !lower.Contains("occlu") &&
+                    !lower.Contains("pool") &&
+                    !lower.Contains("scene") &&
+                    !lower.Contains("zone"))
+                    continue;
+                names[full] = names.TryGetValue(full, out int count)
+                    ? count + 1 : 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine("Metadata scan unavailable: " +
+                ex.GetType().Name);
+        }
+        var sorted = new List<KeyValuePair<string, int>>(names);
+        sorted.Sort((a, b) => b.Value.CompareTo(a.Value));
+        sb.AppendLine("Loaded-scene components inspected: " +
+            inspected + " / 30000");
+        sb.AppendLine("Potential class names: " + sorted.Count);
+        for (int i = 0; i < Math.Min(sorted.Count, 55); i++)
+            sb.AppendLine("  " + sorted[i].Value + " x " + sorted[i].Key);
+        sb.AppendLine("These are candidates, NOT proof that a class owns streaming.");
+    }
+
     private sealed class RenderBucket
     {
         public int Total;
@@ -215,6 +311,11 @@ public sealed partial class CameraDiagnostics
             var near = new RenderBucket();
             var medium = new RenderBucket();
             var far = new RenderBucket();
+            var playerNear = new RenderBucket();
+            var playerMedium = new RenderBucket();
+            var playerFar = new RenderBucket();
+            Vector3 playerEyePosition = eye != null
+                ? eye.transform.position : Vector3.zero;
             int visited = 0, sceneRenderable = 0, beyond = 0, excluded = 0;
             foreach (Renderer renderer in
                 Resources.FindObjectsOfTypeAll<Renderer>())
@@ -249,10 +350,21 @@ public sealed partial class CameraDiagnostics
                 else if (d <= 250f) medium.Record(renderer, go);
                 else if (d <= 700f) far.Record(renderer, go);
                 else beyond++;
+
+                if (eye != null)
+                {
+                    float dPlayer = Vector3.Distance(
+                        renderer.bounds.center, playerEyePosition);
+                    if (dPlayer <= 75f) playerNear.Record(renderer, go);
+                    else if (dPlayer <= 250f)
+                        playerMedium.Record(renderer, go);
+                    else if (dPlayer <= 700f)
+                        playerFar.Record(renderer, go);
+                }
             }
 
             var sb = new StringBuilder();
-            sb.AppendLine("REBORNCAM CINEMATIC SCENERY REPORT v0.9.7");
+            sb.AppendLine("REBORNCAM CINEMATIC SCENERY REPORT v0.9.8");
             sb.AppendLine("Read-only renderer presence/culling inventory.");
             sb.AppendLine("No player names, object paths or world coordinates exported.");
             sb.AppendLine("Loaded scene names are included to distinguish actual world transitions.");
@@ -274,6 +386,8 @@ public sealed partial class CameraDiagnostics
                 _desktop.useOcclusionCulling);
             sb.AppendLine("Desktop layer-range override=" +
                 _layerCullOverrideApplied);
+            sb.AppendLine("Extended rendering enabled=" +
+                Plugin.ExtendedRenderEnabled.Value);
             if (_source != null)
                 sb.AppendLine("Source VR camera farClipPlane=" +
                     _source.farClipPlane.ToString("0") +
@@ -286,9 +400,19 @@ public sealed partial class CameraDiagnostics
             sb.AppendLine(near.Format("Camera 0-75m"));
             sb.AppendLine(medium.Format("Camera 75-250m"));
             sb.AppendLine(far.Format("Camera 250-700m"));
+            if (eye != null)
+            {
+                sb.AppendLine("CONTROL: RENDERERS AROUND THE REAL PLAYER (SAME SNAPSHOT)");
+                sb.AppendLine(playerNear.Format("Player 0-75m"));
+                sb.AppendLine(playerMedium.Format("Player 75-250m"));
+                sb.AppendLine(playerFar.Format("Player 250-700m"));
+            }
+            sb.AppendLine();
+            AppendLoadingClassCandidates(sb);
             sb.AppendLine();
             sb.AppendLine("INTERPRETATION:");
             sb.AppendLine("- Many drawable objects but empty picture: investigate camera layers, fog, LOD or shaders.");
+            sb.AppendLine("- Compare camera vs player counts in the SAME snapshot; fewer objects near the camera supports local player-centred scene loading.");
             sb.AppendLine("- Few/no nearby scene renderers far from avatar: geometry may be unloaded, disabled, or never spawned.");
             sb.AppendLine("- Camera settings only affect objects already present in memory.");
             sb.AppendLine("- This report never requests terrain, remote players or network streaming.");
