@@ -179,6 +179,16 @@ public sealed class DesktopStartupProbe : MonoBehaviour
     private static Camera? FindGameCamera()
     {
         Camera[] all = Camera.allCameras;
+        // In monitor-only sessions inspect the camera actually rendering the
+        // desktop screen, not a dormant game eye camera below the floor.
+        if (!XRSettings.isDeviceActive)
+        {
+            foreach (Camera camera in all)
+                if (camera != null && camera.enabled &&
+                    camera.name == "BetterMirror Creator Camera" &&
+                    camera.targetTexture == null)
+                    return camera;
+        }
         foreach (Camera camera in all)
             if (camera != null && camera.name == "Camera (eye)" &&
                 camera.enabled)
