@@ -311,7 +311,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
         string controlName = _hover.gameObject.name;
         try
         {
-            Button? button = _hover.TryCast<Button>();
+            Button? button = _hover.GetComponent<Button>();
             if (button != null)
             {
                 button.onClick.Invoke();
@@ -319,7 +319,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
                 return;
             }
 
-            InputField? input = _hover.TryCast<InputField>();
+            InputField? input = _hover.GetComponent<InputField>();
             if (input != null)
             {
                 _editingField = input;
@@ -329,7 +329,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
                 return;
             }
 
-            Toggle? toggle = _hover.TryCast<Toggle>();
+            Toggle? toggle = _hover.GetComponent<Toggle>();
             if (toggle != null)
             {
                 toggle.isOn = !toggle.isOn;
@@ -337,7 +337,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
                 return;
             }
 
-            Dropdown? dropdown = _hover.TryCast<Dropdown>();
+            Dropdown? dropdown = _hover.GetComponent<Dropdown>();
             if (dropdown != null)
             {
                 dropdown.Show();
