@@ -34,6 +34,23 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.2: Desktop Menu Input experiment
+
+**Status:** untested in Orbus. The existing headset-free startup/freecam already worked on the desktop, but menu controls previously only supported physics hit diagnostics. This update adds a **desktop-only**, **opt-in** adapter for **standard Unity UI** with no changes to the XR tracking rig or avatar position.
+
+**Controls**
+
+- **TAB** toggles the desktop menu pointer while no XR headset is active. Click **left mouse** to activate a detected standard Unity UI control. Small green/orange dot and hover label show whether a supported control is under the mouse.
+- **F1** shows the diagnostics overlay, now reporting Unity UI survey counts, hovered controls and click actions. TAB also writes a one-time control inventory (up to 25 UI elements) to BepInEx/LogOutput.log.
+- **Text fields:** click a supported Unity UI InputField, type using the small RC desktop editor, and press **Apply (then click Connect)**. Input text and server addresses are not written to RC's logs.
+- **F2** opens the existing Creator Panel. The desktop pointer is suspended while the Creator Panel is visible or **freecam** is active, and it is **disabled** whenever an XR device is active. Freecam still moves **only the desktop camera**.
+
+The adapter checks screen-space and world-space RectTransforms from the displayed camera, then invokes a detected Button, Toggle, Dropdown or InputField's own Unity UI handler. The pointer is **not** a virtual VR controller and does not fake hand positions, send arbitrary gameplay interactions, or move/teleport the character. **Custom Orbus VR interface components, keyboard-based movement, server joining, and character pose fixes are not confirmed**. If F1 reports zero UI controls or clicks do nothing, send the DesktopUI lines from LogOutput.log; the next step will be targeting Orbus's particular VR menu components.
+
+**Build requirements:** RC builds against BepInEx/interop from the installed game. If the generated interop contains UnityEngine.UI.dll, the desktop UI adapter compiles enabled, with optional UnityEngine.UIModule.dll reference. If UnityEngine.UI.dll is missing, a **diagnostics-only** fallback compiles; the log explicitly reports that no UI adapter is available. Do not assume a successful build means the Orbus menus use this UI system.
+
+**Suggested test sequence:** in the modded test installation, launch with no headset connected. On the main menu press TAB, then F1. Hover/click the **Connect** button, and try the **Server Address** field if RC detects one. Record what F1 says for UI counts, hover and last action. Only if clicks work, attempt a normal server connection. No changes to your account or server access are made by RC itself. Then separately verify camera-only freecam and that the character does not move with it. If the mod errors, revert to your last BetterMirror.dll.
+
 ## Experimental Desktop Startup Probe v0.1 (merged into main)
 
 This **does not yet make Orbus a flatscreen game**. It is a read-only feasibility probe to determine whether Community Edition loads without an active Quest/SteamVR headset, which scene and cameras initialize, and whether Unity physics raycasts from the desktop mouse hit world objects. It does not emulate VR controllers, click Orbus menus, teleport a character, or join a server.
