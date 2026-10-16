@@ -462,8 +462,8 @@ public sealed class DesktopMenuInput : MonoBehaviour
             GUI.DrawTexture(new Rect(x - 3f, yMarker - 3f, 6f, 6f),
                 Texture2D.whiteTexture);
             GUI.color = original;
-            float y = Screen.height - 33f;
-            GUI.Box(new Rect(12f, y, Mathf.Min(730f, Screen.width - 24f), 28f),
+            float statusBarY = Screen.height - 33f;
+            GUI.Box(new Rect(12f, statusBarY, Mathf.Min(730f, Screen.width - 24f), 28f),
                 "RC Pointer | " + _hoverName + " | TAB exit");
         }
         catch (Exception ex)
