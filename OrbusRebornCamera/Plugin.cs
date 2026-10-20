@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.14"
+    "0.9.15"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -46,6 +46,8 @@ public sealed class Plugin : BasePlugin
     // Ctrl+F4 is always available on demand when a rare goblin is found.
     // The separate, slower disk scan is opt-in.
     internal static ConfigEntry<bool> AutoScanTricksterFiles = null!;
+    internal static ConfigEntry<bool> LoadLegacyDiagnostics = null!;
+    internal static ConfigEntry<bool> LoadPhysicalCameraPrototype = null!;
 
     internal static ConfigEntry<bool> CreatorPanelVisible = null!;
 
@@ -196,6 +198,20 @@ public sealed class Plugin : BasePlugin
             "to request a new scan on the next launch."
         );
 
+        // Stability isolation: no diagnostic MonoBehaviours unless explicitly opted in.
+        // StartEnabled is independent; disabling it alone did not unload any probes.
+        LoadLegacyDiagnostics = Config.Bind(
+            "Diagnostics", "LoadLegacyComponents", false,
+            "Load experimental UI, avatar, disk and PowerUI diagnostic components. " +
+            "Default false to protect VR stability. Restart Orbus after changing."
+        );
+
+        LoadPhysicalCameraPrototype = Config.Bind(
+            "PhysicalCamera", "LoadExperimentalPrototype", false,
+            "Load the experimental in-world physical camera model and grabbing " +
+            "logic (F3). Disabled during VR stability testing. Restart required."
+        );
+
         CreatorPanelVisible = Config.Bind(
             "CreatorPanel",
             "OpenAtStartup",
@@ -205,45 +221,65 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.14 - VR stability: automatic scene scans disabled");
+        Log.LogInfo("OrbusRebornCamera v0.9.15 - core-only stability isolation");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
-        // Existing working desktop camera and diagnostics.
+        // The real camera, creator panel, freecam and recording modes still work.
+        // Avoid loading UI-scanning components just because BepInEx loads RC.
         AddComponent<CameraDiagnostics>();
-        AddComponent<DesktopStartupProbe>();
-        AddComponent<DesktopMenuInput>();
-        AddComponent<OrbusUIInspector>();
-        AddComponent<VrUiInteractionRecorder>();
-        AddComponent<NativeMenuDiffInspector>();
-        AddComponent<NativePowerUiSettingsProbe>();
-        AddComponent<AvatarDiagnostics>();
-        AddComponent<TricksterAssetDiagnostics>();
-        AddComponent<TricksterDiskDiagnostics>();
 
-        // Physical prototype model from v0.7.0.
-        AddComponent<PhysicalCameraPrototype>();
+        if (LoadLegacyDiagnostics.Value)
+        {
+            AddComponent<DesktopStartupProbe>();
+            AddComponent<DesktopMenuInput>();
+            AddComponent<OrbusUIInspector>();
+            AddComponent<VrUiInteractionRecorder>();
+            AddComponent<NativeMenuDiffInspector>();
+            AddComponent<NativePowerUiSettingsProbe>();
+            AddComponent<AvatarDiagnostics>();
+            AddComponent<TricksterAssetDiagnostics>();
+            AddComponent<TricksterDiskDiagnostics>();
+            Log.LogWarning("[Stability] Legacy diagnostic components explicitly ENABLED.");
+        }
+        else
+        {
+            Log.LogInfo("[Stability] Legacy UI, scene, PowerUI and disk diagnostics NOT loaded.");
+        }
 
-        // New controller input and grabbing component.
-        AddComponent<PhysicalCameraGrab>();
+        if (LoadPhysicalCameraPrototype.Value)
+        {
+            AddComponent<PhysicalCameraPrototype>();
+            AddComponent<PhysicalCameraGrab>();
+            Log.LogInfo("[Stability] Experimental physical camera/grabbing ENABLED.");
+        }
+        else
+        {
+            Log.LogInfo("[Stability] Physical-camera prototype/grabbing NOT loaded.");
+        }
 
-        Log.LogInfo("F3 = Recall physical camera");
-        Log.LogInfo("Shift+F3 = Show/Hide physical camera");
-        Log.LogInfo("Left/Right grip = Grab and release camera");
+        Log.LogInfo("[Stability] Core camera loaded; StartEnabled=" +
+                    StartEnabled.Value + ", legacyDiagnostics=" +
+                    LoadLegacyDiagnostics.Value + ", physicalPrototype=" +
+                    LoadPhysicalCameraPrototype.Value);
 
-        Log.LogInfo("[DesktopProbe] F1 = desktop UI / camera diagnostics");
-        Log.LogInfo("Ctrl+Shift+F1 = broad UI report / VR input capture");
-        Log.LogInfo("Ctrl+Shift+I twice = compare CLOSED vs OPEN native Orbus Settings (one concise report)");
-        Log.LogInfo("Ctrl+Shift+P twice = read-only POWERUI SETTINGS observer (close menu first; then open Settings)");
+        if (LoadPhysicalCameraPrototype.Value) Log.LogInfo("F3 = Recall physical camera");
+        if (LoadPhysicalCameraPrototype.Value) Log.LogInfo("Shift+F3 = Show/Hide physical camera");
+        if (LoadPhysicalCameraPrototype.Value) Log.LogInfo("Left/Right grip = Grab and release camera");
+
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("[DesktopProbe] F1 = desktop UI / camera diagnostics");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("Ctrl+Shift+F1 = broad UI report / VR input capture");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("Ctrl+Shift+I twice = compare CLOSED vs OPEN native Orbus Settings (one concise report)");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("Ctrl+Shift+P twice = read-only POWERUI SETTINGS observer (close menu first; then open Settings)");
         Log.LogInfo("Ctrl+Shift+F11 = recenter freecam to local player (CAMERA ONLY)");
         Log.LogInfo("Freecam warns beyond 35m from player; world streaming follows avatar");
         Log.LogInfo("Extended far clipping / occlusion for ALREADY LOADED objects (desktop camera only)");
         Log.LogInfo("Ctrl+Shift+F8 = compare loaded scenery near freecam and player");
         Log.LogInfo("Ctrl+Shift+F9 = toggle detached camera's extended rendering live");
-        Log.LogInfo("TAB = desktop-only mouse menu pointer (VR headset must be inactive)");
-        Log.LogInfo("Left click = verified Unity UI handler only; Orbus custom clicks remain diagnostic");
-        Log.LogInfo("UI-Interactable layer 19 is targeted behind terrain without moving the rig");
-        Log.LogInfo("F1 = pointer and scene diagnostics");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("TAB = desktop-only mouse menu pointer (VR headset must be inactive)");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("Left click = verified Unity UI handler only; Orbus custom clicks remain diagnostic");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("UI-Interactable layer 19 is targeted behind terrain without moving the rig");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("F1 = pointer and scene diagnostics");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
         Log.LogInfo("F9 = Desktop camera toggle");
@@ -257,13 +293,16 @@ public sealed class Plugin : BasePlugin
         Log.LogWarning(
             "Trickster Goblin visual filtering is not implemented yet. " +
             "Use freecam only where the server owner permits it.");
-        Log.LogInfo("F4/F8 = MANUAL diagnostics only; no timed or scene-change scans");
-        Log.LogWarning("F4 and Shift+F4 remain heavyweight manual scans. Avoid using them during VR gameplay.");
-        Log.LogInfo("Ctrl+F4 = Read-only Trickster model diagnostic, use if you encounter the rare enemy");
-        Log.LogInfo("Optional Trickster disk scan defaults OFF; see [Diagnostics] AutoScanTricksterFiles");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("F4/F8 = MANUAL diagnostics only; no timed or scene-change scans");
+        if (LoadLegacyDiagnostics.Value) Log.LogWarning("F4 and Shift+F4 remain heavyweight manual scans. Avoid using them during VR gameplay.");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("Ctrl+F4 = Read-only Trickster model diagnostic, use if you encounter the rare enemy");
+        if (LoadLegacyDiagnostics.Value) Log.LogInfo("Optional Trickster disk scan defaults OFF; see [Diagnostics] AutoScanTricksterFiles");
 
-        Log.LogInfo(
-            $"Physical camera grab radius: {PrototypeGrabRadius.Value:0.00}m"
-        );
+        if (LoadPhysicalCameraPrototype.Value)
+        {
+            Log.LogInfo(
+                $"Physical camera grab radius: {PrototypeGrabRadius.Value:0.00}m"
+            );
+        }
     }
 }
