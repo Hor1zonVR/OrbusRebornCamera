@@ -176,13 +176,16 @@ public sealed partial class CameraDiagnostics
 
         float progress = Mathf.Clamp01(_pathElapsed / seconds);
         float sections = _keyframes.Count - 1;
-        float segmentProgress = progress * sections;
+        // Ease at the START and END of the entire cinematic, not at each
+        // intermediate shot: the camera now flows through the spline instead
+        // of stopping and restarting every time it reaches a keyframe.
+        float globalEase = Mathf.SmoothStep(0f, 1f, progress);
+        float segmentProgress = globalEase * sections;
         int index = Math.Min(_keyframes.Count - 2,
             Mathf.FloorToInt(segmentProgress));
         float fraction = Mathf.Clamp01(segmentProgress - index);
-        // Smoothly ease between shots. Rotation uses quaternion interpolation
-        // so turns never jump across the 0/360-degree boundary.
-        float smooth = Mathf.SmoothStep(0f, 1f, fraction);
+        // Quaternion interpolation preserves roll through all keyframes.
+        float smooth = fraction;
         CameraKeyframe from = _keyframes[index];
         CameraKeyframe to = _keyframes[index + 1];
 
