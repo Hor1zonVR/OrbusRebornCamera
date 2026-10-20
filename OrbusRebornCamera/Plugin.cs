@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.9"
+    "0.9.10
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -198,7 +198,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.9 - creator studio UI, freecam roll and keyframe preview");
+        Log.LogInfo("OrbusRebornCamera v0.9.10 - creator studio spacing and overlap fix");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
