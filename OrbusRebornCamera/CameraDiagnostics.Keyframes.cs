@@ -202,6 +202,8 @@ public sealed partial class CameraDiagnostics
 
         if (progress >= 1f)
         {
+            // The final camera orientation is already copied into roll,
+            // yaw and pitch above, so ending playback does not snap to 0°.
             StopKeyframePlayback();
             Plugin.ModLogger.LogInfo(
                 "[Keyframes] Playback finished at final shot.");
