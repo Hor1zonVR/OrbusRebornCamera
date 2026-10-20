@@ -34,6 +34,38 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.9: Creator Studio, roll and spline path previews
+
+**F2 has a new, movable, non-modal creator panel.** Instead of the former 948px settings stack, the editor is about 418x562 and has **Camera / Freecam / Keyframes tabs**, clearer buttons, consistent mint accents and contextual controls. Drag the title bar to move it. Only the desktop output is modified; no gameplay avatar, VR tracked camera or controller transforms are changed.
+
+**Crucial workflow fix:** with the panel left open, point the mouse **outside** the panel, then **hold RMB + WASD** to move the recording camera. Release RMB to return to UI interaction. RMB started over the panel is reserved for UI use. **F2** still opens/closes the editor. The panel can be dragged to the right or left edge to free up the preview area.
+
+### Cinematic bank/roll
+
+- While RMB flying in freecam, **Z / C** apply camera roll left/right at a configurable speed; **X** returns roll to level.
+- The **Freecam tab** shows current roll and lets you change roll speed (5–180 degrees/sec), mouse sensitivity and movement speed, level roll, recenter to the local player, or toggle the existing extended scenery rendering.
+- New setting: `[ExperimentalDrone] RollDegreesPerSecond = 65`, with a live slider in the Freecam tab.
+- Saved keyframes already store quaternion camera rotations. v0.9.9 retains the complete 3-axis quaternion during cinematic playback, including roll/bank; existing `RebornCamKeyframes.txt` files remain compatible.
+
+### Editable path trail and curved keyframes
+
+- **Keyframes tab** shows saved shot count, approximate path distance, playback duration, Add/Undo/Play/Clear and a visibility switch for path guides.
+- The camera **position** now travels along a Catmull–Rom spline through three or more shots, instead of straight lines with stops at each shot. Two-shot paths remain straight. Orientation and FOV still interpolate smoothly between shots.
+- With F2 open and path visibility enabled, the **desktop creator camera only** draws a mint trajectory line, small 3D cross markers at saved shots and direction ticks. Start/end markers have different colors; these are not collidable scene objects.
+- Visual guides are hidden during path playback, whenever the F2 panel is hidden and from the headset camera. They do not appear on the real VR display, and no shared world objects are changed. Setting: `[CreatorPanel] ShowKeyframePath = true`.
+- The path renderer uses an optional compatible Unity shader. If no suitable GL shader/interoperability is available, it logs `[PathPreview]` and disables **only the visual guide**, not camera controls or keyframe playback.
+
+### First test
+
+1. Pull/build v0.9.9 locally against your BepInEx IL2CPP interop. Test in a separate MODTEST instance before releasing a Stable update to RM users.
+2. With Orbus loaded (VR or flatscreen), press **F2**. Check that tabs switch and drag the title bar.
+3. Open **Freecam**, press **Ctrl+F11**, leave F2 visible, then hold **RMB outside** the panel and fly with **WASD**. Release RMB; use the UI normally.
+4. Hold **Z/C** while RMB flying to bank; **X** levels the camera. Save at least three shots with different rotations in **Keyframes**.
+5. Enable **Show camera path & markers**, check the preview curve, then play the path. The on-screen guides should disappear while playback is running and your recorded rolls should interpolate.
+6. Verify the Quest view/player remain unaffected, F2 hides cleanly, and replay stops/recenters normally after zone changes.
+
+**Note:** this update improves editing and camera paths. It does not yet force Orbus to stream unloaded chunks far away from the local avatar. Extended rendering still only shows world content already present in the client.
+
 ## RC v0.9.8: Compare camera-side rendering vs actual world streaming
 
 The already merged v0.9.7 system extends far clip, disables desktop-camera occlusion, and attempts to remove per-layer cull limits **for objects already loaded in Unity**. v0.9.8 improves the tools for finding out why scenery still disappears far from your avatar:
