@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.10"
+    "0.9.11"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -39,6 +39,7 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<float> KeyframeDuration = null!;
     internal static ConfigEntry<float> DroneRollSpeed = null!;
     internal static ConfigEntry<bool> ShowKeyframePath = null!;
+    internal static ConfigEntry<bool> UseOrbusUiFont = null!;
     internal static ConfigEntry<bool> ExtendedRenderEnabled = null!;
     internal static ConfigEntry<float> ExtendedRenderFarClip = null!;
 
@@ -153,6 +154,12 @@ public sealed class Plugin : BasePlugin
         DroneRollSpeed = Config.Bind(
             "ExperimentalDrone", "RollDegreesPerSecond", 65f,
             "Bank the detached creator camera with Z/C while RMB flying; X levels it.");
+        UseOrbusUiFont = Config.Bind(
+            "CreatorPanel", "UseOrbusFont", true,
+            "Prefer an already-loaded Orbus scene TextMesh font for the creator " +
+            "panel title, section headings and tabs. Never bundles font files; " +
+            "falls back to the native readable Unity IMGUI font if unavailable.");
+
         ShowKeyframePath = Config.Bind(
             "CreatorPanel", "ShowKeyframePath", true,
             "Show keyframe trajectory and markers ONLY on the desktop creator camera " +
@@ -198,7 +205,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.10 - creator studio spacing and overlap fix");
+        Log.LogInfo("OrbusRebornCamera v0.9.11 - Orbus-inspired Creator Studio theme and in-game font");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
