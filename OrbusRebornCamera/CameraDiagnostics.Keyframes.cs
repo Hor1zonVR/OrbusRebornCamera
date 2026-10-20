@@ -149,6 +149,8 @@ public sealed partial class CameraDiagnostics
         _pathElapsed = 0f;
         _playbackScene = ActiveSceneName();
         _playbackHorizontalFov = _keyframes[0].HorizontalFov;
+        _dronePosition = _keyframes[0].Position;
+        _dronePlaybackRotation = _keyframes[0].Rotation;
         _playingKeyframes = true;
 
         Plugin.ModLogger.LogInfo(
