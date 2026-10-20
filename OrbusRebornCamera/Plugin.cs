@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.10
+    "0.9.10"
 )]
 public sealed class Plugin : BasePlugin
 {
