@@ -2,6 +2,8 @@
 # OrbusRebornCamera - Automatic Release Publisher
 # Builds locally, pushes source and publishes the DLL to GitHub.
 
+param([string]$GameDir = "")
+
 $ErrorActionPreference = "Stop"
 
 $repo = "Hor1zonVR/OrbusRebornCamera"
@@ -77,7 +79,34 @@ Write-Host ""
 # Build the camera.
 Write-Host "[1/4] Building camera DLL..." -ForegroundColor Yellow
 
-& dotnet build $project -c Release
+# Build against an already-prepared game; do NOT install to this folder.
+# Prefer RM's tested instance library to the older standalone download path.
+if ([string]::IsNullOrWhiteSpace($GameDir)) {
+    $library = Join-Path $env:LOCALAPPDATA "OrbusRebornModdingInstances"
+    if (Test-Path $library) {
+        $dirs = @(Get-ChildItem -LiteralPath $library -Directory | Sort-Object Name)
+        $preferred = @($dirs | Where-Object { $_.Name -eq "My Orbus Renewed" })
+        $preferred += @($dirs | Where-Object { $_.Name -ne "My Orbus Renewed" })
+        foreach ($item in $preferred) {
+            if (Test-Path (Join-Path $item.FullName "BepInEx\\interop\\Il2Cppmscorlib.dll") -PathType Leaf) {
+                $GameDir = $item.FullName
+                break
+            }
+        }
+    }
+}
+if ([string]::IsNullOrWhiteSpace($GameDir)) {
+    $fallback = Join-Path $env:USERPROFILE "Downloads\\OrbusVR-Reborn-Community-PC-MODTEST\\OrbusVR-Reborn-Community-PC"
+    if (Test-Path (Join-Path $fallback "BepInEx\\interop\\Il2Cppmscorlib.dll") -PathType Leaf) {
+        $GameDir = $fallback
+    }
+}
+if ([string]::IsNullOrWhiteSpace($GameDir)) {
+    throw "No BepInEx-generated interop found. Run a modded RM game instance once, or pass -GameDir explicitly."
+}
+$GameDir = [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($GameDir))
+Write-Host "Compile references (NOT install destination): $GameDir" -ForegroundColor Cyan
+& dotnet build $project -c Release "-p:GameDir=$GameDir"
 Check-Result "Camera build"
 
 if (-not (Test-Path $dll)) {
