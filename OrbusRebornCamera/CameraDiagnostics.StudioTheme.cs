@@ -1,6 +1,10 @@
 using System;
 using UnityEngine;
 
+#if ORBUS_UI_AVAILABLE
+using UnityEngine.UI;
+#endif
+
 namespace OrbusBetterMirror;
 
 /// <summary>
@@ -32,6 +36,37 @@ public sealed partial class CameraDiagnostics
             Font? best = null;
             int bestScore = 0;
             int inspected = 0;
+
+#if ORBUS_UI_AVAILABLE
+            // Prefer fonts on actual Orbus canvas UI over miscellaneous
+            // floating world labels, whenever legacy Unity UI exists.
+            foreach (Text uiText in Resources.FindObjectsOfTypeAll<Text>())
+            {
+                if (uiText == null || ++inspected > 1200) break;
+                GameObject go = uiText.gameObject;
+                if (go == null || !go.scene.IsValid() ||
+                    !go.scene.isLoaded) continue;
+                Font? candidate = uiText.font;
+                if (candidate == null || string.IsNullOrEmpty(candidate.name))
+                    continue;
+                string name = (go.name ?? "").ToLowerInvariant();
+                string parent = go.transform.parent != null ?
+                    (go.transform.parent.name ?? "").ToLowerInvariant() : "";
+                string context = name + " " + parent;
+                int score = 18;
+                if (context.Contains("menu") ||
+                    context.Contains("journal") ||
+                    context.Contains("quest") ||
+                    context.Contains("title"))
+                    score += 10;
+                if (go.activeInHierarchy) score += 6;
+                if (score > bestScore)
+                {
+                    best = candidate;
+                    bestScore = score;
+                }
+            }
+#endif
 
             foreach (TextMesh mesh in Resources.FindObjectsOfTypeAll<TextMesh>())
             {
@@ -80,14 +115,14 @@ public sealed partial class CameraDiagnostics
                 if (_studioTabActive != null) _studioTabActive.font = best;
                 if (_studioTabInactive != null) _studioTabInactive.font = best;
                 Plugin.ModLogger.LogInfo(
-                    "[CreatorStudio] Using Orbus-scene TextMesh font '" +
+                    "[CreatorStudio] Using font from Orbus scene text '" +
                     best.name + "' for title, headings and tabs.");
             }
             else if (!_studioFontInfoLogged)
             {
                 _studioFontInfoLogged = true;
                 Plugin.ModLogger.LogInfo(
-                    "[CreatorStudio] No compatible scene TextMesh font found yet. " +
+                    "[CreatorStudio] No compatible scene Unity font found yet. " +
                     "Keeping readable Unity font and retrying as Orbus loads.");
             }
         }
