@@ -4,14 +4,16 @@ using UnityEngine;
 namespace OrbusBetterMirror;
 
 /// <summary>
-/// Desktop-only creator controls drawn via Unity IMGUI.
-/// This is intentionally independent of the optional VR camera prop and
-/// intentionally does not enable the protected/experimental drone by default.
+/// Compact non-modal desktop creator studio. Tabs replace the old 948px
+/// debug-like stack, while RMB outside the panel still flies freecam.
+/// The Quest display and actual player are never touched.
 /// </summary>
 public sealed partial class CameraDiagnostics
 {
-    // F2 is not used by the existing camera/mirror shortcuts (F3-F12).
-    private const int PanelToggleVirtualKey = 0x71;
+    private const int PanelToggleVirtualKey = 0x71; // F2
+    private const float StudioWidth = 418f;
+    private const float StudioHeight = 562f;
+    private const float StudioPadding = 17f;
 
     private bool _panelVisible;
     private bool _panelToggleWasDown;
@@ -19,57 +21,61 @@ public sealed partial class CameraDiagnostics
     private bool _panelGuiErrorLogged;
     private bool _panelCursorManaged;
     private bool _panelCursorWasVisible;
-    private bool _confirmClearKeyframes;
     private CursorLockMode _panelPreviousCursorLock;
+    private bool _confirmClearKeyframes;
+    private bool _draggingPanel;
+    private Vector2 _dragOffset;
+    private bool _hasPanelPosition;
+    private float _panelX, _panelY;
+    private int _panelTab; // 0 Camera, 1 Freecam, 2 Keyframes
+    private int _activeSlider;
+    private float _panelScale = 1f;
 
-    private GUIStyle? _panelTitle;
-    private GUIStyle? _panelSubtitle;
-    private GUIStyle? _panelHeading;
-    private GUIStyle? _panelText;
-    private GUIStyle? _panelTiny;
-    private GUIStyle? _panelValue;
-    private GUIStyle? _panelButtonText;
-    private GUIStyle? _panelButtonAccent;
-    private GUIStyle? _panelBadge;
+    private GUIStyle? _studioTitle;
+    private GUIStyle? _studioCaption;
+    private GUIStyle? _studioHeading;
+    private GUIStyle? _studioBody;
+    private GUIStyle? _studioMuted;
+    private GUIStyle? _studioValue;
+    private GUIStyle? _studioButton;
+    private GUIStyle? _studioActiveButton;
 
-    private static readonly Color PanelBackground =
-        new Color(0.078f, 0.086f, 0.111f, 0.98f);
-    private static readonly Color PanelHeader =
-        new Color(0.102f, 0.114f, 0.142f, 1f);
-    private static readonly Color PanelCard =
-        new Color(0.137f, 0.149f, 0.180f, 1f);
-    private static readonly Color PanelHover =
-        new Color(0.185f, 0.204f, 0.239f, 1f);
-    private static readonly Color PanelStroke =
-        new Color(0.244f, 0.266f, 0.300f, 1f);
-    private static readonly Color PanelMint =
-        new Color(0.341f, 0.851f, 0.675f, 1f);
-    private static readonly Color PanelMintDark =
-        new Color(0.128f, 0.300f, 0.255f, 1f);
-    private static readonly Color PanelWhite =
-        new Color(0.966f, 0.970f, 0.981f, 1f);
-    private static readonly Color PanelMuted =
-        new Color(0.65f, 0.68f, 0.73f, 1f);
-    private static readonly Color PanelWarning =
-        new Color(1f, 0.76f, 0.48f, 1f);
+    private static readonly Color StudioBack =
+        new Color(.065f, .078f, .108f, .98f);
+    private static readonly Color StudioTop =
+        new Color(.09f, .111f, .149f, 1f);
+    private static readonly Color StudioSurface =
+        new Color(.112f, .135f, .174f, 1f);
+    private static readonly Color StudioSurfaceHover =
+        new Color(.15f, .181f, .224f, 1f);
+    private static readonly Color StudioSelected =
+        new Color(.115f, .298f, .265f, 1f);
+    private static readonly Color StudioTrack =
+        new Color(.065f, .083f, .114f, 1f);
+    private static readonly Color StudioStroke =
+        new Color(.205f, .25f, .302f, 1f);
+    private static readonly Color StudioAccent =
+        new Color(.32f, .89f, .75f, 1f);
+    private static readonly Color StudioBright =
+        new Color(.96f, .97f, .99f, 1f);
+    private static readonly Color StudioSecondary =
+        new Color(.68f, .73f, .79f, 1f);
+    private static readonly Color StudioAmber =
+        new Color(1f, .74f, .42f, 1f);
 
-    // This extra Unity callback does not replace CameraDiagnostics.Update,
-    // so all existing desktop-camera hotkeys and camera modes keep working.
+    // A paused game might skip FixedUpdate, so F2 is also polled in OnGUI.
     private void FixedUpdate() => PollPanelToggle();
 
     private void PollPanelToggle()
     {
         bool down = Application.isFocused &&
             (GetAsyncKeyState(PanelToggleVirtualKey) & 0x8000) != 0;
-
         if (down && !_panelToggleWasDown)
         {
             SetPanelVisibility(!_panelVisible);
-            Plugin.ModLogger.LogInfo(
-                "[CreatorPanel] " + (_panelVisible ? "Opened" : "Hidden") +
-                " (F2)");
+            Plugin.ModLogger.LogInfo("[CreatorStudio] " +
+                (_panelVisible ? "Open" : "Closed") + " (F2)");
         }
-
         _panelToggleWasDown = down;
     }
 
@@ -77,9 +83,10 @@ public sealed partial class CameraDiagnostics
     {
         _panelVisible = visible;
         Plugin.CreatorPanelVisible.Value = visible;
+        _draggingPanel = false;
+        _activeSlider = 0;
         if (visible)
         {
-            // Keep panel mouse interactions separate from RMB flight capture.
             ReleaseDronePointer();
             AcquirePanelCursor();
         }
@@ -88,9 +95,9 @@ public sealed partial class CameraDiagnostics
 
     private void AcquirePanelCursor()
     {
-        if (_panelCursorManaged || !Application.isFocused)
+        if (_panelCursorManaged || !Application.isFocused ||
+            _droneLooking)
             return;
-
         _panelPreviousCursorLock = Cursor.lockState;
         _panelCursorWasVisible = Cursor.visible;
         _panelCursorManaged = true;
@@ -100,15 +107,78 @@ public sealed partial class CameraDiagnostics
 
     private void ReleasePanelCursor()
     {
-        if (!_panelCursorManaged)
-            return;
-
+        if (!_panelCursorManaged) return;
         _panelCursorManaged = false;
+        if (_droneLooking) return;
         Cursor.lockState = _panelPreviousCursorLock;
         Cursor.visible = _panelCursorWasVisible;
     }
 
-    // A paused game can stop FixedUpdate, so OnGUI polls F2 as a fallback.
+    private void StudioGeometry(out float scale, out float x, out float y)
+    {
+        scale = Mathf.Clamp(
+            Mathf.Min(Screen.width / 465f, Screen.height / 600f),
+            .56f, 1f);
+        float maxX = Mathf.Max(10f, Screen.width / scale -
+            StudioWidth - 10f);
+        float maxY = Mathf.Max(10f, Screen.height / scale -
+            StudioHeight - 10f);
+        if (!_hasPanelPosition)
+        {
+            _panelX = maxX;
+            _panelY = 16f;
+            _hasPanelPosition = true;
+        }
+        _panelX = Mathf.Clamp(_panelX, 10f, maxX);
+        _panelY = Mathf.Clamp(_panelY, 10f, maxY);
+        x = _panelX;
+        y = _panelY;
+    }
+
+    private Vector2 StudioMouse(float scale)
+    {
+        Vector3 pointer = Input.mousePosition;
+        return new Vector2(pointer.x / scale,
+            (Screen.height - pointer.y) / scale);
+    }
+
+    // Called by Drone.Update to decide whether RMB starts a flight or a
+    // panel interaction. Once flight starts, the locked cursor can pass
+    // across the panel without interrupting flight.
+    private bool IsPointerOverCreatorPanel()
+    {
+        if (!_panelVisible) return false;
+        StudioGeometry(out float scale, out float x, out float y);
+        return new Rect(x, y, StudioWidth, StudioHeight)
+            .Contains(StudioMouse(scale));
+    }
+
+    private void HandlePanelDragging(float scale, float x, float y)
+    {
+        Event evt = Event.current;
+        Vector2 mouse = StudioMouse(scale);
+        if (evt.type == EventType.MouseDown && evt.button == 0 &&
+            new Rect(x, y, StudioWidth - 48f, 62f).Contains(mouse))
+        {
+            _dragOffset = mouse - new Vector2(x, y);
+            _draggingPanel = true;
+            evt.Use();
+        }
+        else if (_draggingPanel && evt.type == EventType.MouseDrag &&
+            evt.button == 0)
+        {
+            _panelX = mouse.x - _dragOffset.x;
+            _panelY = mouse.y - _dragOffset.y;
+            evt.Use();
+        }
+        else if (_draggingPanel && evt.type == EventType.MouseUp &&
+            evt.button == 0)
+        {
+            _draggingPanel = false;
+            evt.Use();
+        }
+    }
+
     private void OnGUI()
     {
         if (!_panelInitialized)
@@ -116,170 +186,217 @@ public sealed partial class CameraDiagnostics
             _panelInitialized = true;
             _panelVisible = Plugin.CreatorPanelVisible.Value;
         }
-
         PollPanelToggle();
+        if (!_panelVisible) return;
 
-        if (!_panelVisible)
-            return;
-
-        if (Application.isFocused)
-        {
+        // Don't fight cursor locking while holding RMB to fly outside the
+        // panel. Otherwise keep the pointer free for GUI buttons/sliders.
+        if (Application.isFocused && !_droneLooking)
             AcquirePanelCursor();
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
 
         try
         {
-            EnsureCreatorPanelStyles();
+            EnsureStudioStyles();
+            StudioGeometry(out float scale, out float x, out float y);
+            _panelScale = scale;
+            HandlePanelDragging(scale, x, y);
 
-            // GUI.matrix is temporarily scaled to fit laptop-size game windows.
-            // Always restore it so other mods' IMGUI is not affected.
             Matrix4x4 original = GUI.matrix;
-            float scale = Mathf.Clamp(
-                Mathf.Min(Screen.width / 520f, Screen.height / 1030f),
-                0.55f, 1f);
-
             try
             {
                 GUI.matrix = Matrix4x4.Scale(
                     new Vector3(scale, scale, 1f));
-                DrawCreatorPanel();
+                DrawStudio(x, y);
             }
-            finally
-            {
-                GUI.matrix = original;
-            }
+            finally { GUI.matrix = original; }
         }
         catch (Exception ex)
         {
             if (!_panelGuiErrorLogged)
             {
                 _panelGuiErrorLogged = true;
-                Plugin.ModLogger.LogError(
-                    "[CreatorPanel] UI rendering failed: " + ex);
+                Plugin.ModLogger.LogError("[CreatorStudio] Panel error: " + ex);
             }
-
-            // Never break the working creator camera due to a panel issue.
-            _panelVisible = false;
-            Plugin.CreatorPanelVisible.Value = false;
-            ReleasePanelCursor();
+            SetPanelVisibility(false);
         }
     }
 
-    private void EnsureCreatorPanelStyles()
+    private static GUIStyle StudioStyle(int size, Color color,
+        FontStyle font = FontStyle.Normal,
+        TextAnchor alignment = TextAnchor.MiddleLeft)
     {
-        if (_panelTitle != null)
-            return;
-
-        _panelTitle = PanelStyle(19, PanelWhite, FontStyle.Bold);
-        _panelSubtitle = PanelStyle(11, PanelMuted);
-        _panelHeading = PanelStyle(12, PanelWhite, FontStyle.Bold);
-        _panelText = PanelStyle(12, PanelWhite);
-        _panelTiny = PanelStyle(10, PanelMuted);
-        _panelValue = PanelStyle(12, PanelMint, FontStyle.Bold);
-        _panelBadge = PanelStyle(10, PanelMint, FontStyle.Bold);
-        _panelButtonText = PanelStyle(12, PanelWhite, FontStyle.Bold,
-            TextAnchor.MiddleCenter);
-        _panelButtonAccent = PanelStyle(12, PanelMint, FontStyle.Bold,
-            TextAnchor.MiddleCenter);
+        var style = new GUIStyle();
+        style.fontSize = size;
+        style.fontStyle = font;
+        style.normal.textColor = color;
+        style.alignment = alignment;
+        style.wordWrap = false;
+        return style;
     }
 
-    private static GUIStyle PanelStyle(int size, Color color,
-        FontStyle weight = FontStyle.Normal,
-        TextAnchor align = TextAnchor.MiddleLeft)
+    private void EnsureStudioStyles()
     {
-        // IL2CPP's generated GUIStyle wrapper does not expose the
-        // GUIStyle(GUIStyle) copy constructor in this game.
-        // Construct a fresh style and configure it explicitly.
-        var result = new GUIStyle();
-        result.fontSize = size;
-        result.fontStyle = weight;
-        result.normal.textColor = color;
-        result.alignment = align;
-        result.wordWrap = false;
-        return result;
+        if (_studioTitle != null) return;
+        _studioTitle = StudioStyle(20, StudioBright, FontStyle.Bold);
+        _studioCaption = StudioStyle(11, StudioSecondary);
+        _studioHeading = StudioStyle(13, StudioBright, FontStyle.Bold);
+        _studioBody = StudioStyle(12, StudioBright);
+        _studioMuted = StudioStyle(11, StudioSecondary);
+        _studioValue = StudioStyle(12, StudioAccent, FontStyle.Bold,
+            TextAnchor.MiddleRight);
+        _studioButton = StudioStyle(12, StudioBright, FontStyle.Bold,
+            TextAnchor.MiddleCenter);
+        _studioActiveButton = StudioStyle(12, StudioAccent,
+            FontStyle.Bold, TextAnchor.MiddleCenter);
     }
 
-    private static void FillPanelRect(Rect rect, Color color)
+    private static void StudioFill(Rect r, Color color)
     {
-        Color original = GUI.color;
+        Color old = GUI.color;
         GUI.color = color;
-        GUI.DrawTexture(rect, Texture2D.whiteTexture);
-        GUI.color = original;
+        GUI.DrawTexture(r, Texture2D.whiteTexture);
+        GUI.color = old;
     }
 
-    private void DrawCreatorPanel()
+    private void StudioText(Rect rect, string text, GUIStyle? style)
     {
-        const float x = 20f;
-        const float y = 25f;
-        const float w = 424f;
-        const float height = 948f;
+        if (style != null) GUI.Label(rect, text, style);
+    }
 
-        FillPanelRect(new Rect(x - 1, y - 1, w + 2, height + 2),
-            PanelStroke);
-        FillPanelRect(new Rect(x, y, w, height), PanelBackground);
-        FillPanelRect(new Rect(x, y, w, 67), PanelHeader);
-        FillPanelRect(new Rect(x, y, 4, 67), PanelMint);
+    private bool StudioButton(Rect rect, string name, bool selected,
+        bool accent = false)
+    {
+        bool hover = rect.Contains(StudioMouse(_panelScale));
+        StudioFill(rect, selected ? StudioSelected :
+            hover ? StudioSurfaceHover : StudioSurface);
+        if (selected || accent)
+            StudioFill(new Rect(rect.x, rect.y,
+                selected ? 3f : 2f, rect.height), StudioAccent);
+        bool clicked = GUI.Button(rect, "", GUIStyle.none);
+        StudioText(rect, name, selected ?
+            _studioActiveButton : _studioButton);
+        return clicked;
+    }
 
-        GUI.Label(new Rect(x + 19, y + 11, 320, 29),
-            "REBORNCAM", _panelTitle);
-        GUI.Label(new Rect(x + 20, y + 39, 305, 18),
-            "Creator camera  |  Freecam  |  F2 to hide",
-            _panelSubtitle);
+    private float StudioSlider(int id, float x, float y, float w,
+        string title, float value, float min, float max, string display)
+    {
+        StudioText(new Rect(x, y, w - 110, 24f), title, _studioBody);
+        StudioText(new Rect(x + w - 112f, y, 112f, 24f),
+            display, _studioValue);
+        float tx = x + 4f, ty = y + 38f, tw = w - 8f;
+        StudioFill(new Rect(tx, ty, tw, 5f), StudioTrack);
+        float t = Mathf.Clamp01((value - min) / (max - min));
+        StudioFill(new Rect(tx, ty, tw * t, 5f), StudioAccent);
+        StudioFill(new Rect(tx + tw * t - 5f, ty - 5f, 10f, 15f),
+            StudioBright);
 
-        if (PanelButton(new Rect(x + w - 45, y + 15, 29, 30),
-            "X", false))
+        // Custom slider keeps styling coherent and avoids the old Unity
+        // skin's grey track/handle. Event is consumed only over the track.
+        Event evt = Event.current;
+        Vector2 mouse = StudioMouse(_panelScale);
+        Rect hit = new Rect(tx - 9f, ty - 12f, tw + 18f, 29f);
+        if (evt.type == EventType.MouseDown && evt.button == 0 &&
+            hit.Contains(mouse))
         {
-            HideCreatorPanel();
+            _activeSlider = id;
+            evt.Use();
+        }
+        if (_activeSlider == id &&
+            (evt.type == EventType.MouseDown ||
+             evt.type == EventType.MouseDrag))
+        {
+            value = Mathf.Lerp(min, max,
+                Mathf.Clamp01((mouse.x - tx) / tw));
+            if (evt.type == EventType.MouseDrag) evt.Use();
+        }
+        if (_activeSlider == id && evt.type == EventType.MouseUp &&
+            evt.button == 0)
+        {
+            _activeSlider = 0;
+            evt.Use();
+        }
+        return value;
+    }
+
+    private void DrawStudio(float x, float y)
+    {
+        StudioFill(new Rect(x - 1, y - 1, StudioWidth + 2,
+            StudioHeight + 2), StudioStroke);
+        StudioFill(new Rect(x, y, StudioWidth, StudioHeight), StudioBack);
+        StudioFill(new Rect(x, y, StudioWidth, 67f), StudioTop);
+        StudioFill(new Rect(x, y, 3f, 67f), StudioAccent);
+
+        StudioText(new Rect(x + 17f, y + 8f, 248f, 29f),
+            "REBORNCAM", _studioTitle);
+        StudioText(new Rect(x + 18f, y + 36f, 285f, 20f),
+            "Creator studio  /  Drag title to move", _studioCaption);
+
+        if (StudioButton(new Rect(x + StudioWidth - 41f,
+                y + 15f, 27f, 28f), "×", false))
+        {
+            SetPanelVisibility(false);
+            return;
         }
 
-        float px = x + 18;
-        float pw = w - 36;
-        float pos = y + 81;
+        float px = x + StudioPadding;
+        float pw = StudioWidth - StudioPadding * 2f;
+        StudioText(new Rect(px, y + 77f, 134f, 17f),
+            IsCameraActive ? "●  CAMERA ONLINE" : "●  CAMERA OFF",
+            IsCameraActive ? _studioActiveButton : _studioMuted);
 
-        // A status card that does not claim recording itself is active.
-        FillPanelRect(new Rect(px, pos, pw, 49), PanelCard);
-        FillPanelRect(new Rect(px, pos, 3, 49),
-            IsCameraActive ? PanelMint : PanelWarning);
-        GUI.Label(new Rect(px + 13, pos + 6, pw - 125, 18),
-            IsCameraActive ? "CAMERA ACTIVE" : "CAMERA OFF / WAITING",
-            _panelBadge);
-        GUI.Label(new Rect(px + 13, pos + 26, pw - 125, 14),
-            IsCameraActive ? "Desktop output enabled" :
-            "Load OrbusVR, then enable camera",
-            _panelTiny);
-        if (PanelButton(new Rect(px + pw - 100, pos + 9, 88, 31),
-            IsCameraActive ? "Disable" : "Enable", false))
+        StudioText(new Rect(x + StudioWidth - 185f, y + 77f,
+            164f, 17f), _mode == CameraMode.Drone ?
+            "FREECAM ACTIVE" : _mode.ToString().ToUpperInvariant(),
+            _studioValue);
+
+        float tabsY = y + 107f;
+        float tabW = (pw - 12f) / 3f;
+        string[] labels = { "CAMERA", "FREECAM", "KEYFRAMES" };
+        for (int i = 0; i < 3; i++)
         {
-            ToggleCamera();
+            float bx = px + i * (tabW + 6f);
+            if (StudioButton(new Rect(bx, tabsY, tabW, 37f),
+                labels[i], _panelTab == i))
+                _panelTab = i;
         }
 
-        pos += 63;
-        GUI.Label(new Rect(px, pos, pw, 19), "CAMERA MODE",
-            _panelHeading);
-        pos += 27;
+        StudioFill(new Rect(px, y + 154f, pw, 1f), StudioStroke);
 
-        float half = (pw - 9) / 2;
-        if (PanelButton(new Rect(px, pos, half, 36),
+        if (_panelTab == 0) DrawCameraTab(px, y + 168f, pw);
+        else if (_panelTab == 1) DrawFlightTab(px, y + 168f, pw);
+        else DrawKeyframesTab(px, y + 168f, pw);
+
+        StudioFill(new Rect(px, y + 509f, pw, 1f), StudioStroke);
+        StudioText(new Rect(px, y + 517f, pw, 18f),
+            "RMB outside panel + WASD to fly  /  F2 to hide",
+            _studioMuted);
+        StudioText(new Rect(px, y + 536f, pw, 16f),
+            "Desktop output only - headset and avatar stay untouched",
+            _studioMuted);
+    }
+
+    private void DrawCameraTab(float x, float y, float w)
+    {
+        StudioText(new Rect(x, y, w, 24f), "Camera perspective",
+            _studioHeading);
+        float half = (w - 9f) * .5f;
+        if (StudioButton(new Rect(x, y + 31f, half, 37f),
             "First person", _mode == CameraMode.POV))
             SetPanelMode(CameraMode.POV);
-        if (PanelButton(new Rect(px + half + 9, pos, half, 36),
+        if (StudioButton(new Rect(x + half + 9f, y + 31f, half, 37f),
             "Third person", _mode == CameraMode.ThirdPerson))
             SetPanelMode(CameraMode.ThirdPerson);
-
-        pos += 45;
-        if (PanelButton(new Rect(px, pos, half, 36),
+        if (StudioButton(new Rect(x, y + 77f, half, 37f),
             "Selfie", _mode == CameraMode.Selfie))
             SetPanelMode(CameraMode.Selfie);
-        if (PanelButton(new Rect(px + half + 9, pos, half, 36),
+        if (StudioButton(new Rect(x + half + 9f, y + 77f, half, 37f),
             "Static / detached", _mode == CameraMode.Static))
             SelectPanelStaticMode();
 
-        pos += 56;
-        float fov = DrawPanelSlider(px, pos, pw,
-            "Horizontal field of view",
-            Plugin.HorizontalFov.Value, 50f, 150f,
+        float fov = StudioSlider(1, x, y + 123f, w,
+            "Horizontal FOV", Plugin.HorizontalFov.Value,
+            50f, 150f,
             Plugin.HorizontalFov.Value.ToString("0") + "°");
         fov = Mathf.Round(fov);
         if (Mathf.Abs(fov - Plugin.HorizontalFov.Value) > .01f)
@@ -288,120 +405,156 @@ public sealed partial class CameraDiagnostics
             ApplyFov();
         }
 
-        pos += 73;
-        float smooth = DrawPanelSlider(px, pos, pw,
-            "Follow smoothness",
-            Plugin.Smoothing.Value, 0f, 20f,
+        bool third = _mode == CameraMode.ThirdPerson ||
+            _mode == CameraMode.Static &&
+            _lastFollowMode == CameraMode.ThirdPerson;
+        bool selfie = _mode == CameraMode.Selfie ||
+            _mode == CameraMode.Static &&
+            _lastFollowMode == CameraMode.Selfie;
+
+        float smooth = StudioSlider(2, x, y + 186f, w,
+            "Follow smoothing", Plugin.Smoothing.Value, 0f, 20f,
             Plugin.Smoothing.Value.ToString("0.0"));
         smooth = Mathf.Round(smooth * 2f) / 2f;
         if (Mathf.Abs(smooth - Plugin.Smoothing.Value) > .1f)
             Plugin.Smoothing.Value = smooth;
 
-        pos += 73;
-        bool thirdMode = _mode == CameraMode.ThirdPerson ||
-            _mode == CameraMode.Static &&
-            _lastFollowMode == CameraMode.ThirdPerson;
-
-        bool selfieMode = _mode == CameraMode.Selfie ||
-            _mode == CameraMode.Static &&
-            _lastFollowMode == CameraMode.Selfie;
-
-        float distance = thirdMode
-            ? Plugin.ThirdDistance.Value
-            : Plugin.SelfieDistance.Value;
-        float newDistance = DrawPanelSlider(px, pos, pw,
-            thirdMode ? "Third-person distance" :
-            selfieMode ? "Selfie distance" : "External camera distance",
-            distance, 0.5f, 8f, distance.ToString("0.0") + " m");
-        newDistance = Mathf.Round(newDistance * 10f) / 10f;
-
-        if (thirdMode && Mathf.Abs(newDistance - distance) > .05f)
-            Plugin.ThirdDistance.Value = newDistance;
-        else if (selfieMode && Mathf.Abs(newDistance - distance) > .05f)
-            Plugin.SelfieDistance.Value = newDistance;
-
-        // Distance is intentionally disabled in POV/static-freeze/freecam mode.
-        // Do not change the settings accidentally when the camera is fixed.
-        if (!thirdMode && !selfieMode)
+        if (third || selfie)
         {
-            FillPanelRect(new Rect(px, pos + 21, pw, 29),
-                new Color(.09f, .10f, .12f, .47f));
-            GUI.Label(new Rect(px + 11, pos + 26, pw - 20, 20),
-                "Switch to Third Person or Selfie to adjust",
-                _panelTiny);
+            float distance = third ? Plugin.ThirdDistance.Value :
+                Plugin.SelfieDistance.Value;
+            float changed = StudioSlider(3, x, y + 248f, w,
+                third ? "Third-person distance" : "Selfie distance",
+                distance, .5f, 8f, distance.ToString("0.0") + "m");
+            changed = Mathf.Round(changed * 10f) / 10f;
+            if (Mathf.Abs(changed - distance) > .05f)
+            {
+                if (third) Plugin.ThirdDistance.Value = changed;
+                else Plugin.SelfieDistance.Value = changed;
+            }
+        }
+        else
+        {
+            StudioFill(new Rect(x, y + 251f, w, 39f), StudioSurface);
+            StudioText(new Rect(x + 12f, y + 258f, w - 24f, 22f),
+                "Distance is available in Third Person / Selfie",
+                _studioMuted);
         }
 
-        pos += 68;
-
-        FillPanelRect(new Rect(px, pos, pw, 1), PanelStroke);
-        pos += 13;
-
         bool show = Plugin.ShowLocalAvatar.Value;
-        GUI.Label(new Rect(px + 1, pos, pw - 120, 25),
-            "Show local avatar (external views)",
-            _panelText);
-        if (PanelButton(new Rect(px + pw - 83, pos - 3, 83, 31),
+        StudioText(new Rect(x, y + 315f, w - 100f, 30f),
+            "Render my avatar in external views", _studioBody);
+        if (StudioButton(new Rect(x + w - 84f, y + 313f, 84f, 34f),
             show ? "ON" : "OFF", show))
             ToggleLocalAvatar();
 
-        pos += 44;
-        if (PanelButton(new Rect(px, pos, pw, 37),
-            _mode == CameraMode.Drone
-                ? "Exit FREECAM  (Ctrl+F11)"
-                : "Enter FREECAM  (Ctrl+F11)",
-            _mode == CameraMode.Drone))
+        if (StudioButton(new Rect(x, y + 365f, w, 39f),
+            IsCameraActive ? "Disable creator camera" :
+                "Enable creator camera", IsCameraActive))
+            ToggleCamera();
+    }
+
+    private void DrawFlightTab(float x, float y, float w)
+    {
+        if (StudioButton(new Rect(x, y + 2f, w, 45f),
+            _mode == CameraMode.Drone ?
+            "EXIT FREECAM    Ctrl+F11" :
+            "ENTER FREECAM    Ctrl+F11",
+            _mode == CameraMode.Drone, true))
         {
             _confirmClearKeyframes = false;
             ToggleFreecam();
         }
 
-        pos += 46;
-        float flightSpeed = DrawPanelSlider(px, pos, pw,
-            "Freecam movement speed",
-            Plugin.DroneMoveSpeed.Value, 0.25f, 20f,
+        float speed = StudioSlider(4, x, y + 62f, w,
+            "Flight speed", Plugin.DroneMoveSpeed.Value,
+            .25f, 20f,
             Plugin.DroneMoveSpeed.Value.ToString("0.0") + " m/s");
-        flightSpeed = Mathf.Round(flightSpeed * 4f) / 4f;
-        if (Mathf.Abs(flightSpeed - Plugin.DroneMoveSpeed.Value) > .05f)
-            Plugin.DroneMoveSpeed.Value = flightSpeed;
+        speed = Mathf.Round(speed * 4f) / 4f;
+        if (Mathf.Abs(speed - Plugin.DroneMoveSpeed.Value) > .05f)
+            Plugin.DroneMoveSpeed.Value = speed;
 
-        pos += 67;
-        FillPanelRect(new Rect(px, pos, pw, 1), PanelStroke);
-        pos += 13;
-        GUI.Label(new Rect(px, pos, pw, 19), "CINEMATIC KEYFRAMES",
-            _panelHeading);
-        pos += 23;
-        GUI.Label(new Rect(px, pos, pw, 19),
-            _keyframes.Count + " saved shots  |  " +
-            (_playingKeyframes ? "PLAYING" : "Ready") +
-            "  |  RMB + WASD to position",
-            _panelTiny);
-        pos += 30;
+        float mouse = StudioSlider(5, x, y + 124f, w,
+            "Mouse sensitivity", Plugin.DroneMouseSensitivity.Value,
+            .1f, 8f, Plugin.DroneMouseSensitivity.Value.ToString("0.0"));
+        mouse = Mathf.Round(mouse * 10f) / 10f;
+        if (Mathf.Abs(mouse - Plugin.DroneMouseSensitivity.Value) > .04f)
+            Plugin.DroneMouseSensitivity.Value = mouse;
 
-        if (PanelButton(new Rect(px, pos, half, 34),
-            "Add camera shot", false))
+        float rollSpeed = StudioSlider(6, x, y + 186f, w,
+            "Roll speed  [Z / C]", Plugin.DroneRollSpeed.Value,
+            5f, 180f, Plugin.DroneRollSpeed.Value.ToString("0") + " °/s");
+        rollSpeed = Mathf.Round(rollSpeed);
+        if (Mathf.Abs(rollSpeed - Plugin.DroneRollSpeed.Value) > .5f)
+            Plugin.DroneRollSpeed.Value = rollSpeed;
+
+        StudioText(new Rect(x, y + 251f, w - 100f, 32f),
+            "Camera bank", _studioBody);
+        StudioText(new Rect(x + w - 96f, y + 251f, 95f, 30f),
+            _droneRoll.ToString("+0;-0;0") + "°", _studioValue);
+
+        float half = (w - 9f) * .5f;
+        if (StudioButton(new Rect(x, y + 288f, half, 36f),
+            "Level roll  [X]", false))
+            _droneRoll = 0f;
+        if (StudioButton(new Rect(x + half + 9f, y + 288f, half, 36f),
+            "Recenter camera", false))
+        {
+            if (_mode == CameraMode.Drone)
+                RecenterDroneToPlayer("Creator Studio recenter");
+        }
+        if (StudioButton(new Rect(x, y + 342f, w, 37f),
+            "Extended scenery rendering: " +
+                (Plugin.ExtendedRenderEnabled.Value ? "ON" : "OFF"),
+            Plugin.ExtendedRenderEnabled.Value))
+        {
+            if (_mode == CameraMode.Drone)
+                ToggleCinematicRenderBoost();
+            else Plugin.ExtendedRenderEnabled.Value =
+                !Plugin.ExtendedRenderEnabled.Value;
+        }
+        StudioText(new Rect(x + 2f, y + 387f, w - 4f, 19f),
+            "RMB+WASD move   Q/E height   Z/C roll   X level",
+            _studioMuted);
+    }
+
+    private void DrawKeyframesTab(float x, float y, float w)
+    {
+        StudioFill(new Rect(x, y, w, 66f), StudioSurface);
+        StudioFill(new Rect(x, y, 3f, 66f), StudioAccent);
+        StudioText(new Rect(x + 15f, y + 7f, w - 30f, 25f),
+            _keyframes.Count + " / 80  SAVED SHOTS", _studioHeading);
+        StudioText(new Rect(x + 15f, y + 34f, w - 30f, 21f),
+            _keyframes.Count > 1
+                ? "Curved path • " + KeyframePathLength().ToString("0.0") +
+                    "m • " + (_playingKeyframes ? "PLAYING" : "READY")
+                : "Add at least two camera shots to make a path",
+            _studioMuted);
+
+        float half = (w - 9f) * .5f;
+        if (StudioButton(new Rect(x, y + 80f, half, 38f),
+            "+ Add shot", false, true))
         {
             _confirmClearKeyframes = false;
             AddKeyframe();
         }
-        if (PanelButton(new Rect(px + half + 9, pos, half, 34),
-            "Undo last shot", false))
+        if (StudioButton(new Rect(x + half + 9f, y + 80f,
+            half, 38f), "Undo last", false))
         {
             _confirmClearKeyframes = false;
             RemoveLastKeyframe();
         }
-
-        pos += 43;
-        if (PanelButton(new Rect(px, pos, half, 34),
-            _playingKeyframes ? "Stop playback" : "Play camera path",
+        if (StudioButton(new Rect(x, y + 127f, half, 38f),
+            _playingKeyframes ? "Stop playback" : "Play path",
             _playingKeyframes))
         {
             _confirmClearKeyframes = false;
             if (_playingKeyframes) StopKeyframePlayback();
             else StartKeyframePlayback();
         }
-        if (PanelButton(new Rect(px + half + 9, pos, half, 34),
-            _confirmClearKeyframes ? "Confirm clear?" : "Clear path",
-            _confirmClearKeyframes))
+        if (StudioButton(new Rect(x + half + 9f, y + 127f,
+            half, 38f), _confirmClearKeyframes ?
+                "Confirm clear?" : "Clear path", _confirmClearKeyframes))
         {
             if (_confirmClearKeyframes)
             {
@@ -411,93 +564,60 @@ public sealed partial class CameraDiagnostics
             else _confirmClearKeyframes = true;
         }
 
-        pos += 43;
-        float duration = DrawPanelSlider(px, pos, pw,
-            "Full path duration", Plugin.KeyframeDuration.Value,
+        float duration = StudioSlider(7, x, y + 181f, w,
+            "Playback duration", Plugin.KeyframeDuration.Value,
             2f, 120f,
             Plugin.KeyframeDuration.Value.ToString("0") + " sec");
         duration = Mathf.Round(duration);
-        if (Mathf.Abs(duration - Plugin.KeyframeDuration.Value) > 0.5f)
+        if (Mathf.Abs(duration - Plugin.KeyframeDuration.Value) > .5f)
             Plugin.KeyframeDuration.Value = duration;
 
-        pos += 66;
-        GUI.Label(new Rect(px, pos, pw, 18),
-            "Shots save automatically  |  F12 freeze  |  F2 close",
-            _panelTiny);
-        GUI.Label(new Rect(px, pos + 17, pw, 18),
-            "Freecam never moves your avatar or headset.",
-            _panelTiny);
-    }
+        if (StudioButton(new Rect(x, y + 258f, w, 41f),
+            "Show camera path & markers  " +
+                (Plugin.ShowKeyframePath.Value ? "ON" : "OFF"),
+            Plugin.ShowKeyframePath.Value))
+        {
+            Plugin.ShowKeyframePath.Value =
+                !Plugin.ShowKeyframePath.Value;
+        }
 
-    private float DrawPanelSlider(float x, float y, float width,
-        string title, float value, float min, float max, string display)
-    {
-        GUI.Label(new Rect(x, y, width - 90, 21), title, _panelText);
-        GUI.Label(new Rect(x + width - 92, y, 92, 21),
-            display, _panelValue);
-
-        // Unity's standard draggable slider keeps interaction robust even
-        // with the generated IL2CPP IMGUI interop wrappers.
-        return GUI.HorizontalSlider(
-            new Rect(x + 3, y + 29, width - 6, 19),
-            value, min, max);
-    }
-
-    private bool PanelButton(Rect rect, string text, bool selected)
-    {
-        bool hovered = rect.Contains(Event.current.mousePosition);
-        FillPanelRect(rect, selected ? PanelMintDark :
-            hovered ? PanelHover : PanelCard);
-
-        if (selected)
-            FillPanelRect(new Rect(rect.x, rect.y,
-                3, rect.height), PanelMint);
-
-        bool clicked = GUI.Button(rect, "", GUIStyle.none);
-
-        GUI.Label(rect, text, selected ?
-            _panelButtonAccent : _panelButtonText);
-
-        return clicked;
-    }
-
-    private void HideCreatorPanel()
-    {
-        SetPanelVisibility(false);
+        StudioText(new Rect(x, y + 309f, w, 21f),
+            "Mint curve = travel path • crosses = saved shots",
+            _studioMuted);
+        StudioText(new Rect(x, y + 333f, w, 21f),
+            "Markers are editor-only; hidden in clean playback.",
+            _studioMuted);
+        StudioText(new Rect(x, y + 365f, w, 21f),
+            "Positions follow a spline; camera roll is preserved.",
+            _studioMuted);
     }
 
     private void OnApplicationFocus(bool focused)
     {
-        if (!focused) ReleasePanelCursor();
+        if (!focused)
+        {
+            _draggingPanel = false;
+            _activeSlider = 0;
+            ReleasePanelCursor();
+        }
     }
 
     private void SetPanelMode(CameraMode next)
     {
+        if (next == CameraMode.Drone || next == CameraMode.Static) return;
         _autoStartHandled = true;
-
-        if (next == CameraMode.Drone || next == CameraMode.Static)
-            return;
-
-        if (_mode == CameraMode.Drone)
-            LeaveDrone();
-
+        if (_mode == CameraMode.Drone) LeaveDrone();
         _mode = next;
         _lastFollowMode = next;
         _snapNextFrame = true;
         Plugin.StartMode.Value = next.ToString();
-
-        if (!IsCameraActive)
-            TryEnableCamera(true);
-        else
-            UpdateDesktopCullingMask(true);
-
-        Plugin.ModLogger.LogInfo(
-            "[CreatorPanel] Camera mode: " + next);
+        if (!IsCameraActive) TryEnableCamera(true);
+        else UpdateDesktopCullingMask(true);
+        Plugin.ModLogger.LogInfo("[CreatorStudio] Camera mode: " + next);
     }
 
     private void SelectPanelStaticMode()
     {
-        if (_mode != CameraMode.Static)
-            ToggleStaticMode();
+        if (_mode != CameraMode.Static) ToggleStaticMode();
     }
 }
