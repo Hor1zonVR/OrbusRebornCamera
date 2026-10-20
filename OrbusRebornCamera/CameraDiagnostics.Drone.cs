@@ -418,5 +418,6 @@ public sealed partial class CameraDiagnostics
     {
         LeaveDrone();
         RestoreCinematicRendering();
+        DestroyPathPreviewMaterial();
     }
 }
