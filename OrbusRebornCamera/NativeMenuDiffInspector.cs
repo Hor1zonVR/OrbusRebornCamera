@@ -272,10 +272,12 @@ public sealed class NativeMenuDiffInspector : MonoBehaviour
                 // conventions differ across Orbus editions.
                 foreach (Vector3 direction in new[] { tr.forward, -tr.forward })
                 {
-                    RaycastHit[] hits = Physics.RaycastAll(
-                        new Ray(tr.position, direction), 10f, 1 << layer);
-                    Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-                    if (hits.Length == 0) continue;
+                    var hits = new List<RaycastHit>();
+                    foreach (RaycastHit hit in Physics.RaycastAll(
+                        new Ray(tr.position, direction), 10f, 1 << layer))
+                        hits.Add(hit);
+                    hits.Sort((a, b) => a.distance.CompareTo(b.distance));
+                    if (hits.Count == 0) continue;
                     if (hits[0].collider != null)
                         output.AppendLine("    " +
                             (Vector3.Dot(direction, tr.forward) > 0f ? "forward" : "reverse") +
