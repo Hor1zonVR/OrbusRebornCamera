@@ -53,29 +53,43 @@ public sealed partial class CameraDiagnostics
     private GUIStyle? _studioValue;
     private GUIStyle? _studioButton;
     private GUIStyle? _studioActiveButton;
+    private GUIStyle? _studioTabActive;
+    private GUIStyle? _studioTabInactive;
 
+    // Restrained Orbus-inspired palette: ink/stone, parchment, jade and
+    // aged brass. Jade is reserved for a meaningful enabled/action state.
     private static readonly Color StudioBack =
-        new Color(.065f, .078f, .108f, .98f);
+        new Color(.074f, .077f, .084f, .985f);
     private static readonly Color StudioTop =
-        new Color(.09f, .111f, .149f, 1f);
+        new Color(.109f, .116f, .123f, 1f);
+    private static readonly Color StudioStone =
+        new Color(.094f, .101f, .105f, 1f);
+    private static readonly Color StudioShadow =
+        new Color(.018f, .025f, .029f, .93f);
     private static readonly Color StudioSurface =
-        new Color(.112f, .135f, .174f, 1f);
+        new Color(.139f, .149f, .151f, 1f);
     private static readonly Color StudioSurfaceHover =
-        new Color(.15f, .181f, .224f, 1f);
+        new Color(.199f, .211f, .212f, 1f);
     private static readonly Color StudioSelected =
-        new Color(.115f, .298f, .265f, 1f);
+        new Color(.168f, .207f, .196f, 1f);
+    private static readonly Color StudioTabSurface =
+        new Color(.161f, .176f, .170f, 1f);
     private static readonly Color StudioTrack =
-        new Color(.065f, .083f, .114f, 1f);
+        new Color(.091f, .109f, .111f, 1f);
     private static readonly Color StudioStroke =
-        new Color(.205f, .25f, .302f, 1f);
-    private static readonly Color StudioAccent =
-        new Color(.32f, .89f, .75f, 1f);
+        new Color(.259f, .257f, .222f, 1f);
+    private static readonly Color StudioBrassDim =
+        new Color(.377f, .333f, .230f, 1f);
+    private static readonly Color StudioGold =
+        new Color(.870f, .702f, .418f, 1f);
+    private static readonly Color StudioJade =
+        new Color(.395f, .790f, .697f, 1f);
+    private static readonly Color StudioAccent = StudioJade;
     private static readonly Color StudioBright =
-        new Color(.96f, .97f, .99f, 1f);
+        new Color(.949f, .932f, .874f, 1f);
     private static readonly Color StudioSecondary =
-        new Color(.68f, .73f, .79f, 1f);
-    private static readonly Color StudioAmber =
-        new Color(1f, .74f, .42f, 1f);
+        new Color(.696f, .719f, .704f, 1f);
+    private static readonly Color StudioAmber = StudioGold;
 
     // A paused game might skip FixedUpdate, so F2 is also polled in OnGUI.
     private void FixedUpdate() => PollPanelToggle();
@@ -214,6 +228,7 @@ public sealed partial class CameraDiagnostics
         try
         {
             EnsureStudioStyles();
+            ProbeOrbusUiFont();
             StudioGeometry(out float scale, out float x, out float y);
             _panelScale = scale;
             HandlePanelDragging(scale, x, y);
@@ -259,11 +274,15 @@ public sealed partial class CameraDiagnostics
         _studioHeading = StudioStyle(14, StudioBright, FontStyle.Bold);
         _studioBody = StudioStyle(13, StudioBright);
         _studioMuted = StudioStyle(12, StudioSecondary);
-        _studioValue = StudioStyle(13, StudioAccent, FontStyle.Bold,
+        _studioValue = StudioStyle(13, StudioGold, FontStyle.Bold,
             TextAnchor.MiddleRight);
         _studioButton = StudioStyle(13, StudioBright, FontStyle.Bold,
             TextAnchor.MiddleCenter);
-        _studioActiveButton = StudioStyle(13, StudioAccent,
+        _studioActiveButton = StudioStyle(13, StudioJade,
+            FontStyle.Bold, TextAnchor.MiddleCenter);
+        _studioTabActive = StudioStyle(14, StudioBright,
+            FontStyle.Bold, TextAnchor.MiddleCenter);
+        _studioTabInactive = StudioStyle(14, StudioSecondary,
             FontStyle.Bold, TextAnchor.MiddleCenter);
     }
 
@@ -286,9 +305,19 @@ public sealed partial class CameraDiagnostics
         bool hover = rect.Contains(StudioMouse(_panelScale));
         StudioFill(rect, selected ? StudioSelected :
             hover ? StudioSurfaceHover : StudioSurface);
-        if (selected || accent)
-            StudioFill(new Rect(rect.x, rect.y,
-                selected ? 3f : 2f, rect.height), StudioAccent);
+        StudioBorder(rect,
+            selected ? StudioGold : accent ? StudioBrassDim : StudioStroke);
+        StudioFill(new Rect(rect.x + 2f, rect.y + 2f,
+            rect.width - 4f, 1f),
+            selected || hover ? StudioBrassDim : StudioStroke);
+
+        if (selected)
+            StudioFill(new Rect(rect.x + 8f,
+                rect.yMax - 3f, rect.width - 16f, 2f), StudioGold);
+        else if (accent)
+            StudioFill(new Rect(rect.x + 1f,
+                rect.y + 1f, 3f, rect.height - 2f), StudioJade);
+
         bool clicked = GUI.Button(rect, "", GUIStyle.none);
         StudioText(rect, name, selected ?
             _studioActiveButton : _studioButton);
@@ -302,11 +331,18 @@ public sealed partial class CameraDiagnostics
         StudioText(new Rect(x + w - 112f, y, 112f, 24f),
             display, _studioValue);
         float tx = x + 4f, ty = y + 38f, tw = w - 8f;
-        StudioFill(new Rect(tx, ty, tw, 5f), StudioTrack);
+        // Carved stone track with a low-key jade inlay and brass handle.
+        StudioFill(new Rect(tx, ty - 2f, tw, 8f), StudioStroke);
+        StudioFill(new Rect(tx + 1f, ty - 1f, tw - 2f, 6f),
+            StudioTrack);
         float t = Mathf.Clamp01((value - min) / (max - min));
-        StudioFill(new Rect(tx, ty, tw * t, 5f), StudioAccent);
-        StudioFill(new Rect(tx + tw * t - 5f, ty - 5f, 10f, 15f),
-            StudioBright);
+        StudioFill(new Rect(tx + 2f, ty, (tw - 4f) * t, 4f),
+            StudioJade);
+        float handle = tx + 2f + (tw - 4f) * t;
+        StudioFill(new Rect(handle - 5f, ty - 7f, 10f, 17f),
+            StudioBrassDim);
+        StudioFill(new Rect(handle - 3f, ty - 5f, 6f, 13f),
+            StudioGold);
 
         // Custom slider keeps styling coherent and avoids the old Unity
         // skin's grey track/handle. Event is consumed only over the track.
@@ -341,41 +377,42 @@ public sealed partial class CameraDiagnostics
         float px = x + StudioPadding;
         float pw = StudioWidth - StudioPadding * 2f;
 
-        // The header, status, tabs, editor canvas and footer occupy
-        // non-overlapping vertical bands. Content never draws below +610.
-        StudioFill(new Rect(x - 1f, y - 1f,
-            StudioWidth + 2f, StudioHeight + 2f), StudioStroke);
-        StudioFill(new Rect(x, y, StudioWidth, StudioHeight), StudioBack);
-        StudioFill(new Rect(x, y, StudioWidth, StudioHeaderHeight),
-            StudioTop);
-        StudioFill(new Rect(x, y, 3f, StudioHeaderHeight),
-            StudioAccent);
+        StudioFrame(x, y);
+        StudioFill(new Rect(x + 4f, y + 4f,
+            StudioWidth - 8f, StudioHeaderHeight - 4f), StudioTop);
+        StudioFill(new Rect(x + 17f,
+            y + StudioHeaderHeight - 2f, StudioWidth - 34f, 1f),
+            StudioBrassDim);
 
-        StudioText(new Rect(px, y + 11f, pw - 60f, 30f),
-            "REBORNCAM", _studioTitle);
-        StudioText(new Rect(px, y + 43f, pw - 60f, 20f),
-            "Creator Studio   •   Drag header to move",
+        StudioSeal(px + 1f, y + 21f);
+        StudioText(new Rect(px + 46f, y + 10f,
+                pw - 111f, 33f),
+            "REBORN CAM", _studioTitle);
+        StudioText(new Rect(px + 48f, y + 43f,
+                pw - 113f, 22f),
+            "CREATOR STUDIO  /  DRAG TITLE TO MOVE",
             _studioCaption);
-
         if (StudioButton(new Rect(
-                x + StudioWidth - 43f, y + 19f, 28f, 29f),
+                x + StudioWidth - 44f, y + 21f, 27f, 28f),
             "X", false))
         {
             SetPanelVisibility(false);
             return;
         }
 
-        // One status strip instead of cramped floating text above tabs.
+        // The carved status row uses jade only for genuine active output.
         StudioFill(new Rect(px, y + StudioStatusY,
             pw, 37f), StudioSurface);
-        StudioFill(new Rect(px, y + StudioStatusY, 3f, 37f),
-            IsCameraActive ? StudioAccent : StudioAmber);
-        StudioText(new Rect(px + 13f, y + StudioStatusY + 6f,
-                195f, 25f),
+        StudioBorder(new Rect(px, y + StudioStatusY,
+            pw, 37f), StudioStroke);
+        StudioFill(new Rect(px + 11f, y + StudioStatusY + 13f,
+            9f, 9f), IsCameraActive ? StudioJade : StudioAmber);
+        StudioText(new Rect(px + 29f, y + StudioStatusY + 6f,
+                186f, 25f),
             IsCameraActive ? "CAMERA ONLINE" : "CAMERA OFF",
             IsCameraActive ? _studioHeading : _studioMuted);
-        StudioText(new Rect(px + pw - 188f, y + StudioStatusY + 6f,
-                174f, 25f),
+        StudioText(new Rect(px + pw - 191f,
+                y + StudioStatusY + 6f, 177f, 25f),
             _mode == CameraMode.Drone ? "FREECAM ACTIVE" :
                 _mode == CameraMode.POV ? "FIRST PERSON" :
                 _mode == CameraMode.ThirdPerson ? "THIRD PERSON" :
@@ -387,7 +424,7 @@ public sealed partial class CameraDiagnostics
         for (int i = 0; i < 3; i++)
         {
             float tx = px + i * (tabW + 8f);
-            if (StudioButton(new Rect(tx, y + StudioTabsY,
+            if (StudioTab(new Rect(tx, y + StudioTabsY,
                     tabW, 40f), labels[i], _panelTab == i))
             {
                 _panelTab = i;
@@ -396,11 +433,7 @@ public sealed partial class CameraDiagnostics
             }
         }
 
-        StudioFill(new Rect(px, y + StudioDividerY,
-            pw, 1f), StudioStroke);
-
-        // No flexible footer overlays: this content band and footer are
-        // intentionally disjoint even after uniform window scaling.
+        StudioDivider(px, y + StudioDividerY, pw);
         if (_panelTab == 0)
             DrawCameraTab(px, y + StudioContentY, pw);
         else if (_panelTab == 1)
@@ -408,22 +441,20 @@ public sealed partial class CameraDiagnostics
         else
             DrawKeyframesTab(px, y + StudioContentY, pw);
 
-        StudioFill(new Rect(px, y + StudioFooterY,
-            pw, 1f), StudioStroke);
+        StudioDivider(px, y + StudioFooterY, pw);
         StudioText(new Rect(px + 2f, y + StudioFooterY + 13f,
                 pw - 4f, 20f),
-            "RMB outside panel + WASD to fly   •   F2 to hide",
+            "RMB outside panel + WASD to fly   /   F2 to hide",
             _studioMuted);
         StudioText(new Rect(px + 2f, y + StudioFooterY + 37f,
                 pw - 4f, 20f),
-            "Desktop camera only  •  VR headset / avatar unchanged",
+            "Desktop camera only  /  headset & avatar unchanged",
             _studioMuted);
     }
 
     private void DrawCameraTab(float x, float y, float w)
     {
-        StudioText(new Rect(x, y, w, 24f), "Camera perspective",
-            _studioHeading);
+        StudioSection(x, y, w, "CAMERA PERSPECTIVE");
         float half = (w - 9f) * .5f;
         if (StudioButton(new Rect(x, y + 31f, half, 37f),
             "First person", _mode == CameraMode.POV))
@@ -564,41 +595,45 @@ public sealed partial class CameraDiagnostics
 
     private void DrawKeyframesTab(float x, float y, float w)
     {
-        StudioFill(new Rect(x, y, w, 66f), StudioSurface);
-        StudioFill(new Rect(x, y, 3f, 66f), StudioAccent);
-        StudioText(new Rect(x + 15f, y + 7f, w - 30f, 25f),
-            _keyframes.Count + " / 80  SAVED SHOTS", _studioHeading);
-        StudioText(new Rect(x + 15f, y + 34f, w - 30f, 21f),
-            _keyframes.Count > 1
-                ? "Curved path • " + KeyframePathLength().ToString("0.0") +
-                    "m • " + (_playingKeyframes ? "PLAYING" : "READY")
-                : "Add at least two camera shots to make a path",
+        StudioFill(new Rect(x, y, w, 59f), StudioSurface);
+        StudioBorder(new Rect(x, y, w, 59f), StudioStroke);
+        StudioFill(new Rect(x, y, 3f, 59f), StudioBrassDim);
+        StudioText(new Rect(x + 14f, y + 5f, w - 28f, 25f),
+            _keyframes.Count + " SAVED CAMERA SHOTS",
+            _studioHeading);
+        StudioText(new Rect(x + 14f, y + 30f,
+                w - 28f, 21f),
+            _keyframes.Count > 1 ?
+                KeyframePathLength().ToString("0.0") + "m path  /  " +
+                (_playingKeyframes ? "PLAYING" : "READY TO PLAY") :
+                "Capture at least two viewpoints to create a replay",
             _studioMuted);
 
         float half = (w - 9f) * .5f;
-        if (StudioButton(new Rect(x, y + 80f, half, 38f),
-            "+ Add shot", false, true))
+        if (StudioButton(new Rect(x, y + 68f, half, 36f),
+            "Add camera shot", false, true))
         {
             _confirmClearKeyframes = false;
             AddKeyframe();
         }
-        if (StudioButton(new Rect(x + half + 9f, y + 80f,
-            half, 38f), "Undo last", false))
+        if (StudioButton(new Rect(x + half + 9f, y + 68f,
+            half, 36f), "Undo last", false))
         {
             _confirmClearKeyframes = false;
             RemoveLastKeyframe();
         }
-        if (StudioButton(new Rect(x, y + 127f, half, 38f),
-            _playingKeyframes ? "Stop playback" : "Play path",
+        if (StudioButton(new Rect(x, y + 113f, half, 36f),
+            _playingKeyframes ? "Stop playback" : "Play camera path",
             _playingKeyframes))
         {
             _confirmClearKeyframes = false;
             if (_playingKeyframes) StopKeyframePlayback();
             else StartKeyframePlayback();
         }
-        if (StudioButton(new Rect(x + half + 9f, y + 127f,
-            half, 38f), _confirmClearKeyframes ?
-                "Confirm clear?" : "Clear path", _confirmClearKeyframes))
+        if (StudioButton(new Rect(x + half + 9f, y + 113f,
+            half, 36f),
+            _confirmClearKeyframes ? "Confirm clear?" : "Clear path",
+            _confirmClearKeyframes))
         {
             if (_confirmClearKeyframes)
             {
@@ -608,7 +643,9 @@ public sealed partial class CameraDiagnostics
             else _confirmClearKeyframes = true;
         }
 
-        float duration = StudioSlider(7, x, y + 181f, w,
+        StudioSequence(x, y + 164f, w);
+
+        float duration = StudioSlider(7, x, y + 233f, w,
             "Playback duration", Plugin.KeyframeDuration.Value,
             2f, 120f,
             Plugin.KeyframeDuration.Value.ToString("0") + " sec");
@@ -616,8 +653,8 @@ public sealed partial class CameraDiagnostics
         if (Mathf.Abs(duration - Plugin.KeyframeDuration.Value) > .5f)
             Plugin.KeyframeDuration.Value = duration;
 
-        if (StudioButton(new Rect(x, y + 258f, w, 41f),
-            "Show camera path & markers  " +
+        if (StudioButton(new Rect(x, y + 294f, w, 41f),
+            "Show world-space camera guides: " +
                 (Plugin.ShowKeyframePath.Value ? "ON" : "OFF"),
             Plugin.ShowKeyframePath.Value))
         {
@@ -625,18 +662,15 @@ public sealed partial class CameraDiagnostics
                 !Plugin.ShowKeyframePath.Value;
         }
 
-        // A separate help card, with consistent 27px line spacing.
-        // Its last line ends at +405; the pinned footer begins at +632.
-        StudioFill(new Rect(x, y + 313f, w, 87f), StudioSurface);
-        StudioFill(new Rect(x, y + 313f, 3f, 87f), StudioStroke);
-        StudioText(new Rect(x + 13f, y + 322f, w - 26f, 20f),
-            "Mint line = trajectory   •   Crosses = saved shots",
+        StudioFill(new Rect(x, y + 350f, w, 51f), StudioSurface);
+        StudioBorder(new Rect(x, y + 350f, w, 51f), StudioStroke);
+        StudioText(new Rect(x + 13f, y + 354f,
+                w - 26f, 20f),
+            "Brass markers & jade trail appear while editing.",
             _studioMuted);
-        StudioText(new Rect(x + 13f, y + 349f, w - 26f, 20f),
-            "Guides disappear during playback and when F2 closes.",
-            _studioMuted);
-        StudioText(new Rect(x + 13f, y + 376f, w - 26f, 20f),
-            "Curved movement includes your saved camera roll.",
+        StudioText(new Rect(x + 13f, y + 377f,
+                w - 26f, 20f),
+            "They disappear during playback. Roll is preserved.",
             _studioMuted);
     }
 
