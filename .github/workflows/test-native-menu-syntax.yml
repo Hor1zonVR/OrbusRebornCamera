@@ -1,0 +1,77 @@
+name: Check Native Menu Inspector C# Syntax
+
+on:
+  push:
+    branches:
+      - diagnostics/native-menu-diff-v0912
+  pull_request:
+    paths:
+      - 'OrbusRebornCamera/NativeMenuDiffInspector.cs'
+      - 'OrbusRebornCamera/Plugin.cs'
+      - '.github/workflows/test-native-menu-syntax.yml'
+
+jobs:
+  csharp-parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Parse PowerShell release script
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path './release.ps1').Path, [ref]$tokens, [ref]$errors)
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.ToString() }
+            throw 'PowerShell publisher syntax failed'
+          }
+      - name: Validate C# grammar without redistributing game DLLs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = (dotnet --version).Trim()
+          $root = Split-Path (Get-Command dotnet).Source -Parent
+          $roslyn = Join-Path $root "sdk/$sdk/Roslyn/bincore"
+          $tmp = Join-Path $env:RUNNER_TEMP 'OrbusMenuSyntax'
+          dotnet new console -o $tmp -f net10.0 --force
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to prepare syntax checker' }
+          $project = Join-Path $tmp 'OrbusMenuSyntax.csproj'
+          $xml = Get-Content -Raw $project
+          $refs = @"
+          <ItemGroup>
+            <Reference Include="Microsoft.CodeAnalysis"><HintPath>$(Join-Path $roslyn 'Microsoft.CodeAnalysis.dll')</HintPath></Reference>
+            <Reference Include="Microsoft.CodeAnalysis.CSharp"><HintPath>$(Join-Path $roslyn 'Microsoft.CodeAnalysis.CSharp.dll')</HintPath></Reference>
+          </ItemGroup>
+          "@
+          [IO.File]::WriteAllText($project, $xml.Replace('</Project>', "$refs`n</Project>"))
+          $source = @'
+          using System;
+          using System.IO;
+          using System.Linq;
+          using Microsoft.CodeAnalysis;
+          using Microsoft.CodeAnalysis.CSharp;
+
+          var files = new[] {
+              "OrbusRebornCamera/NativeMenuDiffInspector.cs",
+              "OrbusRebornCamera/Plugin.cs"
+          };
+          int failures = 0;
+          foreach (var path in files)
+          {
+              var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(path),
+                  new CSharpParseOptions(LanguageVersion.Latest), path);
+              var errors = tree.GetDiagnostics()
+                  .Where(x => x.Severity == DiagnosticSeverity.Error).ToArray();
+              foreach (var error in errors) Console.WriteLine(error);
+              failures += errors.Length;
+              Console.WriteLine($"{path}: {errors.Length} syntax errors");
+          }
+          if (failures != 0) Environment.Exit(1);
+          '@
+          [IO.File]::WriteAllText((Join-Path $tmp 'Program.cs'), $source)
+          dotnet run --project $project -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Native menu C# syntax check failed' }
