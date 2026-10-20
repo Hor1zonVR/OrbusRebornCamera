@@ -32,6 +32,10 @@
       <HintPath>$(GameDir)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
 
     <Reference Include="Il2Cppmscorlib">
       <HintPath>$(GameDir)\BepInEx\interop\Il2Cppmscorlib.dll</HintPath>
@@ -89,6 +93,8 @@
   </ItemGroup>
 
   <Target Name="CheckGameReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(GameDir)\BepInEx\core\0Harmony.dll')"
+           Text="BepInEx Harmony DLL missing. PowerUI read-only diagnostics require 0Harmony.dll in BepInEx/core." />
     <Error
       Condition="!Exists('$(GameDir)\BepInEx\core\BepInEx.Unity.IL2CPP.dll')"
       Text="BepInEx DLLs not found. Check GameDir." />
