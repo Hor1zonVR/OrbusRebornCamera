@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.8"
+    "0.9.9"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -37,6 +37,8 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<float> DroneMouseSensitivity = null!;
     internal static ConfigEntry<float> DroneMovementSmoothing = null!;
     internal static ConfigEntry<float> KeyframeDuration = null!;
+    internal static ConfigEntry<float> DroneRollSpeed = null!;
+    internal static ConfigEntry<bool> ShowKeyframePath = null!;
     internal static ConfigEntry<bool> ExtendedRenderEnabled = null!;
     internal static ConfigEntry<float> ExtendedRenderFarClip = null!;
 
@@ -148,6 +150,14 @@ public sealed class Plugin : BasePlugin
             "Acceleration and deceleration smoothing; 0 is instant."
         );
 
+        DroneRollSpeed = Config.Bind(
+            "ExperimentalDrone", "RollDegreesPerSecond", 65f,
+            "Bank the detached creator camera with Z/C while RMB flying; X levels it.");
+        ShowKeyframePath = Config.Bind(
+            "CreatorPanel", "ShowKeyframePath", true,
+            "Show keyframe trajectory and markers ONLY on the desktop creator camera " +
+            "when the F2 panel is visible, not during playback or in the VR headset.");
+
         KeyframeDuration = Config.Bind(
             "Freecam",
             "KeyframeDuration",
@@ -188,7 +198,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.8 - cinematic boost comparison + scene streaming clues");
+        Log.LogInfo("OrbusRebornCamera v0.9.9 - creator studio UI, freecam roll and keyframe preview");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
@@ -229,7 +239,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+F9 = Desktop avatar toggle");
         Log.LogInfo("F10 = FOV | F11 = Camera mode | F12 = Freeze");
         Log.LogInfo("Ctrl+F11 = Toggle freecam (same controls in VR and desktop sessions)");
-        Log.LogInfo("Freecam: hold RMB + WASD, Q/E vertical, Shift boost, Ctrl slow");
+        Log.LogInfo("Freecam: RMB+WASD even with F2 open (click outside panel); Q/E up/down");
+        Log.LogInfo("While flying: Z/C bank camera, X level roll, Shift boost, Ctrl slow");
+        Log.LogInfo("F2 panel: camera / motion / keyframe tabs with editable controls");
         Log.LogWarning(
             "Trickster Goblin visual filtering is not implemented yet. " +
             "Use freecam only where the server owner permits it.");

@@ -149,6 +149,8 @@ public sealed partial class CameraDiagnostics
         _pathElapsed = 0f;
         _playbackScene = ActiveSceneName();
         _playbackHorizontalFov = _keyframes[0].HorizontalFov;
+        _dronePosition = _keyframes[0].Position;
+        _dronePlaybackRotation = _keyframes[0].Rotation;
         _playingKeyframes = true;
 
         Plugin.ModLogger.LogInfo(
@@ -176,32 +178,81 @@ public sealed partial class CameraDiagnostics
 
         float progress = Mathf.Clamp01(_pathElapsed / seconds);
         float sections = _keyframes.Count - 1;
-        float segmentProgress = progress * sections;
+        // Ease at the START and END of the entire cinematic, not at each
+        // intermediate shot: the camera now flows through the spline instead
+        // of stopping and restarting every time it reaches a keyframe.
+        float globalEase = Mathf.SmoothStep(0f, 1f, progress);
+        float segmentProgress = globalEase * sections;
         int index = Math.Min(_keyframes.Count - 2,
             Mathf.FloorToInt(segmentProgress));
         float fraction = Mathf.Clamp01(segmentProgress - index);
-        // Smoothly ease between shots. Rotation uses quaternion interpolation
-        // so turns never jump across the 0/360-degree boundary.
-        float smooth = Mathf.SmoothStep(0f, 1f, fraction);
+        // Quaternion interpolation preserves roll through all keyframes.
+        float smooth = fraction;
         CameraKeyframe from = _keyframes[index];
         CameraKeyframe to = _keyframes[index + 1];
 
-        _dronePosition = Vector3.Lerp(from.Position, to.Position, smooth);
+        _dronePosition = EvaluateKeyframePosition(index, smooth);
         Quaternion rotation = Quaternion.Slerp(
             from.Rotation, to.Rotation, smooth);
+        // Preserve the FULL 3-axis quaternion while replaying (including
+        // camera roll), without round-tripping through Euler angles.
+        _dronePlaybackRotation = rotation;
         Vector3 euler = rotation.eulerAngles;
         _droneYaw = euler.y;
         _dronePitch = Mathf.Clamp(
             Mathf.DeltaAngle(0f, euler.x), -89f, 89f);
+        _droneRoll = Mathf.DeltaAngle(0f, euler.z);
         _playbackHorizontalFov = Mathf.Lerp(
             from.HorizontalFov, to.HorizontalFov, smooth);
 
         if (progress >= 1f)
         {
+            // The final camera orientation is already copied into roll,
+            // yaw and pitch above, so ending playback does not snap to 0°.
             StopKeyframePlayback();
             Plugin.ModLogger.LogInfo(
                 "[Keyframes] Playback finished at final shot.");
         }
+    }
+
+    // Shared by playback and the desktop-only preview. Use the exact same
+    // cubic path geometry, so the line shows where the camera will fly.
+    private Vector3 EvaluateKeyframePosition(int segment, float t)
+    {
+        int last = _keyframes.Count - 1;
+        if (last < 1) return _dronePosition;
+        segment = Mathf.Clamp(segment, 0, last - 1);
+        t = Mathf.Clamp01(t);
+        Vector3 p1 = _keyframes[segment].Position;
+        Vector3 p2 = _keyframes[segment + 1].Position;
+        if (last == 1) return Vector3.Lerp(p1, p2, t);
+        Vector3 p0 = _keyframes[Math.Max(0, segment - 1)].Position;
+        Vector3 p3 = _keyframes[Math.Min(last, segment + 2)].Position;
+        // Catmull-Rom spline, continuous through each keyframe. Start/end
+        // tangents use clamped endpoint positions to avoid extrapolation.
+        float t2 = t * t;
+        float t3 = t2 * t;
+        return 0.5f * ((2f * p1) + (-p0 + p2) * t +
+            (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 +
+            (-p0 + 3f * p1 - 3f * p2 + p3) * t3);
+    }
+
+    private float KeyframePathLength()
+    {
+        float total = 0f;
+        if (_keyframes.Count < 2) return 0f;
+        for (int i = 0; i < _keyframes.Count - 1; i++)
+        {
+            Vector3 prev = _keyframes[i].Position;
+            for (int step = 1; step <= 12; step++)
+            {
+                Vector3 now = EvaluateKeyframePosition(
+                    i, step / 12f);
+                total += Vector3.Distance(prev, now);
+                prev = now;
+            }
+        }
+        return total;
     }
 
     private void StopKeyframePlayback()

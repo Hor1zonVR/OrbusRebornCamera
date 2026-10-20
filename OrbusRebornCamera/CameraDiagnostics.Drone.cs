@@ -24,6 +24,8 @@ public sealed partial class CameraDiagnostics
     private Vector3 _droneVelocity;
     private float _droneYaw;
     private float _dronePitch;
+    private float _droneRoll;
+    private Quaternion _dronePlaybackRotation = Quaternion.identity;
     private bool _droneLooking;
     private float _droneNextInputWarning;
     private bool _droneCursorWasVisible;
@@ -88,6 +90,7 @@ public sealed partial class CameraDiagnostics
         _droneYaw = euler.y;
         _dronePitch = Mathf.Clamp(
             Mathf.DeltaAngle(0f, euler.x), -89f, 89f);
+        _droneRoll = Mathf.DeltaAngle(0f, euler.z);
         _droneVelocity = Vector3.zero;
         _droneLastObservedEye = _dronePosition;
         _droneHasObservedEye = true;
@@ -202,6 +205,7 @@ public sealed partial class CameraDiagnostics
         _droneYaw = euler.y;
         _dronePitch = Mathf.Clamp(
             Mathf.DeltaAngle(0f, euler.x), -89f, 89f);
+        _droneRoll = Mathf.DeltaAngle(0f, euler.z);
         _droneVelocity = Vector3.zero;
         _mode = CameraMode.Drone;
         _snapNextFrame = false;
@@ -227,7 +231,7 @@ public sealed partial class CameraDiagnostics
     private void HandleDroneInput()
     {
         if (_mode != CameraMode.Drone || !IsCameraActive ||
-            _playingKeyframes || _panelVisible)
+            _playingKeyframes)
         {
             ReleaseDronePointer();
             return;
@@ -260,6 +264,16 @@ public sealed partial class CameraDiagnostics
         }
 
         bool rightHeld = DroneKeyDown(RightMouseButton);
+        // Mouse and WASD can control freecam while the creator panel remains
+        // open, but ONLY after the right button is pressed outside the panel.
+        // Once flying, continuing over its bounds doesn't steal the mouse.
+        if (rightHeld && !_droneLooking &&
+            _panelVisible && IsPointerOverCreatorPanel())
+        {
+            ReleaseDronePointer();
+            _droneVelocity = Vector3.zero;
+            return;
+        }
 
         if (!rightHeld)
         {
@@ -296,8 +310,17 @@ public sealed partial class CameraDiagnostics
         _dronePitch = Mathf.Clamp(
             _dronePitch - mouseY * sensitivity, -89f, 89f);
 
+        // Z/C bank the camera; X levels it. These affect ONLY the desktop
+        // camera and are saved into the existing quaternion keyframes.
+        float rollSpeed = Mathf.Clamp(
+            Plugin.DroneRollSpeed.Value, 5f, 180f);
+        if (DroneKeyDown(0x5A)) _droneRoll += rollSpeed * dt; // Z
+        if (DroneKeyDown(0x43)) _droneRoll -= rollSpeed * dt; // C
+        if (DroneKeyDown(0x58)) _droneRoll = 0f;             // X
+        _droneRoll = Mathf.DeltaAngle(0f, _droneRoll);
+
         Quaternion rotation = Quaternion.Euler(
-            _dronePitch, _droneYaw, 0f);
+            _dronePitch, _droneYaw, _droneRoll);
 
         Vector3 direction = Vector3.zero;
 
@@ -350,8 +373,9 @@ public sealed partial class CameraDiagnostics
         }
 
         _desktop.transform.position = _dronePosition;
-        _desktop.transform.rotation = Quaternion.Euler(
-            _dronePitch, _droneYaw, 0f);
+        _desktop.transform.rotation = _playingKeyframes
+            ? _dronePlaybackRotation
+            : Quaternion.Euler(_dronePitch, _droneYaw, _droneRoll);
     }
 
     private void LeaveDrone()
@@ -394,5 +418,6 @@ public sealed partial class CameraDiagnostics
     {
         LeaveDrone();
         RestoreCinematicRendering();
+        DestroyPathPreviewMaterial();
     }
 }
