@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - diagnostics/native-menu-diff-v0912
+      - diagnostics/native-powerui-settings-v0913
   pull_request:
     paths:
       - 'OrbusRebornCamera/NativeMenuDiffInspector.cs'
+      - 'OrbusRebornCamera/NativePowerUiSettingsProbe.cs'
+      - 'OrbusRebornCamera/BetterMirror.csproj'
       - 'OrbusRebornCamera/Plugin.cs'
       - '.github/workflows/test-native-menu-syntax.yml'
 
@@ -57,6 +60,7 @@ jobs:
 
           var files = new[] {
               "OrbusRebornCamera/NativeMenuDiffInspector.cs",
+              "OrbusRebornCamera/NativePowerUiSettingsProbe.cs",
               "OrbusRebornCamera/Plugin.cs"
           };
           int failures = 0;

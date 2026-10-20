@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.12"
+    "0.9.13"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -205,7 +205,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.12 - Orbus-inspired Creator Studio theme and in-game font");
+        Log.LogInfo("OrbusRebornCamera v0.9.13 - Orbus-inspired Creator Studio theme and in-game font");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
@@ -216,6 +216,7 @@ public sealed class Plugin : BasePlugin
         AddComponent<OrbusUIInspector>();
         AddComponent<VrUiInteractionRecorder>();
         AddComponent<NativeMenuDiffInspector>();
+        AddComponent<NativePowerUiSettingsProbe>();
         AddComponent<AvatarDiagnostics>();
         AddComponent<TricksterAssetDiagnostics>();
         AddComponent<TricksterDiskDiagnostics>();
@@ -233,6 +234,7 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("[DesktopProbe] F1 = desktop UI / camera diagnostics");
         Log.LogInfo("Ctrl+Shift+F1 = broad UI report / VR input capture");
         Log.LogInfo("Ctrl+Shift+I twice = compare CLOSED vs OPEN native Orbus Settings (one concise report)");
+        Log.LogInfo("Ctrl+Shift+P twice = read-only POWERUI SETTINGS observer (close menu first; then open Settings)");
         Log.LogInfo("Ctrl+Shift+F11 = recenter freecam to local player (CAMERA ONLY)");
         Log.LogInfo("Freecam warns beyond 35m from player; world streaming follows avatar");
         Log.LogInfo("Extended far clipping / occlusion for ALREADY LOADED objects (desktop camera only)");
