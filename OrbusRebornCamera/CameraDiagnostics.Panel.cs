@@ -4,16 +4,30 @@ using UnityEngine;
 namespace OrbusBetterMirror;
 
 /// <summary>
-/// Compact non-modal desktop creator studio. Tabs replace the old 948px
-/// debug-like stack, while RMB outside the panel still flies freecam.
+/// Desktop creator studio with a measured layout: the content region
+/// always ends before the pinned footer, including in small windows.
+/// RMB outside the editor still flies freecam.
 /// The Quest display and actual player are never touched.
 /// </summary>
 public sealed partial class CameraDiagnostics
 {
     private const int PanelToggleVirtualKey = 0x71; // F2
-    private const float StudioWidth = 418f;
-    private const float StudioHeight = 562f;
-    private const float StudioPadding = 17f;
+    // Design-space pixels; the entire panel scales uniformly in small
+    // windows. All sections below are measured from these shared anchors.
+    private const float StudioWidth = 472f;
+    private const float StudioHeight = 694f;
+    private const float StudioPadding = 22f;
+    private const float StudioHeaderHeight = 76f;
+    private const float StudioStatusY = 90f;
+    private const float StudioTabsY = 141f;
+    private const float StudioDividerY = 193f;
+    private const float StudioContentY = 204f;
+    private const float StudioFooterY = 632f;
+
+    // Tallest editor tab ends at ContentY + 406 = 610, leaving a clear
+    // 22px gap before the footer at 632. This fixes 0.9.9's overlap.
+    private const float StudioContentBottom =
+        StudioContentY + 406f;
 
     private bool _panelVisible;
     private bool _panelToggleWasDown;
@@ -116,13 +130,16 @@ public sealed partial class CameraDiagnostics
 
     private void StudioGeometry(out float scale, out float x, out float y)
     {
-        scale = Mathf.Clamp(
-            Mathf.Min(Screen.width / 465f, Screen.height / 600f),
-            .56f, 1f);
-        float maxX = Mathf.Max(10f, Screen.width / scale -
-            StudioWidth - 10f);
-        float maxY = Mathf.Max(10f, Screen.height / scale -
-            StudioHeight - 10f);
+        // Fit both dimensions; never force a minimum scale that makes the
+        // panel taller than the actual game window.
+        scale = Mathf.Min(1f, Mathf.Min(
+            Screen.width / (StudioWidth + 24f),
+            Screen.height / (StudioHeight + 24f)));
+        scale = Mathf.Max(.20f, scale);
+        float maxX = Mathf.Max(12f, Screen.width / scale -
+            StudioWidth - 12f);
+        float maxY = Mathf.Max(12f, Screen.height / scale -
+            StudioHeight - 12f);
         if (!_hasPanelPosition)
         {
             _panelX = maxX;
@@ -237,16 +254,16 @@ public sealed partial class CameraDiagnostics
     private void EnsureStudioStyles()
     {
         if (_studioTitle != null) return;
-        _studioTitle = StudioStyle(20, StudioBright, FontStyle.Bold);
-        _studioCaption = StudioStyle(11, StudioSecondary);
-        _studioHeading = StudioStyle(13, StudioBright, FontStyle.Bold);
-        _studioBody = StudioStyle(12, StudioBright);
-        _studioMuted = StudioStyle(11, StudioSecondary);
-        _studioValue = StudioStyle(12, StudioAccent, FontStyle.Bold,
+        _studioTitle = StudioStyle(22, StudioBright, FontStyle.Bold);
+        _studioCaption = StudioStyle(12, StudioSecondary);
+        _studioHeading = StudioStyle(14, StudioBright, FontStyle.Bold);
+        _studioBody = StudioStyle(13, StudioBright);
+        _studioMuted = StudioStyle(12, StudioSecondary);
+        _studioValue = StudioStyle(13, StudioAccent, FontStyle.Bold,
             TextAnchor.MiddleRight);
-        _studioButton = StudioStyle(12, StudioBright, FontStyle.Bold,
+        _studioButton = StudioStyle(13, StudioBright, FontStyle.Bold,
             TextAnchor.MiddleCenter);
-        _studioActiveButton = StudioStyle(12, StudioAccent,
+        _studioActiveButton = StudioStyle(13, StudioAccent,
             FontStyle.Bold, TextAnchor.MiddleCenter);
     }
 
@@ -321,58 +338,85 @@ public sealed partial class CameraDiagnostics
 
     private void DrawStudio(float x, float y)
     {
-        StudioFill(new Rect(x - 1, y - 1, StudioWidth + 2,
-            StudioHeight + 2), StudioStroke);
+        float px = x + StudioPadding;
+        float pw = StudioWidth - StudioPadding * 2f;
+
+        // The header, status, tabs, editor canvas and footer occupy
+        // non-overlapping vertical bands. Content never draws below +610.
+        StudioFill(new Rect(x - 1f, y - 1f,
+            StudioWidth + 2f, StudioHeight + 2f), StudioStroke);
         StudioFill(new Rect(x, y, StudioWidth, StudioHeight), StudioBack);
-        StudioFill(new Rect(x, y, StudioWidth, 67f), StudioTop);
-        StudioFill(new Rect(x, y, 3f, 67f), StudioAccent);
+        StudioFill(new Rect(x, y, StudioWidth, StudioHeaderHeight),
+            StudioTop);
+        StudioFill(new Rect(x, y, 3f, StudioHeaderHeight),
+            StudioAccent);
 
-        StudioText(new Rect(x + 17f, y + 8f, 248f, 29f),
+        StudioText(new Rect(px, y + 11f, pw - 60f, 30f),
             "REBORNCAM", _studioTitle);
-        StudioText(new Rect(x + 18f, y + 36f, 285f, 20f),
-            "Creator studio  /  Drag title to move", _studioCaption);
+        StudioText(new Rect(px, y + 43f, pw - 60f, 20f),
+            "Creator Studio   •   Drag header to move",
+            _studioCaption);
 
-        if (StudioButton(new Rect(x + StudioWidth - 41f,
-                y + 15f, 27f, 28f), "×", false))
+        if (StudioButton(new Rect(
+                x + StudioWidth - 43f, y + 19f, 28f, 29f),
+            "X", false))
         {
             SetPanelVisibility(false);
             return;
         }
 
-        float px = x + StudioPadding;
-        float pw = StudioWidth - StudioPadding * 2f;
-        StudioText(new Rect(px, y + 77f, 134f, 17f),
-            IsCameraActive ? "●  CAMERA ONLINE" : "●  CAMERA OFF",
-            IsCameraActive ? _studioActiveButton : _studioMuted);
-
-        StudioText(new Rect(x + StudioWidth - 185f, y + 77f,
-            164f, 17f), _mode == CameraMode.Drone ?
-            "FREECAM ACTIVE" : _mode.ToString().ToUpperInvariant(),
+        // One status strip instead of cramped floating text above tabs.
+        StudioFill(new Rect(px, y + StudioStatusY,
+            pw, 37f), StudioSurface);
+        StudioFill(new Rect(px, y + StudioStatusY, 3f, 37f),
+            IsCameraActive ? StudioAccent : StudioAmber);
+        StudioText(new Rect(px + 13f, y + StudioStatusY + 6f,
+                195f, 25f),
+            IsCameraActive ? "CAMERA ONLINE" : "CAMERA OFF",
+            IsCameraActive ? _studioHeading : _studioMuted);
+        StudioText(new Rect(px + pw - 188f, y + StudioStatusY + 6f,
+                174f, 25f),
+            _mode == CameraMode.Drone ? "FREECAM ACTIVE" :
+                _mode == CameraMode.POV ? "FIRST PERSON" :
+                _mode == CameraMode.ThirdPerson ? "THIRD PERSON" :
+                _mode == CameraMode.Selfie ? "SELFIE" : "STATIC",
             _studioValue);
 
-        float tabsY = y + 107f;
-        float tabW = (pw - 12f) / 3f;
+        float tabW = (pw - 16f) / 3f;
         string[] labels = { "CAMERA", "FREECAM", "KEYFRAMES" };
         for (int i = 0; i < 3; i++)
         {
-            float bx = px + i * (tabW + 6f);
-            if (StudioButton(new Rect(bx, tabsY, tabW, 37f),
-                labels[i], _panelTab == i))
+            float tx = px + i * (tabW + 8f);
+            if (StudioButton(new Rect(tx, y + StudioTabsY,
+                    tabW, 40f), labels[i], _panelTab == i))
+            {
                 _panelTab = i;
+                _activeSlider = 0;
+                _confirmClearKeyframes = false;
+            }
         }
 
-        StudioFill(new Rect(px, y + 154f, pw, 1f), StudioStroke);
+        StudioFill(new Rect(px, y + StudioDividerY,
+            pw, 1f), StudioStroke);
 
-        if (_panelTab == 0) DrawCameraTab(px, y + 168f, pw);
-        else if (_panelTab == 1) DrawFlightTab(px, y + 168f, pw);
-        else DrawKeyframesTab(px, y + 168f, pw);
+        // No flexible footer overlays: this content band and footer are
+        // intentionally disjoint even after uniform window scaling.
+        if (_panelTab == 0)
+            DrawCameraTab(px, y + StudioContentY, pw);
+        else if (_panelTab == 1)
+            DrawFlightTab(px, y + StudioContentY, pw);
+        else
+            DrawKeyframesTab(px, y + StudioContentY, pw);
 
-        StudioFill(new Rect(px, y + 509f, pw, 1f), StudioStroke);
-        StudioText(new Rect(px, y + 517f, pw, 18f),
-            "RMB outside panel + WASD to fly  /  F2 to hide",
+        StudioFill(new Rect(px, y + StudioFooterY,
+            pw, 1f), StudioStroke);
+        StudioText(new Rect(px + 2f, y + StudioFooterY + 13f,
+                pw - 4f, 20f),
+            "RMB outside panel + WASD to fly   •   F2 to hide",
             _studioMuted);
-        StudioText(new Rect(px, y + 536f, pw, 16f),
-            "Desktop output only - headset and avatar stay untouched",
+        StudioText(new Rect(px + 2f, y + StudioFooterY + 37f,
+                pw - 4f, 20f),
+            "Desktop camera only  •  VR headset / avatar unchanged",
             _studioMuted);
     }
 
@@ -442,8 +486,8 @@ public sealed partial class CameraDiagnostics
         }
 
         bool show = Plugin.ShowLocalAvatar.Value;
-        StudioText(new Rect(x, y + 315f, w - 100f, 30f),
-            "Render my avatar in external views", _studioBody);
+        StudioText(new Rect(x, y + 315f, w - 118f, 30f),
+            "Show my avatar in external views", _studioBody);
         if (StudioButton(new Rect(x + w - 84f, y + 313f, 84f, 34f),
             show ? "ON" : "OFF", show))
             ToggleLocalAvatar();
@@ -581,14 +625,18 @@ public sealed partial class CameraDiagnostics
                 !Plugin.ShowKeyframePath.Value;
         }
 
-        StudioText(new Rect(x, y + 309f, w, 21f),
-            "Mint curve = travel path • crosses = saved shots",
+        // A separate help card, with consistent 27px line spacing.
+        // Its last line ends at +405; the pinned footer begins at +632.
+        StudioFill(new Rect(x, y + 313f, w, 87f), StudioSurface);
+        StudioFill(new Rect(x, y + 313f, 3f, 87f), StudioStroke);
+        StudioText(new Rect(x + 13f, y + 322f, w - 26f, 20f),
+            "Mint line = trajectory   •   Crosses = saved shots",
             _studioMuted);
-        StudioText(new Rect(x, y + 333f, w, 21f),
-            "Markers are editor-only; hidden in clean playback.",
+        StudioText(new Rect(x + 13f, y + 349f, w - 26f, 20f),
+            "Guides disappear during playback and when F2 closes.",
             _studioMuted);
-        StudioText(new Rect(x, y + 365f, w, 21f),
-            "Positions follow a spline; camera roll is preserved.",
+        StudioText(new Rect(x + 13f, y + 376f, w - 26f, 20f),
+            "Curved movement includes your saved camera roll.",
             _studioMuted);
     }
 
