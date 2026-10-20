@@ -2,7 +2,7 @@
 
 This release restores the in-world **physical/grabbable camera (F3)** by default while keeping the experimental native UI/PowerUI inspectors, VR input recorder, avatar and asset diagnostics unloaded during normal play. The desktop creator camera, F2 Creator Studio, freecam, cinematic controls and recording remain available.
 
-The v0.9.15 physical-camera key is superseded: use \`[PhysicalCamera] EnableInWorldCamera = true\`. If you set \`[General] StartEnabled = false\` during troubleshooting, set it back to \`true\` to resume automatic desktop-camera startup; updating does not overwrite your saved setting. See [v0.9.16 release and test guidance](docs/V0916_CAMERA_RESTORE.md).
+The v0.9.15 physical-camera key is superseded: use `[PhysicalCamera] EnableInWorldCamera = true`. If you set `[General] StartEnabled = false` during troubleshooting, set it back to `true` to resume automatic desktop-camera startup; updating does not overwrite your saved setting. See [v0.9.16 release and test guidance](docs/V0916_CAMERA_RESTORE.md).
 
 The Quest Link freeze was also observed with Orbus closed and RebornCam disabled; Meta Horizon Link separately reported a known NVIDIA graphics-driver freezing issue. Don't assume updating RC fixes a driver problem.
 
