@@ -34,6 +34,18 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.10: Creator Studio spacing and overlap repair
+
+Fixes the visually cramped v0.9.9 creator panel shown in user screenshots:
+
+- Increased layout to 472×694 design pixels, with larger text and wider controls; the entire panel still scales uniformly to fit smaller game windows, instead of clipping at the previous minimum scaling threshold.
+- Reserved **separate, non-overlapping vertical bands** for title bar, camera status, tabs, tab content and pinned footer. The deepest tab content ends at +610 while the footer begins at +632, so button and help labels no longer overlap.
+- Reworked the Camera tab status strip and clarified the external-avatar label.
+- Moved the Keyframes explanation into a proper inset help card, with evenly spaced lines.
+- Tab switches reset active slider drag/clear confirmation state; original freecam controls, roll and path rendering are preserved.
+
+**RM testing:** pull RC main and run `release.ps1` to build and publish v0.9.10 as a stable `BetterMirror.dll` GitHub release for RM. No manual DLL installation needed. GitHub Actions automatic publisher still requires private interop build references; until configured, use the local publisher.
+
 ## RC v0.9.9: Creator Studio, roll and spline path previews
 
 **F2 has a new, movable, non-modal creator panel.** Instead of the former 948px settings stack, the editor is about 418x562 and has **Camera / Freecam / Keyframes tabs**, clearer buttons, consistent mint accents and contextual controls. Drag the title bar to move it. Only the desktop output is modified; no gameplay avatar, VR tracked camera or controller transforms are changed.
