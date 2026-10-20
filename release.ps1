@@ -41,13 +41,20 @@ if ($branch -ne "main") {
     throw "Switch to the main branch before publishing."
 }
 
-# Only publish committed changes.
-$changes = & git status --porcelain
+# Keep tracked project files safe. Benign untracked diagnostics files
+# (build-error.txt, logs) do not need to block publishing.
+$changes = & git status --porcelain --untracked-files=no
 Check-Result "Checking Git status"
 
 if ($changes) {
-    throw "You have uncommitted changes. Commit them before publishing."
+    throw "You have uncommitted edits to tracked source files. Commit or stash before publishing."
 }
+
+# Always get the GitHub version first so this ONE command builds the newest
+# release that RebornManager will offer. Git refuses to overwrite local work.
+Write-Host "[0/4] Syncing newest RC version from GitHub..." -ForegroundColor Yellow
+& git pull --ff-only origin main
+Check-Result "Pulling latest camera source"
 
 # Read the actual plugin version from Plugin.cs.
 $source = Get-Content $pluginFile -Raw
