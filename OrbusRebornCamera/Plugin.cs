@@ -241,7 +241,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+F11 = Toggle freecam (same controls in VR and desktop sessions)");
         Log.LogInfo("Freecam: RMB+WASD even with F2 open (click outside panel); Q/E up/down");
         Log.LogInfo("While flying: Z/C bank camera, X level roll, Shift boost, Ctrl slow");
-        Log.LogInfo("F2 panel: camera / motion / keyframe tabs with editable controls");
+        Log.LogInfo("F2 opens draggable Creator Studio: Camera / Freecam / Keyframes");
+        Log.LogInfo("Stable GitHub releases are built automatically for RM on version updates");
         Log.LogWarning(
             "Trickster Goblin visual filtering is not implemented yet. " +
             "Use freecam only where the server owner permits it.");

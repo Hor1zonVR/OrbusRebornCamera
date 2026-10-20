@@ -34,6 +34,20 @@ namespace UnityEngine
             this.x = x; this.y = y; this.z = z;
         }
         public static Vector3 zero => new(0f, 0f, 0f);
+        public static Vector3 operator +(Vector3 a, Vector3 b) =>
+            new(a.x + b.x, a.y + b.y, a.z + b.z);
+        public static Vector3 operator -(Vector3 a, Vector3 b) =>
+            new(a.x - b.x, a.y - b.y, a.z - b.z);
+        public static Vector3 operator -(Vector3 a) =>
+            new(-a.x, -a.y, -a.z);
+        public static Vector3 operator *(Vector3 a, float n) =>
+            new(a.x * n, a.y * n, a.z * n);
+        public static Vector3 operator *(float n, Vector3 a) => a * n;
+        public static float Distance(Vector3 a, Vector3 b)
+        {
+            Vector3 d = a - b;
+            return MathF.Sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+        }
         public static Vector3 Lerp(Vector3 a, Vector3 b, float t) =>
             new(Mathf.Lerp(a.x, b.x, t), Mathf.Lerp(a.y, b.y, t),
                 Mathf.Lerp(a.z, b.z, t));
@@ -66,6 +80,8 @@ namespace UnityEngine
     public static class Mathf
     {
         public static float Clamp(float n, float min, float max) =>
+            Math.Clamp(n, min, max);
+        public static int Clamp(int n, int min, int max) =>
             Math.Clamp(n, min, max);
         public static float Min(float a, float b) => Math.Min(a, b);
         public static float Max(float a, float b) => Math.Max(a, b);
@@ -116,6 +132,8 @@ namespace OrbusBetterMirror
         private Vector3 _dronePosition;
         private float _droneYaw;
         private float _dronePitch;
+        private float _droneRoll;
+        private Quaternion _dronePlaybackRotation = new(0f, 0f, 0f, 1f);
 
         private bool EnterFreecam()
         {

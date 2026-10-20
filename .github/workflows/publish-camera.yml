@@ -1,6 +1,13 @@
 name: Publish RebornCam Update
 
 on:
+  # Version bump on main -> build, test and publish a stable DLL for RM.
+  # This also preserves manual preview/stable dispatch from the Actions tab.
+  push:
+    branches:
+      - main
+    paths:
+      - 'OrbusRebornCamera/Plugin.cs'
   workflow_dispatch:
     inputs:
       channel:
@@ -76,7 +83,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          CHANNEL: ${{ inputs.channel }}
+          CHANNEL: ${{ github.event_name == 'push' && 'stable' || inputs.channel }}
         run: |
           $source = Get-Content OrbusRebornCamera/Plugin.cs -Raw
           $m = [regex]::Match($source, '(?s)\[BepInPlugin\(\s*"[^"]+"\s*,\s*"[^"]+"\s*,\s*"(?<v>\d+\.\d+\.\d+)"')
@@ -102,7 +109,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
-          CHANNEL: ${{ inputs.channel }}
+          CHANNEL: ${{ github.event_name == 'push' && 'stable' || inputs.channel }}
         run: |
           $dll = (Resolve-Path OrbusRebornCamera/bin/Release/net6.0/BetterMirror.dll).Path
           git tag $env:TAG
