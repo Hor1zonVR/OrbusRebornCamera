@@ -18,8 +18,8 @@ namespace OrbusBetterMirror;
 
 /// <summary>
 /// Two snapshots of the actual in-game menu, on demand.
-/// Ctrl+Shift+F2 when menu is CLOSED: baseline.
-/// Ctrl+Shift+F2 when game Settings is OPEN: difference report.
+/// Ctrl+Shift+I when menu is CLOSED: baseline.
+/// Ctrl+Shift+I when game Settings is OPEN: difference report.
 /// Never modifies game objects, UI, VR pointers or input.
 /// </summary>
 public sealed class NativeMenuDiffInspector : MonoBehaviour
@@ -29,7 +29,7 @@ public sealed class NativeMenuDiffInspector : MonoBehaviour
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int key);
 
-    private const int F2Key = 0x71;
+    private const int IKey = 0x49;
     private const int CtrlKey = 0x11;
     private const int ShiftKey = 0x10;
     private const int MaxTransforms = 45000;
@@ -50,6 +50,7 @@ public sealed class NativeMenuDiffInspector : MonoBehaviour
         public bool SelfActive;
         public int Layer;
         public int Score;
+        public GameObject? Object;
     }
 
     private sealed class Snapshot
@@ -65,13 +66,13 @@ public sealed class NativeMenuDiffInspector : MonoBehaviour
     private void Start()
     {
         Plugin.ModLogger.LogInfo(
-            "[NativeMenuDiff] Ctrl+Shift+F2 CLOSED then OPEN Settings -> one compact menu report.");
+            "[NativeMenuDiff] Ctrl+Shift+I CLOSED then OPEN Settings -> one compact menu report.");
     }
 
     private void Update()
     {
         bool down = Application.isFocused &&
-            Held(F2Key) && Held(CtrlKey) && Held(ShiftKey);
+            Held(IKey) && Held(CtrlKey) && Held(ShiftKey);
         if (down && !_wasDown)
         {
             try
@@ -84,7 +85,7 @@ public sealed class NativeMenuDiffInspector : MonoBehaviour
                     _baselineTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                     Plugin.ModLogger.LogInfo(
                         "[NativeMenuDiff] BASELINE captured (" + initial.Items.Count +
-                        " transforms). Now OPEN Orbus Settings and press Ctrl+Shift+F2 again.");
+                        " transforms). Now OPEN Orbus Settings and press Ctrl+Shift+I again.");
                 }
                 else
                 {
@@ -188,7 +189,8 @@ public sealed class NativeMenuDiffInspector : MonoBehaviour
                     Active = go.activeInHierarchy,
                     SelfActive = go.activeSelf,
                     Layer = go.layer,
-                    Score = Score(path, go.activeInHierarchy)
+                    Score = Score(path, go.activeInHierarchy),
+                    Object = go
                 };
                 snapshot.Items[entry.Id] = entry;
             }
@@ -222,27 +224,24 @@ public sealed class NativeMenuDiffInspector : MonoBehaviour
         return Clean(component.GetType().FullName, 140);
     }
 
-    private static string ComponentsOf(int id)
+    private static string ComponentsOf(Entry entry)
     {
-        // Access components only on a SMALL number of selected UI candidates,
-        // never all the thousands of world scene transforms.
+        // Read only the selected objects from the second snapshot.
+        // Avoid repeating an expensive FindObjectsOfTypeAll for every candidate.
         try
         {
-            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+            GameObject? go = entry.Object;
+            if (go == null) return "(destroyed)";
+            var parts = new List<string>();
+            foreach (Component comp in go.GetComponents<Component>())
             {
-                if (go == null || go.GetInstanceID() != id) continue;
-                var parts = new List<string>();
-                foreach (Component comp in go.GetComponents<Component>())
-                {
-                    if (comp == null) continue;
-                    if (parts.Count == 15) { parts.Add("..."); break; }
-                    parts.Add(ActualType(comp));
-                }
-                return string.Join(", ", parts);
+                if (comp == null) continue;
+                if (parts.Count == 15) { parts.Add("..."); break; }
+                parts.Add(ActualType(comp));
             }
+            return string.Join(", ", parts);
         }
         catch (Exception ex) { return "components-error=" + Clean(ex.Message); }
-        return "(destroyed or unavailable)";
     }
 
     private static void AppendPointerSummary(StringBuilder output)
@@ -359,7 +358,7 @@ public sealed class NativeMenuDiffInspector : MonoBehaviour
         output.AppendLine("=== COMPONENT TYPES OF CHANGED MENU ELEMENTS ===");
         // Only a handful of high-value objects to avoid a massive scan.
         foreach (Entry entry in ordered.Take(12))
-            output.AppendLine("  " + entry.Path + "\n    " + ComponentsOf(entry.Id));
+            output.AppendLine("  " + entry.Path + "\n    " + ComponentsOf(entry));
 
         AppendPointerSummary(output);
         output.AppendLine();
