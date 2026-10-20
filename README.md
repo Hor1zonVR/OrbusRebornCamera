@@ -34,6 +34,21 @@ Never commit those generated references to the public repository or use a broadl
 
 **Status:** v0.9.1 source is on main, but no v0.9.1 DLL has been published yet. This is an experimental desktop **diagnostic**, not functional mouse-based VR menus, virtual hands, or headset-free server joining. Test using a Preview release before publishing Stable to RM users.
 
+## RC v0.9.11: Orbus-inspired Director Studio theme
+
+A **visual-only polish pass** that keeps the familiar Camera, Freecam and Keyframes editing workflow from v0.9.10, with a restrained Orbus-inspired style rather than another functionality overhaul.
+
+- Dark carved-stone/ink surfaces, inner frame trim, a small geometric rune seal and understated **aged brass** ornaments around the title/sections
+- Distinct states: muted stone for secondary controls, an engraved brass underline for the active tab, jade for real camera activation and relevant primary actions, and parchment-tinted text. No large solid mint buttons
+- Improved sliders with stone inset channels, slim jade fills and small brass handles; clickable regions and control values are unchanged
+- A **small non-interactive shot-sequence overview** on the Keyframes tab with up to 80 point markers and a playback position indicator; the full path/3D guide controls are preserved, and the timeline does **not** misleadingly promise scrubbing
+- Preserves the measured 472x694 panel geometry from v0.9.10. All tabs use a separate content band ending before the pinned footer
+- **Game font lookup, no bundled font files:** if `[CreatorPanel] UseOrbusFont = true` (default), while F2 is open RC periodically searches for a font already used by Orbus in the current loaded scene, preferring standard Unity UI `Text` components (when supported) and otherwise searching `TextMesh` labels. Menu/journal/quest title text receives priority. The found font is reused by reference for title, headings and tab labels. Other labels remain a clean and readable Unity IMGUI face. If the game UI is drawn with SuperTextMesh/atlases or no compatible Unity `Font` exists, RC uses the default readable font rather than claiming an exact match. The BepInEx log reports `[CreatorStudio] Using font from Orbus scene text '...'` if one was identified. No redistribution of proprietary font assets occurs
+
+All existing camera, roll, freecam, spline and rendering functions stay unchanged. This update does **not** add world loading or interaction systems.
+
+**Install through RM:** publish a stable `BetterMirror.dll` release with the local `release.ps1` workflow (the GitHub Actions publisher still needs private interop references). The latest source is already in GitHub main after merge, but RM does not see v0.9.11 until a compiled GitHub Release exists.
+
 ## RC v0.9.10: Creator Studio spacing and overlap repair
 
 Fixes the visually cramped v0.9.9 creator panel shown in user screenshots:
