@@ -40,13 +40,6 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         140f
     };
 
-    private static readonly float[] SnapshotTimes =
-    {
-        5f,
-        20f,
-        60f
-    };
-
     private Camera? _source;
     private Camera? _desktop;
     private GameObject? _cameraRoot;
@@ -64,7 +57,6 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
 
     private float _elapsed;
     private float _nextAutoAttempt = 5f;
-    private int _nextSnapshot;
 
     private float _lastAspect;
     private float _lastFov;
@@ -100,7 +92,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         LoadKeyframes();
 
         Plugin.ModLogger.LogInfo(
-            $"RebornCam v0.9.0 ready. " +
+            $"RebornCam v0.9.14 ready. " +
             $"Mode={_mode}, " +
             $"FOV={GetHorizontalFov():0}, " +
             $"AutoStart={Plugin.StartEnabled.Value}"
@@ -178,13 +170,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         float delta = Time.unscaledDeltaTime;
         _elapsed += delta;
 
-        // Automatic camera diagnostics.
-        if (_nextSnapshot < SnapshotTimes.Length &&
-            _elapsed >= SnapshotTimes[_nextSnapshot])
-        {
-            _nextSnapshot++;
-            TakeSnapshot("automatic");
-        }
+        // No timed diagnostics; F8 requests a manual camera snapshot.
 
         // Automatically start once VR is ready.
         if (!_autoStartHandled &&

@@ -1,3 +1,16 @@
+## v0.9.14 - VR freeze isolation: automatic scans disabled
+
+Disabling RebornCam entirely stopped repeated Quest 3 / Air Link headset freezes in one isolation session. The previous error logs showed Oculus swap-chain/frame-submission failures; RebornCam's heavy automatic scans **may** contribute, but an extra desktop rendering camera or driver interaction is not yet excluded.
+
+This is a controlled change to disable only automatic diagnostics:
+- AvatarInspector no longer runs heavyweight full-scene scans at 8, 25, 60 seconds or after scene changes (past captures contained 10k-24k+ transforms).
+- CameraDiagnostics no longer performs three scheduled camera snapshots (5, 20, 60 seconds). Manual **F8** is retained.
+- DesktopStartupProbe no longer logs snapshot checkpoints at startup or at 2, 8, 20, 45 seconds. The manual **F1** panel remains.
+- F4 and Shift+F4 remain manual full-scene avatar inspections and can still cause stutter; **avoid using them during VR gameplay**.
+- The desktop camera, POV/third-person/selfie/freecam, cinematic rendering and physical camera features are unchanged.
+
+**Test** v0.9.14 after updating via RebornManager in **My Orbus Renewed**. Play normally with RebornCam enabled and all other mods as before, without pressing F4/F8. The startup log should report automatic scans disabled and **no** `AVATAR SCAN #`, `BetterMirror snapshot (automatic)` or `[DesktopProbe] Startup checkpoint` entries. If VR freezes again, stop testing and disable RebornCam; that would point us toward its additional desktop camera or Quest Link/render-driver interaction instead.
+
 
 # OrbusRebornCamera
 

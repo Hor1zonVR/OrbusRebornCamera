@@ -31,7 +31,6 @@ public sealed class DesktopStartupProbe : MonoBehaviour
     private CursorLockMode _previousCursorLock;
     private bool _warned;
     private float _elapsed;
-    private int _snapshotIndex;
     private float _lastStatusTime;
     private string _lastResult = "Move the cursor over a game object.";
     private string _lastClicked = "Nothing clicked yet.";
@@ -40,8 +39,6 @@ public sealed class DesktopStartupProbe : MonoBehaviour
     private bool _lastXR;
     private int _lastCameraCount;
 
-    private static readonly float[] SnapshotSeconds = { 2f, 8f, 20f, 45f };
-
     private void Start()
     {
         Plugin.ModLogger.LogInfo("[DesktopProbe] v0.1 initialized.");
@@ -49,7 +46,8 @@ public sealed class DesktopStartupProbe : MonoBehaviour
             "[DesktopProbe] F1 = diagnostic overlay; click = physics ray test.");
         Plugin.ModLogger.LogInfo(
             "[DesktopProbe] Read-only: no simulated XR hands, UI clicks, movement or server access.");
-        Snapshot("Start");
+        Plugin.ModLogger.LogInfo(
+            "[DesktopProbe] Scheduled snapshots OFF; F1 remains available.");
     }
 
     private void Update()
@@ -69,13 +67,6 @@ public sealed class DesktopStartupProbe : MonoBehaviour
     private void UpdateCore()
     {
         _elapsed += Mathf.Max(0f, Time.unscaledDeltaTime);
-        while (_snapshotIndex < SnapshotSeconds.Length &&
-               _elapsed >= SnapshotSeconds[_snapshotIndex])
-        {
-            _snapshotIndex++;
-            Snapshot("Startup checkpoint");
-        }
-
         bool focus = Application.isFocused;
         bool f1Down = focus && IsHeld(F1);
         bool inspectChord = IsHeld(0x11) && IsHeld(0x10);

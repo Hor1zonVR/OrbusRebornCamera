@@ -115,7 +115,7 @@ jobs:
           git tag $env:TAG
           git push origin "refs/tags/$env:TAG"
           if ($LASTEXITCODE -ne 0) { throw "Could not publish tag." }
-          $notes = "Experimental F1 desktop diagnostic, freecam and keyframe foundations. Desktop UI interaction and headset-free server joining not implemented or verified."
+          $notes = "RebornCam $env:TAG VR stability isolation. Disables automatic and scene-transition full avatar object scans and timed desktop/camera snapshots. Retains F4/Shift+F4/F8 manual diagnostics (heavy avatar scans should not be invoked in VR). No change to Creator Studio, freecam, or the separate desktop recording camera. Tests the automatic-scan hypothesis; runtime VR test required."
           $args = @("release", "create", $env:TAG, $dll, "--repo", $env:GITHUB_REPOSITORY,
                     "--title", "OrbusRebornCamera $env:TAG", "--notes", $notes, "--verify-tag")
           if ($env:CHANNEL -eq "preview") { $args += "--prerelease" }

@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.13"
+    "0.9.14"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -205,7 +205,7 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.13 - Orbus-inspired Creator Studio theme and in-game font");
+        Log.LogInfo("OrbusRebornCamera v0.9.14 - VR stability: automatic scene scans disabled");
         Log.LogInfo("Physical Camera Grabbing Experiment");
         Log.LogInfo("==================================");
 
@@ -257,7 +257,8 @@ public sealed class Plugin : BasePlugin
         Log.LogWarning(
             "Trickster Goblin visual filtering is not implemented yet. " +
             "Use freecam only where the server owner permits it.");
-        Log.LogInfo("F4/F8 = Diagnostics");
+        Log.LogInfo("F4/F8 = MANUAL diagnostics only; no timed or scene-change scans");
+        Log.LogWarning("F4 and Shift+F4 remain heavyweight manual scans. Avoid using them during VR gameplay.");
         Log.LogInfo("Ctrl+F4 = Read-only Trickster model diagnostic, use if you encounter the rare enemy");
         Log.LogInfo("Optional Trickster disk scan defaults OFF; see [Diagnostics] AutoScanTricksterFiles");
 

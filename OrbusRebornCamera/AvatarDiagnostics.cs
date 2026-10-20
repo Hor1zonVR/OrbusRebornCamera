@@ -21,11 +21,6 @@ public sealed class AvatarDiagnostics : MonoBehaviour
     private const int F4Key = 0x73;
     private const int ShiftKey = 0x10;
 
-    private static readonly float[] AutomaticTimes =
-    {
-        8f, 25f, 60f
-    };
-
     private static readonly string[] Keywords =
     {
         "mirror",
@@ -55,17 +50,10 @@ public sealed class AvatarDiagnostics : MonoBehaviour
     };
 
     private float _elapsed;
-    private float _nextSceneCheck;
-    private float _pendingSceneScan = -1f;
-    private float _lastScanTime = -100f;
-
-    private int _nextAutomatic;
     private int _scanNumber;
 
     private bool _f4WasDown;
     private bool _scanning;
-
-    private string _lastSceneSignature = "";
 
     private sealed class Entry
     {
@@ -81,8 +69,6 @@ public sealed class AvatarDiagnostics : MonoBehaviour
 
     private void Start()
     {
-        _lastSceneSignature = GetSceneSignature();
-
         Plugin.ModLogger.LogInfo(
             "[AvatarInspector] v0.5 ready."
         );
@@ -97,8 +83,8 @@ public sealed class AvatarDiagnostics : MonoBehaviour
         );
 
         Plugin.ModLogger.LogInfo(
-            "[AvatarInspector] Automatic scans at " +
-            "8, 25 and 60 seconds, plus scene changes."
+            "[AvatarInspector] Automatic full-scene scans DISABLED to protect VR framerate. " +
+            "F4 / Shift+F4 are manual heavyweight diagnostics only."
         );
     }
 
@@ -125,62 +111,6 @@ public sealed class AvatarDiagnostics : MonoBehaviour
         }
 
         _f4WasDown = f4Down;
-
-        // Detect scene changes without needing scene events.
-        if (_elapsed >= _nextSceneCheck)
-        {
-            _nextSceneCheck = _elapsed + 1f;
-
-            string signature = GetSceneSignature();
-
-            if (signature != _lastSceneSignature)
-            {
-                Plugin.ModLogger.LogInfo(
-                    "[AvatarInspector] Scene changed: " +
-                    _lastSceneSignature + " -> " + signature
-                );
-
-                _lastSceneSignature = signature;
-
-                // Give character objects time to appear.
-                _pendingSceneScan = _elapsed + 4f;
-            }
-        }
-
-        if (_nextAutomatic < AutomaticTimes.Length &&
-            _elapsed >= AutomaticTimes[_nextAutomatic])
-        {
-            _nextAutomatic++;
-
-            if (_elapsed - _lastScanTime >= 3f)
-            {
-                TakeSnapshot("automatic", false);
-            }
-        }
-
-        if (_pendingSceneScan >= 0f &&
-            _elapsed >= _pendingSceneScan)
-        {
-            _pendingSceneScan = -1f;
-
-            if (_elapsed - _lastScanTime >= 3f)
-            {
-                TakeSnapshot("scene transition", false);
-            }
-        }
-    }
-
-    private static string GetSceneSignature()
-    {
-        try
-        {
-            return SceneManager.GetActiveScene().name +
-                   " [" + SceneManager.sceneCount + " scenes]";
-        }
-        catch
-        {
-            return "Unknown Scene";
-        }
     }
 
     private static bool IsSceneObject(Component component)
@@ -403,7 +333,6 @@ public sealed class AvatarDiagnostics : MonoBehaviour
             return;
 
         _scanning = true;
-        _lastScanTime = _elapsed;
         _scanNumber++;
 
         var log = Plugin.ModLogger;
