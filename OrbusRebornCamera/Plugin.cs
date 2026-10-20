@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.15"
+    "0.9.16"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -47,7 +47,7 @@ public sealed class Plugin : BasePlugin
     // The separate, slower disk scan is opt-in.
     internal static ConfigEntry<bool> AutoScanTricksterFiles = null!;
     internal static ConfigEntry<bool> LoadLegacyDiagnostics = null!;
-    internal static ConfigEntry<bool> LoadPhysicalCameraPrototype = null!;
+    internal static ConfigEntry<bool> EnablePhysicalCamera = null!;
 
     internal static ConfigEntry<bool> CreatorPanelVisible = null!;
 
@@ -206,10 +206,14 @@ public sealed class Plugin : BasePlugin
             "Default false to protect VR stability. Restart Orbus after changing."
         );
 
-        LoadPhysicalCameraPrototype = Config.Bind(
-            "PhysicalCamera", "LoadExperimentalPrototype", false,
-            "Load the experimental in-world physical camera model and grabbing " +
-            "logic (F3). Disabled during VR stability testing. Restart required."
+        // The v0.9.15 stability experiment temporarily disabled this by default
+        // under LoadExperimentalPrototype. Use a new key so an old automatically
+        // persisted 'false' doesn't silently keep the user's camera features off.
+        EnablePhysicalCamera = Config.Bind(
+            "PhysicalCamera", "EnableInWorldCamera", true,
+            "Enable the grabbable in-world physical camera and F3 recall/visibility " +
+            "controls. Enabled by default again in v0.9.16; restart required. " +
+            "Supersedes the v0.9.15-only LoadExperimentalPrototype setting."
         );
 
         CreatorPanelVisible = Config.Bind(
@@ -221,8 +225,8 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.15 - core-only stability isolation");
-        Log.LogInfo("Physical Camera Grabbing Experiment");
+        Log.LogInfo("OrbusRebornCamera v0.9.16 - full camera features, legacy diagnostics off");
+        Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
         // The real camera, creator panel, freecam and recording modes still work.
@@ -247,25 +251,25 @@ public sealed class Plugin : BasePlugin
             Log.LogInfo("[Stability] Legacy UI, scene, PowerUI and disk diagnostics NOT loaded.");
         }
 
-        if (LoadPhysicalCameraPrototype.Value)
+        if (EnablePhysicalCamera.Value)
         {
             AddComponent<PhysicalCameraPrototype>();
             AddComponent<PhysicalCameraGrab>();
-            Log.LogInfo("[Stability] Experimental physical camera/grabbing ENABLED.");
+            Log.LogInfo("[Features] Physical camera/grabbing ENABLED (default).");
         }
         else
         {
-            Log.LogInfo("[Stability] Physical-camera prototype/grabbing NOT loaded.");
+            Log.LogInfo("[Features] Physical camera/grabbing disabled by user configuration.");
         }
 
-        Log.LogInfo("[Stability] Core camera loaded; StartEnabled=" +
+        Log.LogInfo("[Features] Camera loaded; StartEnabled=" +
                     StartEnabled.Value + ", legacyDiagnostics=" +
-                    LoadLegacyDiagnostics.Value + ", physicalPrototype=" +
-                    LoadPhysicalCameraPrototype.Value);
+                    LoadLegacyDiagnostics.Value + ", inWorldCamera=" +
+                    EnablePhysicalCamera.Value);
 
-        if (LoadPhysicalCameraPrototype.Value) Log.LogInfo("F3 = Recall physical camera");
-        if (LoadPhysicalCameraPrototype.Value) Log.LogInfo("Shift+F3 = Show/Hide physical camera");
-        if (LoadPhysicalCameraPrototype.Value) Log.LogInfo("Left/Right grip = Grab and release camera");
+        if (EnablePhysicalCamera.Value) Log.LogInfo("F3 = Recall physical camera");
+        if (EnablePhysicalCamera.Value) Log.LogInfo("Shift+F3 = Show/Hide physical camera");
+        if (EnablePhysicalCamera.Value) Log.LogInfo("Left/Right grip = Grab and release camera");
 
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("[DesktopProbe] F1 = desktop UI / camera diagnostics");
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("Ctrl+Shift+F1 = broad UI report / VR input capture");
@@ -298,7 +302,7 @@ public sealed class Plugin : BasePlugin
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("Ctrl+F4 = Read-only Trickster model diagnostic, use if you encounter the rare enemy");
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("Optional Trickster disk scan defaults OFF; see [Diagnostics] AutoScanTricksterFiles");
 
-        if (LoadPhysicalCameraPrototype.Value)
+        if (EnablePhysicalCamera.Value)
         {
             Log.LogInfo(
                 $"Physical camera grab radius: {PrototypeGrabRadius.Value:0.00}m"
