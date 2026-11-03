@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.16"
+    "0.9.17"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -225,13 +225,15 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.16 - full camera features, legacy diagnostics off");
+        Log.LogInfo("OrbusRebornCamera v0.9.17 - pose recording probe, legacy diagnostics off");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
         // The real camera, creator panel, freecam and recording modes still work.
         // Avoid loading UI-scanning components just because BepInEx loads RC.
         AddComponent<CameraDiagnostics>();
+        // Short, opt-in pose capture only; idle until Ctrl+Shift+R.
+        AddComponent<ReplayCaptureProbe>();
 
         if (LoadLegacyDiagnostics.Value)
         {
@@ -284,6 +286,7 @@ public sealed class Plugin : BasePlugin
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("Left click = verified Unity UI handler only; Orbus custom clicks remain diagnostic");
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("UI-Interactable layer 19 is targeted behind terrain without moving the rig");
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("F1 = pointer and scene diagnostics");
+        Log.LogInfo("Ctrl+Shift+R = Start/stop a 60-second VR pose replay probe");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
         Log.LogInfo("F9 = Desktop camera toggle");
