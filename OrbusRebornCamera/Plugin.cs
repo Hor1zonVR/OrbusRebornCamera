@@ -225,20 +225,21 @@ public sealed class Plugin : BasePlugin
         );
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.17 - pose recording probe, legacy diagnostics off");
+        Log.LogInfo("OrbusRebornCamera v0.9.17 - replay probe and opt-in freecam mouse UI");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
         // The real camera, creator panel, freecam and recording modes still work.
         // Avoid loading UI-scanning components just because BepInEx loads RC.
         AddComponent<CameraDiagnostics>();
+        // Lightweight desktop pointer. Only active inside freecam after TAB.
+        AddComponent<DesktopMenuInput>();
         // Short, opt-in pose capture only; idle until Ctrl+Shift+R.
         AddComponent<ReplayCaptureProbe>();
 
         if (LoadLegacyDiagnostics.Value)
         {
             AddComponent<DesktopStartupProbe>();
-            AddComponent<DesktopMenuInput>();
             AddComponent<OrbusUIInspector>();
             AddComponent<VrUiInteractionRecorder>();
             AddComponent<NativeMenuDiffInspector>();
@@ -282,9 +283,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Extended far clipping / occlusion for ALREADY LOADED objects (desktop camera only)");
         Log.LogInfo("Ctrl+Shift+F8 = compare loaded scenery near freecam and player");
         Log.LogInfo("Ctrl+Shift+F9 = toggle detached camera's extended rendering live");
-        if (LoadLegacyDiagnostics.Value) Log.LogInfo("TAB = desktop-only mouse menu pointer (VR headset must be inactive)");
-        if (LoadLegacyDiagnostics.Value) Log.LogInfo("Left click = verified Unity UI handler only; Orbus custom clicks remain diagnostic");
-        if (LoadLegacyDiagnostics.Value) Log.LogInfo("UI-Interactable layer 19 is targeted behind terrain without moving the rig");
+        Log.LogInfo("Freecam: TAB toggles desktop menu pointer (VR headset can remain active)");
+        Log.LogInfo("Freecam UI: left click standard Unity buttons; RMB held flies camera");
+        Log.LogInfo("Native PowerUI/VR-only menu clicks require separately verified input handling");
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("F1 = pointer and scene diagnostics");
         Log.LogInfo("Ctrl+Shift+R = Start/stop a 60-second VR pose replay probe");
         Log.LogInfo("F2 = Toggle desktop creator panel");
