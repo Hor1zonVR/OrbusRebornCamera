@@ -10,10 +10,11 @@ using UnityEngine.UI;
 namespace OrbusBetterMirror;
 
 /// <summary>
-/// Experimental flatscreen Unity-UI input adapter. It ONLY operates when no
-/// real XR device is active. Press TAB to opt in. Never moves the player,
-/// touches tracking transforms or synthesizes network/gameplay actions.
-/// It invokes existing Unity UI control handlers where available.
+/// Opt-in desktop mouse pointer while OrbusRebornCamera freecam is active.
+/// TAB toggles pointer navigation, RMB temporarily flies the camera.
+/// Does not move the player, headset or controllers. Standard Unity UI
+/// controls are supported; native PowerUI/VR-only actions are logged for
+/// further mapping rather than guessing at gameplay methods.
 /// </summary>
 public sealed class DesktopMenuInput : MonoBehaviour
 {
@@ -60,16 +61,16 @@ public sealed class DesktopMenuInput : MonoBehaviour
     {
 #if ORBUS_UI_AVAILABLE
         Plugin.ModLogger.LogInfo(
-            "[DesktopUI] v0.9.4 UI-layer-aware desktop pointer loaded. TAB toggles pointer; " +
-            "left click activates supported Unity UI controls.");
+            "[FreecamUI] Desktop menu pointer ready. Enter freecam and press TAB; " +
+            "left click activates supported Unity UI controls. RMB flies.");
 #else
         Plugin.ModLogger.LogWarning(
-            "[DesktopUI] UnityEngine.UI.dll was not found at build time. " +
-            "Only existing F1 physics diagnostics are available. " +
-            "Send the BepInEx interop DLL filenames to identify the menu system.");
+            "[FreecamUI] UnityEngine.UI.dll missing at build time. " +
+            "Raycast target diagnostics only; no clicks will be injected.");
 #endif
         Plugin.ModLogger.LogInfo(
-            "[DesktopUI] Desktop-only and opt-in; never touches VR tracking or player movement.");
+            "[FreecamUI] Opt-in desktop pointer (VR headset may remain active). " +
+            "Never touches VR tracking or player movement.");
     }
 
     private static bool Held(int key) =>
@@ -101,8 +102,8 @@ public sealed class DesktopMenuInput : MonoBehaviour
         bool tabDown = Held(TabKey);
         if (tabDown && !_tabWasDown)
         {
-            if (XRSettings.isDeviceActive)
-                SetAction("Desktop pointer is disabled with an active VR headset.");
+            if (!CameraDiagnostics.DesktopFreecamActive)
+                SetAction("Enter freecam (Ctrl+F11) to use desktop menu pointer.");
             else
             {
                 _pointerEnabled = !_pointerEnabled;
@@ -112,8 +113,8 @@ public sealed class DesktopMenuInput : MonoBehaviour
                     ReleaseCursor();
                 }
                 Plugin.ModLogger.LogInfo(
-                    "[DesktopUI] Pointer " + (_pointerEnabled ? "enabled" : "disabled") +
-                    ". XR device active: " + XRSettings.isDeviceActive);
+                    "[FreecamUI] Pointer " + (_pointerEnabled ? "enabled" : "disabled") +
+                    ". VR headset active: " + XRSettings.isDeviceActive);
 #if ORBUS_UI_AVAILABLE
                 if (_pointerEnabled) SnapshotUi();
 #endif
@@ -121,9 +122,16 @@ public sealed class DesktopMenuInput : MonoBehaviour
         }
         _tabWasDown = tabDown;
 
-        bool blocked = XRSettings.isDeviceActive ||
-                       CameraDiagnostics.DesktopFreecamActive ||
+        bool blocked = !CameraDiagnostics.DesktopFreecamActive ||
                        Plugin.CreatorPanelVisible.Value;
+
+        // Leaving freecam ends the desktop-input session automatically.
+        // The F2 Creator Studio temporarily owns the cursor instead.
+        if (!CameraDiagnostics.DesktopFreecamActive && _pointerEnabled)
+        {
+            _pointerEnabled = false;
+            CancelTextEditor();
+        }
 
         if (!_pointerEnabled || blocked)
         {
@@ -133,21 +141,24 @@ public sealed class DesktopMenuInput : MonoBehaviour
             ReleaseCursor();
             _leftWasDown = Held(LeftMouseKey);
             PointerStatus = blocked
-                ? "Pointer paused (VR / freecam / F2 panel)"
+                ? "Pointer paused (not in freecam / F2 panel)"
                 : "TAB: pointer off";
             HoverStatus = "(inactive)";
             return;
         }
 
-        AcquireCursor();
-        PointerStatus = "TAB: pointer on | UI collider inspection | F1: diagnostics";
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        // RMB belongs to the existing freecam camera-flight controller. Do not
+        // unlock its cursor while it is flying: input ownership must be stable.
         if (Held(RightMouseKey))
         {
             _leftWasDown = Held(LeftMouseKey);
+            PointerStatus = "Flying camera (release RMB to interact)";
             return;
         }
+        AcquireCursor();
+        PointerStatus = "Freecam UI pointer | left click menus | RMB fly | TAB exit";
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
 
         if (Time.unscaledTime >= _nextScan)
         {
@@ -275,7 +286,8 @@ public sealed class DesktopMenuInput : MonoBehaviour
         {
             Ray ray = camera.ScreenPointToRay(Input.mousePosition);
             float nearest = 300f;
-            foreach (RaycastHit hit in Physics.RaycastAll(ray, 300f))
+            foreach (RaycastHit hit in Physics.RaycastAll(
+                ray, 300f, 1 << uiLayer))
             {
                 if (hit.collider == null ||
                     hit.collider.gameObject.layer != uiLayer ||
@@ -315,7 +327,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
         bool overTop = DesktopStartupProbe.OverlayOpen &&
             m.x < 585f && topY >= 0f && topY < 427f;
         bool overEditor = m.x < 735f && topY > Screen.height - 43f;
-        return overEditor || overTop;
+        return (overEditor && Plugin.CreatorPanelVisible.Value) || overTop;
     }
 
 #if ORBUS_UI_AVAILABLE
@@ -531,9 +543,8 @@ public sealed class DesktopMenuInput : MonoBehaviour
 
     private void OnGUI()
     {
-        if (!_pointerEnabled || XRSettings.isDeviceActive ||
-            CameraDiagnostics.DesktopFreecamActive ||
-            Plugin.CreatorPanelVisible.Value)
+        if (!_pointerEnabled || !CameraDiagnostics.DesktopFreecamActive ||
+            Plugin.CreatorPanelVisible.Value || Held(RightMouseKey))
             return;
 
         try
@@ -574,7 +585,7 @@ public sealed class DesktopMenuInput : MonoBehaviour
             GUI.color = original;
             float statusBarY = Screen.height - 33f;
             GUI.Box(new Rect(12f, statusBarY, Mathf.Min(730f, Screen.width - 24f), 28f),
-                "RC Pointer | " + _hoverName + " | TAB exit");
+                "RC FREECAM POINTER | " + _hoverName + " | TAB exit / RMB fly");
         }
         catch (Exception ex)
         {
