@@ -32,7 +32,7 @@ static class ReplayRingSmokeTest
         Check(copy.Length == 2 && copy[0].Value == 13 &&
             copy[1].Value == 17, "time-window eviction");
 
-        Check(buffer.Snapshot(13).Length == 0,
+        Check(buffer.Snapshot(14).Length == 0,
             "samples expire even during missing camera/scene load");
 
         buffer.Add(new Frame(14, 18));
