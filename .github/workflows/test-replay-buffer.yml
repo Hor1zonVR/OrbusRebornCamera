@@ -4,19 +4,19 @@ on:
   push:
     paths:
       - 'OrbusRebornCamera/ReplayRingBuffer.cs'
+      - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
       - 'tests/ReplayRingBuffer.CompileTest.csproj'
       - 'tests/ReplayBuffer.IntegrationCompileTest.csproj'
-      - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
-      - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
-      - 'tests/ReplayBuffer.IntegrationCompileTest.csproj'
-      - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
-      - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
       - 'tests/replay-buffer/**'
       - '.github/workflows/test-replay-buffer.yml'
   pull_request:
     paths:
       - 'OrbusRebornCamera/ReplayRingBuffer.cs'
+      - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
       - 'tests/ReplayRingBuffer.CompileTest.csproj'
+      - 'tests/ReplayBuffer.IntegrationCompileTest.csproj'
       - 'tests/replay-buffer/**'
       - '.github/workflows/test-replay-buffer.yml'
   workflow_dispatch:
