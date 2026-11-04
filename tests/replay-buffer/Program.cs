@@ -27,8 +27,8 @@ static class ReplayRingSmokeTest
         Check(buffer.Snapshot(3)[0].Value == 11,
             "saving a clip cannot mutate the live buffer");
 
-        buffer.Add(new Frame(7, 17));
-        copy = buffer.Snapshot(7);
+        buffer.Add(new Frame(8, 17));
+        copy = buffer.Snapshot(8);
         Check(copy.Length == 2 && copy[0].Value == 13 &&
             copy[1].Value == 17, "time-window eviction");
 
