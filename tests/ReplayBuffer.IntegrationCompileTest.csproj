@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../OrbusRebornCamera/ReplayRingBuffer.cs" />
+    <Compile Include="../OrbusRebornCamera/ReplayBufferRecorder.cs" />
+    <Compile Include="../OrbusRebornCamera/CameraDiagnostics.Recording.cs" />
+    <Compile Include="replay-buffer/UnityCompileStubs.cs" />
+  </ItemGroup>
+</Project>
