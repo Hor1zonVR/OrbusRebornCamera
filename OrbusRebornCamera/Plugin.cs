@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.17"
+    "0.9.18"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -50,6 +50,8 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<bool> EnablePhysicalCamera = null!;
 
     internal static ConfigEntry<bool> CreatorPanelVisible = null!;
+    internal static ConfigEntry<bool> ReplayBufferEnabled = null!;
+    internal static ConfigEntry<int> ReplayBufferSeconds = null!;
 
     public override void Load()
     {
@@ -224,8 +226,18 @@ public sealed class Plugin : BasePlugin
             "Press F2 to show or hide the panel at any time."
         );
 
+        ReplayBufferEnabled = Config.Bind(
+            "ReplayBuffer", "Enabled", true,
+            "Keep the last few minutes of local VR headset/hand poses in RAM " +
+            "until Ctrl+Shift+C saves a clip. No automatic files are written.");
+
+        ReplayBufferSeconds = Config.Bind(
+            "ReplayBuffer", "BufferSeconds", 300,
+            "Rolling pose buffer duration (30 to 600 seconds). " +
+            "Default 300 seconds / five minutes.");
+
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.17 - replay probe and opt-in freecam mouse UI");
+        Log.LogInfo("OrbusRebornCamera v0.9.18 - five-minute pose buffer and freecam UI");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -234,7 +246,9 @@ public sealed class Plugin : BasePlugin
         AddComponent<CameraDiagnostics>();
         // Lightweight desktop pointer. Only active inside freecam after TAB.
         AddComponent<DesktopMenuInput>();
-        // Short, opt-in pose capture only; idle until Ctrl+Shift+R.
+        // Continuous but bounded local pose buffer. File writes only on Save Clip.
+        AddComponent<ReplayBufferRecorder>();
+        // Retain the older short diagnostic separately (Ctrl+Shift+R).
         AddComponent<ReplayCaptureProbe>();
 
         if (LoadLegacyDiagnostics.Value)
@@ -287,7 +301,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Freecam UI: left click standard Unity buttons; RMB held flies camera");
         Log.LogInfo("Native PowerUI/VR-only menu clicks require separately verified input handling");
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("F1 = pointer and scene diagnostics");
-        Log.LogInfo("Ctrl+Shift+R = Start/stop a 60-second VR pose replay probe");
+        Log.LogInfo("Ctrl+Shift+C = Save the rolling pose buffer as a clip");
+        Log.LogInfo("F2 Creator Studio: RECORDING tab controls buffer on/off, save and duration");
+        Log.LogInfo("Ctrl+Shift+R = Start/stop the legacy 60-second pose diagnostic");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
         Log.LogInfo("F9 = Desktop camera toggle");
@@ -296,7 +312,7 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+F11 = Toggle freecam (same controls in VR and desktop sessions)");
         Log.LogInfo("Freecam: RMB+WASD even with F2 open (click outside panel); Q/E up/down");
         Log.LogInfo("While flying: Z/C bank camera, X level roll, Shift boost, Ctrl slow");
-        Log.LogInfo("F2 opens draggable Creator Studio: Camera / Freecam / Keyframes");
+        Log.LogInfo("F2 opens Creator Studio: Camera / Freecam / Keyframes / Recording");
         Log.LogInfo("Stable GitHub releases are built automatically for RM on version updates");
         Log.LogWarning(
             "Trickster Goblin visual filtering is not implemented yet. " +
