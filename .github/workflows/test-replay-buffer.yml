@@ -5,6 +5,12 @@ on:
     paths:
       - 'OrbusRebornCamera/ReplayRingBuffer.cs'
       - 'tests/ReplayRingBuffer.CompileTest.csproj'
+      - 'tests/ReplayBuffer.IntegrationCompileTest.csproj'
+      - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
+      - 'tests/ReplayBuffer.IntegrationCompileTest.csproj'
+      - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
       - 'tests/replay-buffer/**'
       - '.github/workflows/test-replay-buffer.yml'
   pull_request:
@@ -24,4 +30,6 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Run ring buffer tests (no game binaries required)
-        run: dotnet run --project tests/ReplayRingBuffer.CompileTest.csproj -c Release
+        run: |
+          dotnet run --project tests/ReplayRingBuffer.CompileTest.csproj -c Release
+          dotnet run --project tests/ReplayBuffer.IntegrationCompileTest.csproj -c Release
