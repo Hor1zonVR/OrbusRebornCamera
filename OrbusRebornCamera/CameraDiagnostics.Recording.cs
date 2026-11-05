@@ -43,8 +43,9 @@ public sealed partial class CameraDiagnostics
 
         StudioSection(x, y + 205f, w, "POSE REPLAY VIEWER (DESKTOP)");
         string info = _replayClip == null ? _replayMessage :
-            _replayClip.Count + " frames | " + _replayClip.TeleportCount +
-            " teleports | " + _replayClip.GapCount + " gaps";
+            _replayClip.Count + " frames | " +
+            _replayClip.AvatarAnchorSamples + " avatar poses | " +
+            _replayClip.TeleportCount + " teleports";
         StudioText(new Rect(x + 2f, y + 226f, w - 4f, 20f),
             info, _studioMuted);
 
@@ -64,9 +65,14 @@ public sealed partial class CameraDiagnostics
             half, 35f), "Close replay", false))
             ClearReplay();
 
+        if (StudioButton(new Rect(x, y + 329f, w, 23f),
+            "REPLAY GHOST BODY: " + (_replayShowGhost ? "ON" : "OFF"),
+            _replayShowGhost))
+            _replayShowGhost = !_replayShowGhost;
+
         float length = _replayClip == null ? 1f :
             (float)System.Math.Max(.01d, _replayClip.Duration);
-        float next = StudioSlider(8, x, y + 346f, w, "Replay time",
+        float next = StudioSlider(8, x, y + 355f, w, "Replay time",
             (float)_replayElapsed, 0f, length,
             ReplayTime(_replayElapsed) + " / " +
             ReplayTime(_replayClip?.Duration ?? 0d));
