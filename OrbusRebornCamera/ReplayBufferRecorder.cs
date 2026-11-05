@@ -387,6 +387,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         int duration = _configuredSeconds;
         string avatarMeshHint = _localAvatar.MeshHint;
         int avatarBoneCount = _localAvatar.BoneCount;
+        string avatarRigManifest = _localAvatar.CaptureRigManifest();
         _lastStatus = "Saving " + snapshot.Length + " pose samples...";
         Plugin.ModLogger.LogInfo(
             "[ReplayBuffer] Queued " + snapshot.Length +
@@ -396,7 +397,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         // Taking a copy leaves the live rolling buffer uninterrupted.
         _pending.Add(Task.Run(() =>
             WriteClip(destination, clipId, sessionId, duration, snapshot,
-                avatarMeshHint, avatarBoneCount)));
+                avatarMeshHint, avatarBoneCount, avatarRigManifest)));
     }
 
     private void DrainCompletedSaves()
@@ -423,7 +424,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
 
     private static string WriteClip(string destination, string clipId,
         string sessionId, int duration, Frame[] frames,
-        string avatarMeshHint, int avatarBoneCount)
+        string avatarMeshHint, int avatarBoneCount,
+        string avatarRigManifest)
     {
         string temporary = destination + ".partial";
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -476,6 +478,17 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                 }
             }
             File.Move(temporary, destination);
+            // Optional descriptive sidecar; failures cannot invalidate an
+            // otherwise successfully saved five-minute pose clip.
+            try
+            {
+                string manifestPath = Path.ChangeExtension(
+                    destination, ".avatar.txt");
+                File.WriteAllText(manifestPath, avatarRigManifest,
+                    new UTF8Encoding(false));
+            }
+            catch (IOException) { /* main clip is still valid */ }
+            catch (UnauthorizedAccessException) { /* main clip is still valid */ }
             return destination;
         }
         catch
