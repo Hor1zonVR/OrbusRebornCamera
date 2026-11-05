@@ -23,10 +23,18 @@ public sealed partial class CameraDiagnostics
         internal ReplayVisualAssets.AvatarPart Asset = null!;
     }
 
+    private sealed class StaticWorldVisual
+    {
+        internal GameObject Object = null!;
+        internal ReplayVisualAssets.WorldPart Asset = null!;
+    }
+
     private GameObject? _offlineVisualRoot;
     private readonly Dictionary<string, RigVisual> _offlineRigVisuals =
         new(StringComparer.Ordinal);
     private readonly List<LocalPartVisual> _offlineLocalVisuals = new();
+    private readonly List<StaticWorldVisual> _offlineWorldVisuals = new();
+    private bool _showCachedWorld = true;
     private bool _showObservedModels;
     private bool _visualCacheUnavailableLogged;
     private string _builtVisualClipId = "";
@@ -43,6 +51,7 @@ public sealed partial class CameraDiagnostics
         _offlineVisualRoot = null;
         _offlineRigVisuals.Clear();
         _offlineLocalVisuals.Clear();
+        _offlineWorldVisuals.Clear();
         _builtVisualClipId = "";
         _visualRigCount = 0;
     }
@@ -89,6 +98,33 @@ public sealed partial class CameraDiagnostics
             }
         }
 
+        // Only visual geometry from this very game process is available.
+        // It consists of MeshFilter/Renderer COPIES, with no colliders,
+        // scripts, NPC AI or network components attached.
+        foreach (ReplayVisualAssets.WorldPart world in
+                 ReplayVisualAssets.GetWorldParts(_replayClip.SessionId))
+        {
+            try
+            {
+                GameObject obj = ReplayVisualAssets.CreateStaticPart(
+                    "World " + world.Name, world.Mesh, world.Materials);
+                obj.transform.SetParent(_offlineVisualRoot.transform, false);
+                obj.transform.position = world.Position;
+                obj.transform.rotation = world.Rotation;
+                obj.transform.localScale = world.Scale;
+                _offlineWorldVisuals.Add(new StaticWorldVisual
+                {
+                    Object = obj, Asset = world
+                });
+            }
+            catch (Exception ex)
+            {
+                Plugin.ModLogger.LogWarning(
+                    "[WorldVisuals] Static mesh proxy failed: " +
+                    ex.GetType().Name);
+            }
+        }
+
         // Each actor's renderable mesh is used ONLY if this clip has a
         // matching bone topology, in-game asset, and source session ID.
         if (_worldRigTimeline != null && _worldActorTimeline != null)
@@ -104,7 +140,8 @@ public sealed partial class CameraDiagnostics
         _builtVisualClipId = _replayClip.ClipId;
         Plugin.ModLogger.LogInfo("[VisualCache] Offline models available: " +
             _offlineLocalVisuals.Count + " avatar pieces, " +
-            _offlineRigVisuals.Count + " animated actor meshes. " +
+            _offlineRigVisuals.Count + " animated actor meshes, " +
+            _offlineWorldVisuals.Count + " static world meshes. " +
             "Same-process cache, not portable geometry.");
         UpdateOfflineVisuals();
     }
@@ -166,6 +203,20 @@ public sealed partial class CameraDiagnostics
             // cannot be conjured by repeatedly rebuilding every frame.
             if (ReplayVisualAssets.SessionId == _replayClip.SessionId)
                 BuildOfflineVisuals();
+        }
+
+        ReplayPoseValue currentHead = EvaluatedPose(0);
+        _replayClip.Evaluate(_replayElapsed,
+            out ReplayClipFrame currentFrame, out _, out _);
+        foreach (StaticWorldVisual world in _offlineWorldVisuals)
+        {
+            // Keep the cached tile in its ORIGINAL world coordinates;
+            // never follow the camera or bridge unrelated zones.
+            bool near = currentHead.Valid && Vector3.Distance(
+                world.Asset.Position, ReplayPosition(currentHead)) < 85f;
+            bool zoneMatches = string.Equals(world.Asset.Zone,
+                currentFrame.Zone, StringComparison.Ordinal);
+            world.Object.SetActive(_showCachedWorld && near && zoneMatches);
         }
 
         bool visible = _showObservedActors && _showObservedModels;
