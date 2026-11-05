@@ -157,8 +157,9 @@ internal sealed class LocalAvatarCapture
         }
 
         _lastReason = "PlayerRigv4/Avatar/Torso/BodyParent resolved";
-        MeshHint = "BodyParent hierarchy (not a mesh identifier)";
+        MeshHint = "BodyParent hierarchy (mesh unresolved)";
         BoneCount = 0;
+        ResolveBodyVisualHint();
 
         if (!_reportedFound)
         {
@@ -169,6 +170,44 @@ internal sealed class LocalAvatarCapture
                 ", left hand=" + (_leftHand != null) +
                 ", right hand=" + (_rightHand != null) +
                 ". Saving actual transform tracks; NO mesh/animation playback yet.");
+        }
+    }
+
+    private void ResolveBodyVisualHint()
+    {
+        if (_body == null) return;
+        try
+        {
+            // A single, bounded lookup under BodyParent. The renderer can
+            // live on Default even when its parent is on Minicam.
+            var skins = _body.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            int count = skins == null ? 0 : Math.Min(24, skins.Length);
+            for (int i = 0; i < count; i++)
+            {
+                var skin = skins[i];
+                if (skin == null || skin.sharedMesh == null) continue;
+                MeshHint = Safe(skin.sharedMesh.name);
+                var bones = skin.bones;
+                BoneCount = bones == null ? 0 : bones.Length;
+                return;
+            }
+
+            var filters = _body.GetComponentsInChildren<MeshFilter>(true);
+            int n = filters == null ? 0 : Math.Min(24, filters.Length);
+            for (int i = 0; i < n; i++)
+            {
+                var filter = filters[i];
+                if (filter == null || filter.sharedMesh == null) continue;
+                MeshHint = Safe(filter.sharedMesh.name);
+                BoneCount = 0; // MeshFilter geometry has no skin rig.
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Plugin.ModLogger.LogWarning(
+                "[AvatarCapture] Body mesh hint unavailable: " +
+                ex.GetType().Name);
         }
     }
 
