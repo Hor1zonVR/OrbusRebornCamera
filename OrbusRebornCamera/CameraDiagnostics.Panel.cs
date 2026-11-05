@@ -41,7 +41,7 @@ public sealed partial class CameraDiagnostics
     private Vector2 _dragOffset;
     private bool _hasPanelPosition;
     private float _panelX, _panelY;
-    private int _panelTab; // 0 Camera, 1 Freecam, 2 Keyframes, 3 Recording
+    private int _panelTab; // 0 Camera, 1 Freecam, 2 Keyframes, 3 Recording, 4 Offline
     private int _activeSlider;
     private float _panelScale = 1f;
 
@@ -419,9 +419,9 @@ public sealed partial class CameraDiagnostics
                 _mode == CameraMode.Selfie ? "SELFIE" : "STATIC",
             _studioValue);
 
-        float tabW = (pw - 24f) / 4f;
-        string[] labels = { "CAMERA", "FREECAM", "KEYFRAMES", "RECORDING" };
-        for (int i = 0; i < 4; i++)
+        float tabW = (pw - 32f) / 5f;
+        string[] labels = { "CAM", "FREE", "SHOTS", "REPLAY", "OFFLINE" };
+        for (int i = 0; i < 5; i++)
         {
             float tx = px + i * (tabW + 8f);
             if (StudioTab(new Rect(tx, y + StudioTabsY,
@@ -440,8 +440,10 @@ public sealed partial class CameraDiagnostics
             DrawFlightTab(px, y + StudioContentY, pw);
         else if (_panelTab == 2)
             DrawKeyframesTab(px, y + StudioContentY, pw);
-        else
+        else if (_panelTab == 3)
             DrawRecordingTab(px, y + StudioContentY, pw);
+        else
+            DrawOfflineTab(px, y + StudioContentY, pw);
 
         StudioDivider(px, y + StudioFooterY, pw);
         StudioText(new Rect(px + 2f, y + StudioFooterY + 13f,
