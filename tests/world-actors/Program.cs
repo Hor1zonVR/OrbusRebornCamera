@@ -59,6 +59,17 @@ internal static class WorldActorTests
             "leaving NPC is not frozen in place");
         Check(timeline.VisibleAt(11).Length == 0,
             "stale remote player is not frozen forever");
+        var jumpSamples = new[] {
+            Sample(20, "actor-1", "appear", 1),
+            Sample(20.1, "actor-1", "pose", 240)
+        };
+        var jumpWriter = new StringWriter();
+        WorldActorRecords.Write(jumpWriter, "session", "jump",
+            new[]{actors[0]}, jumpSamples);
+        var jumpTimeline = WorldActorTimeline.Read(
+            new StringReader(jumpWriter.ToString()));
+        Check(Math.Abs(jumpTimeline.VisibleAt(20.05)[0].X - 1f) < .01f,
+            "no interpolation across recorded teleport");
         Check(WorldActorRecords.Safe("abc\tdef\n").IndexOf('\n') < 0,
             "sanitize name and prefab fields");
         bool refused = false;
