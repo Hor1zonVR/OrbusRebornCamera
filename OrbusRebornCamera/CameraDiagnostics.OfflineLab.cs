@@ -251,9 +251,16 @@ public sealed partial class CameraDiagnostics
             FocusReplayHead();
 
         StudioSection(x, y + 226f, w, "INSTALLED WORLD ASSET RESEARCH");
-        if (StudioButton(new Rect(x, y + 265f, w, 40f),
-            "EXPORT READ-ONLY WORLD INVENTORY", false))
+        if (StudioButton(new Rect(x, y + 265f, half, 40f),
+            "EXPORT ASSET INVENTORY", false))
             CaptureOfflineInventory();
+        if (StudioButton(new Rect(x + half + 10f, y + 265f,
+            half, 40f), "CACHED WORLD: " +
+            (_showCachedWorld ? "ON" : "OFF"), _showCachedWorld))
+        {
+            _showCachedWorld = !_showCachedWorld;
+            UpdateOfflineVisuals();
+        }
 
         StudioFill(new Rect(x, y + 314f, w, 85f), StudioSurface);
         StudioBorder(new Rect(x, y + 314f, w, 85f), StudioStroke);
@@ -262,6 +269,6 @@ public sealed partial class CameraDiagnostics
         StudioText(new Rect(x + 11f, y + 351f, w - 22f, 19f),
             "Clip play / seek controls: REPLAY tab.", _studioMuted);
         StudioText(new Rect(x + 11f, y + 373f, w - 22f, 19f),
-            "Never switches worlds or connects to a server.", _studioMuted);
+            "No scene loading. World copies need live opt-in.", _studioMuted);
     }
 }
