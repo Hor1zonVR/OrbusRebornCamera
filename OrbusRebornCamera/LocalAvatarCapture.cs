@@ -293,6 +293,53 @@ internal sealed class LocalAvatarCapture
         }
     }
 
+    private static void AppendSkinnedRigDetails(StringBuilder sb,
+        string part, Transform? node, Transform? rig)
+    {
+        if (node == null) return;
+        try
+        {
+            // Query the derived type directly: Unity IL2CPP base Renderer
+            // wrappers do not always preserve their managed subclass.
+            var skins = node.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            int count = skins == null ? 0 : Math.Min(24, skins.Length);
+            sb.AppendLine("skin_part=" + part + " count=" +
+                (skins == null ? 0 : skins.Length));
+            for (int i = 0; i < count; i++)
+            {
+                var skin = skins[i];
+                if (skin == null) continue;
+                var mesh = skin.sharedMesh;
+                var bones = skin.bones;
+                string key = "skin_" + part + "_" + i;
+                sb.AppendLine(key + "_path=" +
+                    PathWithin(skin.transform, rig));
+                sb.AppendLine(key + "_mesh=" +
+                    (mesh == null ? "(none)" : Safe(mesh.name)));
+                sb.AppendLine(key + "_vertices=" +
+                    (mesh == null ? 0 : mesh.vertexCount));
+                sb.AppendLine(key + "_root_bone=" +
+                    PathWithin(skin.rootBone, rig));
+                int n = bones == null ? 0 : Math.Min(
+                    MaxManifestBones, bones.Length);
+                sb.AppendLine(key + "_bone_count=" +
+                    (bones == null ? 0 : bones.Length));
+                for (int j = 0; j < n; j++)
+                    sb.AppendLine(key + "_bone_" + j + "=" +
+                        PathWithin(bones[j], rig));
+                if (bones != null && bones.Length > n)
+                    sb.AppendLine(key + "_bone_names_truncated=true");
+            }
+            if (skins != null && skins.Length > count)
+                sb.AppendLine("skinned_renderers_truncated=true");
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine("skin_part_error=" + part + " " +
+                Safe(ex.GetType().Name));
+        }
+    }
+
     internal string CaptureRigManifest()
     {
         var sb = new StringBuilder(12000);
@@ -311,10 +358,21 @@ internal sealed class LocalAvatarCapture
         AppendPose(sb, "hand_right", _rightHand);
         if (_playerRig != null)
         {
-            AppendPart(sb, "Avatar", _playerRig.Find("Avatar"), _playerRig);
+            Transform? avatar = _playerRig.Find("Avatar");
+            Transform? torso = _playerRig.Find("Avatar/Torso");
+            AppendPart(sb, "Torso", torso, _playerRig);
+            AppendPart(sb, "BodyParent", _body, _playerRig);
+            AppendPart(sb, "Avatar", avatar, _playerRig);
             AppendPart(sb, "HeadVisual", _head, _playerRig);
-            AppendPart(sb, "LeftHand", _leftHand, _playerRig);
-            AppendPart(sb, "RightHand", _rightHand, _playerRig);
+            AppendPart(sb, "LeftGrabber",
+                _playerRig.Find("Controller (left)/Grabber"), _playerRig);
+            AppendPart(sb, "RightGrabber",
+                _playerRig.Find("Controller (right)/Grabber"), _playerRig);
+            AppendSkinnedRigDetails(sb, "Avatar", avatar, _playerRig);
+            AppendSkinnedRigDetails(sb, "BodyParent", _body, _playerRig);
+            AppendSkinnedRigDetails(sb, "HeadVisual", _head, _playerRig);
+            AppendSkinnedRigDetails(sb, "LeftHand", _leftHand, _playerRig);
+            AppendSkinnedRigDetails(sb, "RightHand", _rightHand, _playerRig);
         }
         return sb.ToString();
     }
