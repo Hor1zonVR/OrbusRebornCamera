@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.18"
+    "0.9.19"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -237,7 +237,7 @@ public sealed class Plugin : BasePlugin
             "Default 300 seconds / five minutes.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.18 - five-minute pose buffer and freecam UI");
+        Log.LogInfo("OrbusRebornCamera v0.9.19 - local pose clip viewer and transition metadata");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -302,7 +302,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Native PowerUI/VR-only menu clicks require separately verified input handling");
         if (LoadLegacyDiagnostics.Value) Log.LogInfo("F1 = pointer and scene diagnostics");
         Log.LogInfo("Ctrl+Shift+C = Save the rolling pose buffer as a clip");
-        Log.LogInfo("F2 Creator Studio: RECORDING tab controls buffer on/off, save and duration");
+        Log.LogInfo("F2 Creator Studio: Recording tab has Save Clip and Load Latest Clip");
+        Log.LogInfo("Replay viewer: seek, pause, play and focus recorded head via desktop-only freecam markers");
+        Log.LogInfo("Saved clips v2 tag teleport, loading gaps and loaded Unity scene zones");
         Log.LogInfo("Ctrl+Shift+R = Start/stop the legacy 60-second pose diagnostic");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
