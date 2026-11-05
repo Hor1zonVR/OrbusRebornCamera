@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.23"
+    "0.9.24"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -249,7 +249,7 @@ public sealed class Plugin : BasePlugin
             "to 10-50. Does not load unseen areas or reveal remote entities.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.23 - bounded nearby-player and animated-world actor observations");
+        Log.LogInfo("OrbusRebornCamera v0.9.24 - location-aware offline grid and nearby world actor review");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -323,6 +323,7 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Save Clip writes a targeted Avatar/Torso/Hand mesh and bone manifest alongside TSV");
         Log.LogInfo("Nearby actor capture: limited client-observed remote-player and animated-object states");
         Log.LogInfo("Saved clips add .actors.tsv; no verified player display names, world reconstruction or voice");
+        Log.LogInfo("Offline replay grid is now world-aligned, expands as playback moves, and reanchors after teleports");
         Log.LogInfo("Ctrl+Shift+R = Start/stop the legacy 60-second pose diagnostic");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
