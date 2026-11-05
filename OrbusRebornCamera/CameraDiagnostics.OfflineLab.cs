@@ -269,6 +269,9 @@ public sealed partial class CameraDiagnostics
         StudioText(new Rect(x + 11f, y + 351f, w - 22f, 19f),
             "Clip play / seek controls: REPLAY tab.", _studioMuted);
         StudioText(new Rect(x + 11f, y + 373f, w - 22f, 19f),
-            "No scene loading. World copies need live opt-in.", _studioMuted);
+            "Cached: " + ReplayVisualAssets.WorldPartCount +
+            " world / " + ReplayVisualAssets.AvatarPartCount +
+            " avatar / " + ReplayVisualAssets.RigCount +
+            " actor meshes (memory only)", _studioMuted);
     }
 }
