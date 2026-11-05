@@ -8,8 +8,29 @@ namespace BepInEx
     public static class Paths { public static string ConfigPath => "/tmp/rc-test"; }
 }
 
+namespace Il2CppInterop.Runtime.InteropTypes.Arrays
+{
+    public sealed class Il2CppReferenceArray<T>
+    {
+        private readonly T[] _value;
+        public Il2CppReferenceArray(int size) => _value = new T[size];
+        public T this[int index] { get => _value[index]; set => _value[index] = value; }
+        public static implicit operator T[](Il2CppReferenceArray<T> input) =>
+            input._value;
+    }
+}
+
 namespace UnityEngine
 {
+    public enum HideFlags { DontUnloadUnusedAsset = 32 }
+    public class Object
+    {
+        public HideFlags hideFlags { get; set; }
+        public static T Instantiate<T>(T original) where T: Object => original;
+        public static void Destroy(Object? obj) { }
+        public static void DontDestroyOnLoad(Object target) { }
+    }
+    public struct Bounds { }
     public class MonoBehaviour { public MonoBehaviour(IntPtr pointer) { } }
     public struct Rect
     {
@@ -57,6 +78,12 @@ namespace UnityEngine
     }
     public class Transform
     {
+        public void SetParent(Transform other, bool worldPositionStays) { }
+        public void SetPositionAndRotation(Vector3 p, Quaternion q) { }
+        public Vector3 localPosition { get; set; }
+        public Quaternion localRotation { get; set; }
+        public Vector3 localScale { get; set; }
+        public Vector3 lossyScale => new Vector3(1, 1, 1);
         public Transform? parent => null;
         public GameObject gameObject => new();
         public int GetInstanceID() => 1;
@@ -68,15 +95,19 @@ namespace UnityEngine
         public Vector3 position => default;
         public Quaternion rotation => default;
     }
-    public class Mesh
+    public class Mesh : Object
     {
         public int vertexCount => 100;
         public string name => "test-mesh";
     }
-    public class GameObject
+    public class GameObject : Object
     {
+        public GameObject(string name = "test") { }
+        public Transform transform => new();
         public T? GetComponent<T>() where T : class => null;
-        public int layer => 20;
+        public T AddComponent<T>() where T : new() => new();
+        public void SetActive(bool active) { }
+        public int layer { get; set; } = 20;
         public bool activeInHierarchy => true;
     }
     public class Collider
@@ -104,17 +135,22 @@ namespace UnityEngine
         public bool enabled => true;
         public GameObject gameObject => new();
         public Transform transform => new();
-        public Material[] sharedMaterials => Array.Empty<Material>();
+        public Material[] sharedMaterials { get; set; } = Array.Empty<Material>();
     }
     public class MeshFilter
     {
-        public Mesh sharedMesh => new();
+        public T? GetComponent<T>() where T : class => null;
+        public Mesh sharedMesh { get; set; } = new();
     }
+    public class MeshRenderer : Renderer { }
     public class SkinnedMeshRenderer : Renderer
     {
-        public Transform rootBone => new();
-        public Mesh sharedMesh => new();
-        public Transform[] bones => Array.Empty<Transform>();
+        public Transform rootBone { get; set; } = new();
+        public Mesh sharedMesh { get; set; } = new();
+        public Transform[] bones { get; set; } = Array.Empty<Transform>();
+        public Bounds localBounds { get; set; }
+        public bool updateWhenOffscreen { get; set; }
+        public void BakeMesh(Mesh target) { }
     }
     public static class Resources
     {
@@ -148,8 +184,10 @@ namespace UnityEngine
         public string name => "Camera (eye)";
         public Transform transform => new Transform();
     }
-    public class Material
+    public class Material : Object
     {
+        public Material() { }
+        public Material(Material other) { }
         public string name => "test-material";
         public bool SetPass(int i) => true;
     }
