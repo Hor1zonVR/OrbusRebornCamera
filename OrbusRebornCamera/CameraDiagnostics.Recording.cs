@@ -45,7 +45,8 @@ public sealed partial class CameraDiagnostics
         string info = _replayClip == null ? _replayMessage :
             _replayClip.Count + " frames | " +
             (_worldActorTimeline?.ActorCount ?? 0) +
-            " observed actors | " + _replayClip.TeleportCount + " teleports";
+            " observed actors, " + (_worldRigTimeline?.RigCount ?? 0) +
+            " bone rigs | " + _replayClip.TeleportCount + " teleports";
         StudioText(new Rect(x + 2f, y + 226f, w - 4f, 20f),
             info, _studioMuted);
 
@@ -70,9 +71,9 @@ public sealed partial class CameraDiagnostics
             _replayShowRigTracks))
             _replayShowRigTracks = !_replayShowRigTracks;
         if (StudioButton(new Rect(x + half + 9f, y + 329f, half, 23f),
-            "OTHER ACTORS: " + (_showObservedActors ? "ON" : "OFF"),
+            "ACTORS: " + ActorDisplayLabel,
             _showObservedActors))
-            _showObservedActors = !_showObservedActors;
+            CycleActorDisplay();
 
         float length = _replayClip == null ? 1f :
             (float)System.Math.Max(.01d, _replayClip.Duration);
