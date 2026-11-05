@@ -70,6 +70,9 @@ public sealed partial class CameraDiagnostics
 
     private void OnRenderObject()
     {
+        // The replay markers share the existing GL material but must also
+        // render while F2 is hidden, for a clean desktop recording.
+        RenderReplayMarkers();
         if (!_panelVisible || _playingKeyframes ||
             !Plugin.ShowKeyframePath.Value ||
             !IsCameraActive || _desktop == null ||
