@@ -58,7 +58,8 @@ public sealed partial class CameraDiagnostics
             _replayMessage = loaded.Count + " frames | " +
                 loaded.TeleportCount + " teleports | " +
                 loaded.GapCount + " gaps | " +
-                loaded.AvatarAnchorSamples + " avatar poses";
+                loaded.AvatarAnchorSamples + " body poses, " +
+                loaded.RigRootSamples + " rig root poses";
             Plugin.ModLogger.LogInfo("[ReplayViewer] Loaded " +
                 loaded.FileName + " " + _replayMessage +
                 " duration=" + ReplayTime(loaded.Duration) +
@@ -122,9 +123,15 @@ public sealed partial class CameraDiagnostics
         _replayClip.Evaluate(_replayElapsed, out ReplayClipFrame a,
             out ReplayClipFrame b, out float blend);
         ReplayPoseValue left = which == 0 ? a.Head :
-            which == 1 ? a.Left : which == 2 ? a.Right : a.Avatar;
+            which == 1 ? a.Left : which == 2 ? a.Right :
+            which == 3 ? a.Avatar : which == 4 ? a.AvatarRigRoot :
+            which == 5 ? a.AvatarModelHead :
+            which == 6 ? a.AvatarModelLeft : a.AvatarModelRight;
         ReplayPoseValue right = which == 0 ? b.Head :
-            which == 1 ? b.Left : which == 2 ? b.Right : b.Avatar;
+            which == 1 ? b.Left : which == 2 ? b.Right :
+            which == 3 ? b.Avatar : which == 4 ? b.AvatarRigRoot :
+            which == 5 ? b.AvatarModelHead :
+            which == 6 ? b.AvatarModelLeft : b.AvatarModelRight;
         if (!left.Valid || blend <= 0f || !right.Valid) return left;
 
         Vector3 pos = Vector3.Lerp(ReplayPosition(left),
@@ -202,7 +209,7 @@ public sealed partial class CameraDiagnostics
                 try
                 {
                     DrawOfflineStageGrid();
-                    DrawReplayHumanoid();
+                    DrawRecordedRigTracks();
                     DrawReplayMarker(EvaluatedPose(0),
                         ReplayHeadRadius, new Color(.32f, .87f, 1f, 1f));
                     DrawReplayMarker(EvaluatedPose(1),
