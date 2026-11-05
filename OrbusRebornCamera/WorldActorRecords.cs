@@ -98,3 +98,118 @@ internal static class WorldActorRecords
         writer.Write('\t');
     }
 }
+
+internal sealed class WorldActorTimeline
+{
+    private readonly Dictionary<string, WorldActorObservation[]> _tracks;
+    internal int ActorCount => _tracks.Count;
+    internal int ObservationCount { get; }
+
+    private WorldActorTimeline(Dictionary<string, WorldActorObservation[]> tracks,
+        int count)
+    {
+        _tracks = tracks;
+        ObservationCount = count;
+    }
+
+    internal static WorldActorTimeline ReadFile(string path)
+    {
+        var file = new FileInfo(path);
+        if (!file.Exists) throw new FileNotFoundException("Actor sidecar missing.", path);
+        if (file.Length > 40L * 1024L * 1024L)
+            throw new InvalidDataException("Actor sidecar too large.");
+        using var reader = new StreamReader(path);
+        return Read(reader);
+    }
+
+    internal static WorldActorTimeline Read(TextReader reader)
+    {
+        var tracks = new Dictionary<string, List<WorldActorObservation>>(
+            StringComparer.Ordinal);
+        string? line;
+        int total = 0;
+        while ((line = reader.ReadLine()) != null)
+        {
+            if (line.Length == 0 || line[0] == '#' ||
+                line.StartsWith("record\t", StringComparison.Ordinal))
+                continue;
+            string[] fields = line.Split('\t');
+            if (fields[0] != "sample") continue;
+            if (fields.Length < 19)
+                throw new InvalidDataException("Incomplete actor observation.");
+            if (++total > WorldActorRecords.MaxObservations)
+                throw new InvalidDataException("Too many actor samples.");
+            string key = fields[1];
+            if (key.Length == 0 || key.Length > 96)
+                throw new InvalidDataException("Bad actor key.");
+            var item = new WorldActorObservation
+            {
+                ActorKey = key, Category = fields[2], Prefab = fields[3],
+                Seconds = double.Parse(fields[6], CultureInfo.InvariantCulture),
+                UtcTicks = long.Parse(fields[7], CultureInfo.InvariantCulture),
+                Zone = fields[8], Event = fields[9],
+                X = float.Parse(fields[10], CultureInfo.InvariantCulture),
+                Y = float.Parse(fields[11], CultureInfo.InvariantCulture),
+                Z = float.Parse(fields[12], CultureInfo.InvariantCulture),
+                Qx = float.Parse(fields[13], CultureInfo.InvariantCulture),
+                Qy = float.Parse(fields[14], CultureInfo.InvariantCulture),
+                Qz = float.Parse(fields[15], CultureInfo.InvariantCulture),
+                Qw = float.Parse(fields[16], CultureInfo.InvariantCulture),
+                AnimationHash = int.Parse(fields[17], CultureInfo.InvariantCulture),
+                AnimationTime = float.Parse(fields[18], CultureInfo.InvariantCulture)
+            };
+            if (double.IsNaN(item.Seconds) || double.IsInfinity(item.Seconds))
+                throw new InvalidDataException("Bad actor sample timestamp.");
+            if (!tracks.TryGetValue(key, out List<WorldActorObservation>? samples))
+            {
+                if (tracks.Count >= WorldActorRecords.MaxActorIdentities)
+                    throw new InvalidDataException("Too many actor tracks.");
+                samples = new List<WorldActorObservation>();
+                tracks.Add(key, samples);
+            }
+            if (samples.Count > 0 && samples[samples.Count - 1].Seconds > item.Seconds)
+                throw new InvalidDataException("Actor timestamps went backwards.");
+            samples.Add(item);
+        }
+        var indexed = new Dictionary<string, WorldActorObservation[]>(StringComparer.Ordinal);
+        foreach (var pair in tracks) indexed.Add(pair.Key, pair.Value.ToArray());
+        return new WorldActorTimeline(indexed, total);
+    }
+
+    // Only show current, observed actors. Do not glide across a zone gap
+    // or keep a frozen NPC around for the remainder of the dungeon.
+    internal WorldActorObservation[] VisibleAt(double seconds)
+    {
+        var visible = new List<WorldActorObservation>(Math.Min(24, ActorCount));
+        foreach (var track in _tracks.Values)
+        {
+            int lo = 0, hi = track.Length;
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                if (track[mid].Seconds <= seconds) lo = mid + 1;
+                else hi = mid;
+            }
+            if (lo == 0) continue;
+            WorldActorObservation prior = track[lo - 1];
+            if (prior.Event == "leave" || seconds - prior.Seconds > .4d)
+                continue;
+            if (lo < track.Length)
+            {
+                WorldActorObservation next = track[lo];
+                double dt = next.Seconds - prior.Seconds;
+                if (dt > 0d && dt <= .3d && next.Event == "pose" &&
+                    prior.Event != "leave")
+                {
+                    float t = (float)((seconds - prior.Seconds) / dt);
+                    prior.X += (next.X - prior.X) * t;
+                    prior.Y += (next.Y - prior.Y) * t;
+                    prior.Z += (next.Z - prior.Z) * t;
+                    // Orientation is held for this early marker-only viewer.
+                }
+            }
+            visible.Add(prior);
+        }
+        return visible.ToArray();
+    }
+}
