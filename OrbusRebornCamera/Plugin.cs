@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.22"
+    "0.9.23"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -52,6 +52,8 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<bool> CreatorPanelVisible = null!;
     internal static ConfigEntry<bool> ReplayBufferEnabled = null!;
     internal static ConfigEntry<int> ReplayBufferSeconds = null!;
+    internal static ConfigEntry<bool> RecordNearbyActors = null!;
+    internal static ConfigEntry<float> NearbyActorRadius = null!;
 
     public override void Load()
     {
@@ -236,8 +238,18 @@ public sealed class Plugin : BasePlugin
             "Rolling pose buffer duration (30 to 600 seconds). " +
             "Default 300 seconds / five minutes.");
 
+        RecordNearbyActors = Config.Bind(
+            "ReplayBuffer", "RecordNearbyActors", true,
+            "Record nearby observed remote-player candidates and animated " +
+            "world objects in a bounded actor sidecar; no voice/chat data. " +
+            "Can be disabled in RebornMenu.");
+        NearbyActorRadius = Config.Bind(
+            "ReplayBuffer", "NearbyActorRadius", 30f,
+            "Physics neighborhood for actor observations in metres, clamped " +
+            "to 10-50. Does not load unseen areas or reveal remote entities.");
+
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.22 - targeted PlayerRigv4 local avatar transform capture");
+        Log.LogInfo("OrbusRebornCamera v0.9.23 - bounded nearby-player and animated-world actor observations");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -309,6 +321,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Saved clips v4: PlayerRigv4 body anchor, root, visual head and hands when present");
         Log.LogInfo("REPLAY: only captured rig tracks; fictitious ghost body/legs REMOVED");
         Log.LogInfo("Save Clip writes a targeted Avatar/Torso/Hand mesh and bone manifest alongside TSV");
+        Log.LogInfo("Nearby actor capture: limited client-observed remote-player and animated-object states");
+        Log.LogInfo("Saved clips add .actors.tsv; no verified player display names, world reconstruction or voice");
         Log.LogInfo("Ctrl+Shift+R = Start/stop the legacy 60-second pose diagnostic");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
