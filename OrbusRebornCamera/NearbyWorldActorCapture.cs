@@ -19,7 +19,7 @@ internal sealed class NearbyWorldActorCapture
     private readonly Dictionary<int, LiveActor> _actors = new();
     private readonly WorldRigCapture _rigs = new();
     private ReplayRingBuffer<WorldActorObservation>? _observations;
-    private double _nextSurvey, _nextSample, _lastWarning;
+    private double _nextSurvey, _nextSample, _lastWarning, _nextWorldCopy;
     private int _sequence, _window = 300;
     private bool _hadCandidates;
 
@@ -53,7 +53,7 @@ internal sealed class NearbyWorldActorCapture
         _actors.Clear();
         _rigs.Clear();
         _sequence = 0;
-        _nextSurvey = _nextSample = 0d;
+        _nextSurvey = _nextSample = _nextWorldCopy = 0d;
         _hadCandidates = false;
     }
 
@@ -78,7 +78,7 @@ internal sealed class NearbyWorldActorCapture
         {
             _nextSurvey = seconds + SurveyInterval;
             TrySurvey(localPosition, seconds, Math.Max(10f,
-                Math.Min(50f, radiusMeters)));
+                Math.Min(50f, radiusMeters)), zone);
         }
         if (seconds < _nextSample) return;
         _nextSample = seconds + SampleInterval;
@@ -184,7 +184,8 @@ internal sealed class NearbyWorldActorCapture
         });
     }
 
-    private void TrySurvey(Vector3 origin, double now, float radius)
+    private void TrySurvey(Vector3 origin, double now, float radius,
+        string zone)
     {
         try
         {
@@ -228,6 +229,18 @@ internal sealed class NearbyWorldActorCapture
                 actor.InRange = true;
                 actor.LastSeen = now;
                 if (actor.Animator == null) actor.Animator = animator;
+            }
+
+            // Opt-in: clone a few nearby static scene MESHES, never an
+            // entire scene, physics body, renderer script or NPC AI.
+            if (Plugin.CacheNearbyWorldGeometry != null &&
+                Plugin.CacheNearbyWorldGeometry.Value &&
+                now >= _nextWorldCopy)
+            {
+                _nextWorldCopy = now + 3.5d;
+                ReplayVisualAssets.CacheNearbyWorld(
+                    ReplayBufferRecorder.CurrentSessionId,
+                    colliders, origin, Math.Min(25f, radius), zone);
             }
 
             if (!_hadCandidates && CurrentCandidates > 0)
