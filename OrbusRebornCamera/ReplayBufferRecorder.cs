@@ -84,6 +84,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
     private string _lastStatus = "Waiting for VR tracking";
     private string _zone = "(unknown)";
     private double _nextZoneRefresh;
+    private double _nextLocalVisualCapture;
     private Frame _previousFrame;
     private bool _hasPreviousFrame;
 
@@ -96,6 +97,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
 
     internal static int FrameCount => _instance?._buffer?.Count ?? 0;
     internal static int NearbyActors => _instance?._nearbyActors.CurrentCandidates ?? 0;
+    internal static string CurrentSessionId => _instance?._sessionId ?? "";
 
     internal static float AvailableSeconds
     {
@@ -285,6 +287,12 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             Right = ReadHand(XRNode.RightHand, originPosition, originRotation)
         };
         LocalAvatarCapture.Sample avatar = _localAvatar.Read(eye, _clockSeconds);
+        if (_clockSeconds >= _nextLocalVisualCapture)
+        {
+            _nextLocalVisualCapture = _clockSeconds + 7d;
+            if (avatar.Valid)
+                ReplayVisualAssets.TryCacheLocalAvatar(_sessionId, eye);
+        }
         if (avatar.Valid)
             frame.Avatar = Pose.From(avatar.Position, avatar.Rotation);
         if (avatar.Root.Valid)
@@ -660,6 +668,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             catch { /* failures are reported if normal update resumes */ }
         }
         DrainCompletedSaves();
+        ReplayVisualAssets.Clear();
     }
 
     private void OnDestroy()
