@@ -189,6 +189,12 @@ internal sealed class WorldRigCapture
             }
             parents[i] = found;
         }
+        // Retain a visual-only copy of the exact game mesh/material.
+        // This can be used offline after leaving the world in the SAME
+        // running Orbus process. It cannot hydrate a recording on restart.
+        ReplayVisualAssets.TryCacheRig(
+            ReplayBufferRecorder.CurrentSessionId, key, best, actorRoot,
+            bestBones);
         source.Definition = new WorldRigDefinition
         {
             ActorKey = key,
