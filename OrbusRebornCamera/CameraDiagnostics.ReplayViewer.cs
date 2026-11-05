@@ -94,6 +94,7 @@ public sealed partial class CameraDiagnostics
         _replayPlaying = false;
         _replayClip = null;
         _worldActorTimeline = null;
+        _worldRigTimeline = null;
         _replayElapsed = 0d;
         _replayMessage = "Viewer closed (buffer unaffected)";
         Plugin.ModLogger.LogInfo("[ReplayViewer] Viewer closed.");
@@ -217,6 +218,7 @@ public sealed partial class CameraDiagnostics
                     DrawOfflineStageGrid();
                     DrawRecordedRigTracks();
                     RenderWorldActorMarkers();
+                    RenderObservedRigBones();
                     DrawReplayMarker(EvaluatedPose(0),
                         ReplayHeadRadius, new Color(.32f, .87f, 1f, 1f));
                     DrawReplayMarker(EvaluatedPose(1),
