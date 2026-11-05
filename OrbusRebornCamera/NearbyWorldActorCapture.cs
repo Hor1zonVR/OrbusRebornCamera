@@ -166,7 +166,8 @@ internal sealed class NearbyWorldActorCapture
                     out string category, out Animator? animator))
                     continue;
                 if (root == null || root.gameObject == null ||
-                    !root.gameObject.activeInHierarchy)
+                    !root.gameObject.activeInHierarchy ||
+                    Vector3.Distance(root.position, origin) > radius + 3f)
                     continue;
                 int id = root.GetInstanceID();
                 if (!_actors.TryGetValue(id, out LiveActor? actor) ||
@@ -217,7 +218,7 @@ internal sealed class NearbyWorldActorCapture
         var removable = new List<int>();
         foreach (var pair in _actors)
             if (!pair.Value.WasPresent && !pair.Value.InRange &&
-                now - pair.Value.LastSeen > _window)
+                now - pair.Value.LastSeen > SurveyInterval * 1.5f)
                 removable.Add(pair.Key);
         foreach (int id in removable) _actors.Remove(id);
     }
@@ -274,26 +275,28 @@ internal sealed class NearbyWorldActorCapture
         out WorldActorObservation[] samples)
     {
         var selected = new List<WorldActorObservation>();
-        var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (WorldActorObservation observation in
                  _observations?.Snapshot(now) ?? Array.Empty<WorldActorObservation>())
         {
             if (observation.Seconds < firstSeconds ||
                 observation.Seconds > lastSeconds) continue;
             selected.Add(observation);
-            ids.Add(observation.ActorKey);
         }
 
+        // Derive metadata from the saved samples, not just currently
+        // loaded actors. A disconnected/despawned actor can be evicted
+        // from the live dictionary without losing its older footage.
         var actors = new List<WorldActorIdentity>();
-        foreach (LiveActor a in _actors.Values)
+        var included = new HashSet<string>(StringComparer.Ordinal);
+        foreach (WorldActorObservation item in selected)
         {
-            if (!ids.Contains(a.Key)) continue;
+            if (!included.Add(item.ActorKey)) continue;
             actors.Add(new WorldActorIdentity
             {
-                ActorKey = a.Key, Category = a.Category,
-                Prefab = a.Prefab,
-                IdentitySource = "Unity instance ID " + a.InstanceId,
-                DisplayName = "" // No verified nameplate yet.
+                ActorKey = item.ActorKey, Category = item.Category,
+                Prefab = item.Prefab,
+                IdentitySource = "session-local actor ID",
+                DisplayName = "" // Nameplate API still unverified.
             });
         }
         identities = actors.ToArray();
