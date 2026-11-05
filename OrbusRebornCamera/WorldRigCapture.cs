@@ -26,6 +26,8 @@ internal sealed class WorldRigCapture
 
     private readonly Dictionary<string, RigSource> _sources =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<string, WorldRigDefinition> _catalog =
+        new(StringComparer.Ordinal);
     private readonly Dictionary<string, double> _retryAfter =
         new(StringComparer.Ordinal);
     private ReplayRingBuffer<WorldRigSample>? _ring;
@@ -39,6 +41,7 @@ internal sealed class WorldRigCapture
     {
         _ring?.Clear();
         _sources.Clear();
+        _catalog.Clear();
         _retryAfter.Clear();
         _nextSample = 0d;
         _processedThisTick = 0;
@@ -77,7 +80,7 @@ internal sealed class WorldRigCapture
         {
             if (!_sources.TryGetValue(key, out RigSource? source))
             {
-                if (_sources.Count >= WorldRigCodec.MaxRigs ||
+                if (_catalog.Count >= WorldRigCodec.MaxRigs ||
                     (_retryAfter.TryGetValue(key, out double retry) &&
                      seconds < retry))
                     return false;
@@ -88,6 +91,7 @@ internal sealed class WorldRigCapture
                     return false;
                 }
                 _sources.Add(key, source);
+                _catalog[key] = source.Definition;
                 _retryAfter.Remove(key);
                 _rigsEverCaptured++;
                 Plugin.ModLogger.LogInfo("[WorldRigs] Found " + key +
@@ -223,9 +227,9 @@ internal sealed class WorldRigCapture
             keys.Add(item.ActorKey);
         }
         var defs = new List<WorldRigDefinition>();
-        foreach (var entry in _sources)
+        foreach (var entry in _catalog)
             if (keys.Contains(entry.Key))
-                defs.Add(entry.Value.Definition);
+                defs.Add(entry.Value);
         definitions = defs.ToArray();
         samples = kept.ToArray();
     }
