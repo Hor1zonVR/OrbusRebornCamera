@@ -39,7 +39,10 @@ public sealed partial class CameraDiagnostics
                 return;
             }
 
-            string[] files = Directory.GetFiles(folder, "RC_Clip_*.tsv");
+            string[] files = Array.FindAll(
+                Directory.GetFiles(folder, "RC_Clip_*.tsv"),
+                file => !file.EndsWith(".actors.tsv",
+                    StringComparison.OrdinalIgnoreCase));
             if (files.Length == 0)
             {
                 _replayMessage = "No RC_Clip_*.tsv files found";
@@ -53,13 +56,15 @@ public sealed partial class CameraDiagnostics
             ReplayClipData loaded = ReplayClipReader.ReadFile(files[0]);
             StopKeyframePlayback();
             _replayClip = loaded;
+            LoadWorldActorSidecar(files[0]);
             _replayElapsed = 0d;
             _replayPlaying = false;
             _replayMessage = loaded.Count + " frames | " +
                 loaded.TeleportCount + " teleports | " +
                 loaded.GapCount + " gaps | " +
                 loaded.AvatarAnchorSamples + " body poses, " +
-                loaded.RigRootSamples + " rig root poses";
+                loaded.RigRootSamples + " rig root poses | " +
+                (_worldActorTimeline?.ActorCount ?? 0) + " nearby actors";
             Plugin.ModLogger.LogInfo("[ReplayViewer] Loaded " +
                 loaded.FileName + " " + _replayMessage +
                 " duration=" + ReplayTime(loaded.Duration) +
@@ -88,6 +93,7 @@ public sealed partial class CameraDiagnostics
     {
         _replayPlaying = false;
         _replayClip = null;
+        _worldActorTimeline = null;
         _replayElapsed = 0d;
         _replayMessage = "Viewer closed (buffer unaffected)";
         Plugin.ModLogger.LogInfo("[ReplayViewer] Viewer closed.");
@@ -210,6 +216,7 @@ public sealed partial class CameraDiagnostics
                 {
                     DrawOfflineStageGrid();
                     DrawRecordedRigTracks();
+                    RenderWorldActorMarkers();
                     DrawReplayMarker(EvaluatedPose(0),
                         ReplayHeadRadius, new Color(.32f, .87f, 1f, 1f));
                     DrawReplayMarker(EvaluatedPose(1),
