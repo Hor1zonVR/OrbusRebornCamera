@@ -6,6 +6,10 @@ on:
       - 'OrbusRebornCamera/ReplayRingBuffer.cs'
       - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.ReplayViewer.cs'
+      - 'OrbusRebornCamera/ReplayClipData.cs'
+      - 'tests/ReplayClipReader.CompileTest.csproj'
+      - 'tests/replay-viewer/**'
       - 'tests/ReplayRingBuffer.CompileTest.csproj'
       - 'tests/ReplayBuffer.IntegrationCompileTest.csproj'
       - 'tests/replay-buffer/**'
@@ -15,6 +19,10 @@ on:
       - 'OrbusRebornCamera/ReplayRingBuffer.cs'
       - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.ReplayViewer.cs'
+      - 'OrbusRebornCamera/ReplayClipData.cs'
+      - 'tests/ReplayClipReader.CompileTest.csproj'
+      - 'tests/replay-viewer/**'
       - 'tests/ReplayRingBuffer.CompileTest.csproj'
       - 'tests/ReplayBuffer.IntegrationCompileTest.csproj'
       - 'tests/replay-buffer/**'
@@ -33,3 +41,4 @@ jobs:
         run: |
           dotnet run --project tests/ReplayRingBuffer.CompileTest.csproj -c Release
           dotnet run --project tests/ReplayBuffer.IntegrationCompileTest.csproj -c Release
+          dotnet run --project tests/ReplayClipReader.CompileTest.csproj -c Release
