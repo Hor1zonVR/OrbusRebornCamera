@@ -61,7 +61,9 @@ public sealed partial class CameraDiagnostics
             _desktop.targetTexture = null;
             _desktop.depth = 1000f;
             _desktop.rect = new Rect(0f, 0f, 1f, 1f);
-            _desktop.cullingMask = 0;
+            // Preview renders ONLY RC-created render-only mesh objects.
+            // Live Orbus scene objects and menus remain culled.
+            _desktop.cullingMask = 1 << ReplayVisualAssets.ReplayLayer;
             _desktop.clearFlags = CameraClearFlags.SolidColor;
             _desktop.backgroundColor = new Color(.025f, .036f, .051f, 1f);
             _desktop.nearClipPlane = .035f;
@@ -71,7 +73,8 @@ public sealed partial class CameraDiagnostics
                 Mathf.Max(1f, Screen.height);
             _desktop.enabled = true;
 
-            _offlineStatus = "Offline pose preview ACTIVE. No world geometry.";
+            _offlineStatus = "Offline stage ACTIVE. Cached models work only in same process.";
+            BuildOfflineVisuals();
             FocusReplayHead();
             Plugin.ModLogger.LogInfo(
                 "[OfflineReplay] Detached replay stage started. " +
@@ -91,6 +94,7 @@ public sealed partial class CameraDiagnostics
         if (!_offlineReplayActive) return;
         _offlineReplayActive = false;
         _replayPlaying = false;
+        ClearOfflineVisuals();
         ReleaseDronePointer();
         RestoreCinematicRendering();
         if (_desktop != null)
@@ -224,9 +228,9 @@ public sealed partial class CameraDiagnostics
             _offlineReplayActive ? "OFFLINE POSE STAGE ACTIVE" :
                 "PREVIEW WITHOUT JOINING A SERVER", _studioHeading);
         StudioText(new Rect(x + 12f, y + 62f, w - 24f, 19f),
-            "Uses recorded poses + generated grid only.", _studioMuted);
+            "Replay meshes: session cache only (no disk geometry).", _studioMuted);
         StudioText(new Rect(x + 12f, y + 82f, w - 24f, 19f),
-            "Real zone geometry needs a separate loader.", _studioMuted);
+            "Old clips after restart: bone/axis fallback.", _studioMuted);
 
         if (StudioButton(new Rect(x, y + 125f, w, 44f),
             _offlineReplayActive ? "END OFFLINE PREVIEW" :
