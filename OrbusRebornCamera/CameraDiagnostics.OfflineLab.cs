@@ -174,9 +174,13 @@ public sealed partial class CameraDiagnostics
         ReplayPoseValue head = EvaluatedPose(0);
         if (!head.Valid) return;
 
-        float cx = Mathf.Round(head.X);
-        float cz = Mathf.Round(head.Z);
-        float y = head.Y - 1.65f;
+        // Static reference grid at the clip's original location.
+        // It never follows the moving character during playback.
+        ReplayPoseValue initial = _replayClip.Frames[0].Head;
+        if (!initial.Valid) initial = head;
+        float cx = Mathf.Round(initial.X);
+        float cz = Mathf.Round(initial.Z);
+        float y = initial.Y - 1.65f;
         Color grid = new Color(.18f, .31f, .37f, .42f);
         Color main = new Color(.33f, .61f, .7f, .72f);
         for (int i = -10; i <= 10; i++)
