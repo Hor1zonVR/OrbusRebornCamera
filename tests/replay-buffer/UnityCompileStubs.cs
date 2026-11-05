@@ -85,6 +85,8 @@ namespace UnityEngine
         public Quaternion localRotation { get; set; }
         public Vector3 localScale { get; set; }
         public Vector3 lossyScale => new Vector3(1, 1, 1);
+        public int childCount => 0;
+        public Transform GetChild(int index) => new();
         public Transform? parent => null;
         public GameObject gameObject => new();
         public int GetInstanceID() => 1;
