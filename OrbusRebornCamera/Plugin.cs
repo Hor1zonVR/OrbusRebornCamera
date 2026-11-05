@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.19"
+    "0.9.20"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -237,7 +237,7 @@ public sealed class Plugin : BasePlugin
             "Default 300 seconds / five minutes.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.19 - local pose clip viewer and transition metadata");
+        Log.LogInfo("OrbusRebornCamera v0.9.20 - offline pose stage and local world asset survey");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -304,6 +304,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+Shift+C = Save the rolling pose buffer as a clip");
         Log.LogInfo("F2 Creator Studio: Recording tab has Save Clip and Load Latest Clip");
         Log.LogInfo("Replay viewer: seek, pause, play and focus recorded head via desktop-only freecam markers");
+        Log.LogInfo("F2 OFFLINE tab: explicit pose preview without joining server (placeholder grid only)");
+        Log.LogInfo("F2 OFFLINE tab: export local installed-world asset inventory (read-only)");
         Log.LogInfo("Saved clips v2 tag teleport, loading gaps and loaded Unity scene zones");
         Log.LogInfo("Ctrl+Shift+R = Start/stop the legacy 60-second pose diagnostic");
         Log.LogInfo("F2 = Toggle desktop creator panel");
@@ -314,8 +316,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+F11 = Toggle freecam (same controls in VR and desktop sessions)");
         Log.LogInfo("Freecam: RMB+WASD even with F2 open (click outside panel); Q/E up/down");
         Log.LogInfo("While flying: Z/C bank camera, X level roll, Shift boost, Ctrl slow");
-        Log.LogInfo("F2 opens Creator Studio: Camera / Freecam / Keyframes / Recording");
-        Log.LogInfo("Stable GitHub releases are built automatically for RM on version updates");
+        Log.LogInfo("F2 opens Creator Studio: Camera / Freecam / Keyframes / Recording / Offline");
+        Log.LogInfo("Publish a locally compiled BetterMirror.dll using release.ps1 for RM");
         Log.LogWarning(
             "Trickster Goblin visual filtering is not implemented yet. " +
             "Use freecam only where the server owner permits it.");
