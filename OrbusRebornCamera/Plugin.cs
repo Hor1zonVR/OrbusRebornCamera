@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.24"
+    "0.9.25"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -53,6 +53,7 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<bool> ReplayBufferEnabled = null!;
     internal static ConfigEntry<int> ReplayBufferSeconds = null!;
     internal static ConfigEntry<bool> RecordNearbyActors = null!;
+    internal static ConfigEntry<bool> RecordNearbyRigBones = null!;
     internal static ConfigEntry<float> NearbyActorRadius = null!;
 
     public override void Load()
@@ -243,13 +244,18 @@ public sealed class Plugin : BasePlugin
             "Record nearby observed remote-player candidates and animated " +
             "world objects in a bounded actor sidecar; no voice/chat data. " +
             "Can be disabled in RebornMenu.");
+        RecordNearbyRigBones = Config.Bind(
+            "ReplayBuffer", "RecordNearbyRigBones", true,
+            "Opt-in style real 5Hz bone-pose recording for up to 4 nearby " +
+            "skinned NPC/pet/player candidates. May increase memory and clip " +
+            "size; disable here in RebornMenu if performance suffers.");
         NearbyActorRadius = Config.Bind(
             "ReplayBuffer", "NearbyActorRadius", 30f,
             "Physics neighborhood for actor observations in metres, clamped " +
             "to 10-50. Does not load unseen areas or reveal remote entities.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.24 - location-aware offline grid and nearby world actor review");
+        Log.LogInfo("OrbusRebornCamera v0.9.25 - nearby NPC/pet skinned-bone recording and offline playback");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -324,6 +330,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Nearby actor capture: limited client-observed remote-player and animated-object states");
         Log.LogInfo("Saved clips add .actors.tsv; no verified player display names, world reconstruction or voice");
         Log.LogInfo("Offline replay grid is now world-aligned, expands as playback moves, and reanchors after teleports");
+        Log.LogInfo("Nearby actor bones: 4 skinned rigs at 5Hz into .rigs.bin with verified bone topology");
+        Log.LogInfo("ReplayStudio actor skeleton: observed bones only, no textured mesh or NPC AI yet");
         Log.LogInfo("Ctrl+Shift+R = Start/stop the legacy 60-second pose diagnostic");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
