@@ -92,8 +92,8 @@ namespace UnityEngine
         public T[] GetComponentsInChildren<T>(bool includeInactive) =>
             Array.Empty<T>();
         public string name => "test-bone";
-        public Vector3 position => default;
-        public Quaternion rotation => default;
+        public Vector3 position { get; set; }
+        public Quaternion rotation { get; set; }
     }
     public class Mesh : Object
     {
