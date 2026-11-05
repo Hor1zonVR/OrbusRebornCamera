@@ -11,9 +11,12 @@
     <Compile Include="../OrbusRebornCamera/ReplayBufferRecorder.cs" />
     <Compile Include="../OrbusRebornCamera/NearbyWorldActorCapture.cs" />
     <Compile Include="../OrbusRebornCamera/WorldActorRecords.cs" />
+    <Compile Include="../OrbusRebornCamera/NearbyWorldActorCapture.cs" />
+    <Compile Include="../OrbusRebornCamera/WorldActorRecords.cs" />
     <Compile Include="../OrbusRebornCamera/LocalAvatarCapture.cs" />
     <Compile Include="../OrbusRebornCamera/ReplayClipData.cs" />
     <Compile Include="../OrbusRebornCamera/CameraDiagnostics.ReplayViewer.cs" />
+    <Compile Include="../OrbusRebornCamera/CameraDiagnostics.WorldActors.cs" />
     <Compile Include="../OrbusRebornCamera/CameraDiagnostics.ReplayGhost.cs" />
     <Compile Include="../OrbusRebornCamera/CameraDiagnostics.OfflineLab.cs" />
     <Compile Include="../OrbusRebornCamera/OfflineWorldInventory.cs" />
