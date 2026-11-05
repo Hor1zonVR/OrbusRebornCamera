@@ -238,6 +238,7 @@ namespace OrbusBetterMirror
         internal static TestConfig<bool> ReplayBufferEnabled = new(true);
         internal static TestConfig<int> ReplayBufferSeconds = new(300);
         internal static TestConfig<bool> RecordNearbyActors = new(true);
+        internal static TestConfig<bool> RecordNearbyRigBones = new(true);
         internal static TestConfig<float> NearbyActorRadius = new(30f);
         internal static TestLogger ModLogger = new();
     }
