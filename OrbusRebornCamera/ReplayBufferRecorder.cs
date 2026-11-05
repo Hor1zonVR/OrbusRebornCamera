@@ -441,6 +441,10 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             out WorldActorIdentity[] actorIdentities,
             out WorldActorObservation[] actorSamples);
         string actorVisualManifest = _nearbyActors.CaptureManifest();
+        _nearbyActors.SnapshotRigs(_clockSeconds,
+            snapshot[0].Seconds, snapshot[snapshot.Length - 1].Seconds,
+            out WorldRigDefinition[] rigDefinitions,
+            out WorldRigSample[] rigSamples);
         _lastStatus = "Saving " + snapshot.Length + " pose samples...";
         Plugin.ModLogger.LogInfo(
             "[ReplayBuffer] Queued " + snapshot.Length +
@@ -451,7 +455,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         _pending.Add(Task.Run(() =>
             WriteClip(destination, clipId, sessionId, duration, snapshot,
                 avatarMeshHint, avatarBoneCount, avatarRigManifest,
-                actorIdentities, actorSamples, actorVisualManifest)));
+                actorIdentities, actorSamples, actorVisualManifest,
+                rigDefinitions, rigSamples)));
     }
 
     private void DrainCompletedSaves()
@@ -482,7 +487,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         string avatarRigManifest,
         WorldActorIdentity[] actorIdentities,
         WorldActorObservation[] actorSamples,
-        string actorVisualManifest)
+        string actorVisualManifest,
+        WorldRigDefinition[] rigDefinitions, WorldRigSample[] rigSamples)
     {
         string temporary = destination + ".partial";
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -591,6 +597,31 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             }
             catch (IOException) { /* primary clip remains valid */ }
             catch (UnauthorizedAccessException) { /* primary clip remains valid */ }
+
+            // Compact real skin-bone animation is optional; its failures
+            // must never destroy a saved local-player pose recording.
+            if (rigSamples.Length > 0 && rigDefinitions.Length > 0)
+            {
+                string rigPath = Path.ChangeExtension(destination, ".rigs.bin");
+                string rigPartial = rigPath + ".partial";
+                try
+                {
+                    using (var rigFile = new FileStream(rigPartial,
+                        FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                        WorldRigCodec.Write(rigFile, sessionId, clipId,
+                            rigDefinitions, rigSamples);
+                    File.Move(rigPartial, rigPath);
+                }
+                catch (Exception ex) when (ex is IOException ||
+                    ex is UnauthorizedAccessException ||
+                    ex is InvalidDataException)
+                {
+                    Plugin.ModLogger.LogWarning(
+                        "[WorldRigs] Rig sidecar unavailable: " + ex.Message);
+                    try { if (File.Exists(rigPartial)) File.Delete(rigPartial); }
+                    catch { /* best effort */ }
+                }
+            }
             return destination;
         }
         catch
