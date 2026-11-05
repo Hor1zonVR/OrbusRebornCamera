@@ -157,6 +157,63 @@ internal sealed class LocalAvatarCapture
         }
     }
 
+    // Called only on Save Clip, on the main thread. This is a small
+    // descriptor of asset names and rig joints, not a mesh or animation
+    // export. It will help map the real Orbus character in a future build.
+    internal string CaptureRigManifest()
+    {
+        var report = new System.Text.StringBuilder(8192);
+        report.AppendLine("# RebornCamera local avatar rig manifest v1");
+        report.AppendLine("# LOCAL MINICAM CANDIDATE ONLY");
+        report.AppendLine("# no vertices, skin weights, textures or animations");
+        report.AppendLine("mesh_hint=" + MeshHint);
+        report.AppendLine("bone_count_hint=" + BoneCount);
+        if (_renderer == null || _anchor == null)
+        {
+            report.AppendLine("status=no_avatar_rig_resolved");
+            return report.ToString();
+        }
+
+        try
+        {
+            report.AppendLine("status=local_minicam_candidate");
+            report.AppendLine("renderer=" + Clean(_renderer.name));
+            report.AppendLine("root_bone=" + Clean(_anchor.name));
+            var mesh = _renderer.sharedMesh;
+            if (mesh != null)
+            {
+                report.AppendLine("mesh=" + Clean(mesh.name));
+                report.AppendLine("vertices=" + mesh.vertexCount);
+            }
+
+            var bones = _renderer.bones;
+            int count = bones == null ? 0 : Math.Min(160, bones.Length);
+            for (int i = 0; i < count; i++)
+            {
+                Transform bone = bones[i];
+                report.AppendLine("bone_" + i + "=" +
+                    (bone == null ? "(null)" : Clean(bone.name)));
+            }
+            if (bones != null && bones.Length > count)
+                report.AppendLine("bone_names_truncated=true");
+
+            var materials = _renderer.sharedMaterials;
+            int n = materials == null ? 0 : Math.Min(12, materials.Length);
+            for (int i = 0; i < n; i++)
+            {
+                Material material = materials[i];
+                report.AppendLine("material_" + i + "=" +
+                    (material == null ? "(null)" : Clean(material.name)));
+            }
+        }
+        catch (Exception ex)
+        {
+            report.AppendLine("manifest_incomplete=" +
+                Clean(ex.GetType().Name));
+        }
+        return report.ToString();
+    }
+
     private static string Clean(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return "(unnamed)";
