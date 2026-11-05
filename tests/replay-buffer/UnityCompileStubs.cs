@@ -34,6 +34,9 @@ namespace UnityEngine
         public static Vector3 back => default;
         public static Vector3 right => default;
         public static Vector3 Lerp(Vector3 a, Vector3 b, float t) => default;
+        public static Vector3 Cross(Vector3 a, Vector3 b) => default;
+        public static float Distance(Vector3 a, Vector3 b) => 1f;
+        public void Normalize() { }
         public static Vector3 operator +(Vector3 a, Vector3 b) => default;
         public static Vector3 operator -(Vector3 a, Vector3 b) => default;
         public static Vector3 operator *(Vector3 a, float b) => default;
@@ -56,6 +59,31 @@ namespace UnityEngine
     {
         public Vector3 position => default;
         public Quaternion rotation => default;
+    }
+    public class Mesh
+    {
+        public string name => "test-mesh";
+    }
+    public class GameObject
+    {
+        public int layer => 20;
+    }
+    public class SkinnedMeshRenderer
+    {
+        public string name => "test-avatar";
+        public GameObject gameObject => new();
+        public Transform transform => new();
+        public Transform rootBone => new();
+        public Mesh sharedMesh => new();
+        public Transform[] bones => Array.Empty<Transform>();
+    }
+    public static class Resources
+    {
+        public static T[] FindObjectsOfTypeAll<T>() => Array.Empty<T>();
+    }
+    public static class LayerMask
+    {
+        public static int NameToLayer(string name) => 20;
     }
     public enum StereoTargetEyeMask { None }
     public enum CameraClearFlags { SolidColor }
