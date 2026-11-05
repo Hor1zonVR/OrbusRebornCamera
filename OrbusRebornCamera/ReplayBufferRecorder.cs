@@ -72,6 +72,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
     private readonly List<Task<string>> _pending = new();
     private readonly string _sessionId = Guid.NewGuid().ToString("N");
     private readonly LocalAvatarCapture _localAvatar = new();
+    private readonly NearbyWorldActorCapture _nearbyActors = new();
 
     private Camera? _eye;
     private bool _hotkeyWasDown;
@@ -94,6 +95,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         Math.Clamp(Plugin.ReplayBufferSeconds.Value, 30, 600);
 
     internal static int FrameCount => _instance?._buffer?.Count ?? 0;
+    internal static int NearbyActors => _instance?._nearbyActors.CurrentCandidates ?? 0;
 
     internal static float AvailableSeconds
     {
@@ -212,6 +214,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             if (_previousEnabled)
             {
                 _buffer?.Clear();
+                _nearbyActors.Clear();
                 _hasPreviousFrame = false;
             }
             _previousEnabled = false;
@@ -301,6 +304,29 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         _previousFrame = frame;
         _hasPreviousFrame = true;
         _buffer!.Add(frame);
+
+        if (Plugin.RecordNearbyActors != null &&
+            Plugin.RecordNearbyActors.Value)
+        {
+            try
+            {
+                _nearbyActors.Tick(eye.transform.position, _clockSeconds,
+                    frame.UtcTicks, _zone, _configuredSeconds,
+                    Plugin.NearbyActorRadius == null ? 30f :
+                        Plugin.NearbyActorRadius.Value);
+            }
+            catch (Exception ex)
+            {
+                // Actor observations must never interrupt the proven
+                // local player pose recorder.
+                if (Time.unscaledTime >= _nextErrorLog)
+                {
+                    _nextErrorLog = Time.unscaledTime + 10f;
+                    Plugin.ModLogger.LogWarning(
+                        "[WorldActors] Skipped observation: " + ex.Message);
+                }
+            }
+        }
     }
 
     private static string LoadedZoneSignature()
@@ -404,6 +430,10 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         string avatarMeshHint = _localAvatar.MeshHint;
         int avatarBoneCount = _localAvatar.BoneCount;
         string avatarRigManifest = _localAvatar.CaptureRigManifest();
+        _nearbyActors.Snapshot(_clockSeconds,
+            snapshot[0].Seconds, snapshot[snapshot.Length - 1].Seconds,
+            out WorldActorIdentity[] actorIdentities,
+            out WorldActorObservation[] actorSamples);
         _lastStatus = "Saving " + snapshot.Length + " pose samples...";
         Plugin.ModLogger.LogInfo(
             "[ReplayBuffer] Queued " + snapshot.Length +
@@ -413,7 +443,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         // Taking a copy leaves the live rolling buffer uninterrupted.
         _pending.Add(Task.Run(() =>
             WriteClip(destination, clipId, sessionId, duration, snapshot,
-                avatarMeshHint, avatarBoneCount, avatarRigManifest)));
+                avatarMeshHint, avatarBoneCount, avatarRigManifest,
+                actorIdentities, actorSamples)));
     }
 
     private void DrainCompletedSaves()
@@ -441,7 +472,9 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
     private static string WriteClip(string destination, string clipId,
         string sessionId, int duration, Frame[] frames,
         string avatarMeshHint, int avatarBoneCount,
-        string avatarRigManifest)
+        string avatarRigManifest,
+        WorldActorIdentity[] actorIdentities,
+        WorldActorObservation[] actorSamples)
     {
         string temporary = destination + ".partial";
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -519,6 +552,28 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             }
             catch (IOException) { /* main clip is still valid */ }
             catch (UnauthorizedAccessException) { /* main clip is still valid */ }
+
+            // Actor timeline is a separate bounded sidecar, preserving the
+            // v4 local-pose TSV reader and old saved clips unchanged.
+            try
+            {
+                string actorPath = Path.ChangeExtension(destination, ".actors.tsv");
+                string actorPartial = actorPath + ".partial";
+                using (var actorFile = new StreamWriter(actorPartial,
+                    false, new UTF8Encoding(false)))
+                    WorldActorRecords.Write(actorFile, sessionId, clipId,
+                        actorIdentities, actorSamples);
+                File.Move(actorPartial, actorPath);
+            }
+            catch (Exception ex) when (ex is IOException ||
+                ex is UnauthorizedAccessException ||
+                ex is InvalidDataException)
+            {
+                // An optional actor export cannot damage the primary clip.
+                Plugin.ModLogger.LogWarning(
+                    "[WorldActors] Actor sidecar could not be saved: " +
+                    ex.Message);
+            }
             return destination;
         }
         catch
