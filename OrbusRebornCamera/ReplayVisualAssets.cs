@@ -16,6 +16,8 @@ internal static class ReplayVisualAssets
     internal const int ReplayLayer = 29;
     internal const int MaxRigAssets = 12;
     internal const int MaxLocalParts = 24;
+    internal const int MaxWorldMeshes = 96;
+    internal const int MaxTotalWorldVertices = 450000;
     private const int MaxMeshVertices = 30000;
     internal sealed class RigAsset
     {
@@ -30,6 +32,17 @@ internal static class ReplayVisualAssets
         internal int RootBoneIndex;
         internal int BoneCount;
     }
+    internal sealed class WorldPart
+    {
+        internal string Name = "";
+        internal string Zone = "";
+        internal Mesh Mesh = null!;
+        internal Material[] Materials = Array.Empty<Material>();
+        internal Vector3 Position;
+        internal Quaternion Rotation;
+        internal Vector3 Scale;
+    }
+
     internal sealed class AvatarPart
     {
         internal int PoseChannel;
@@ -44,10 +57,14 @@ internal static class ReplayVisualAssets
     private static readonly Dictionary<string, RigAsset> RigAssets =
         new(StringComparer.Ordinal);
     private static readonly List<AvatarPart> AvatarParts = new();
+    private static readonly List<WorldPart> WorldParts = new();
+    private static readonly HashSet<int> WorldObjectIds = new();
+    private static int _worldVertices;
     private static string _sessionId = "";
     internal static string SessionId => _sessionId;
     internal static int RigCount => RigAssets.Count;
     internal static int AvatarPartCount => AvatarParts.Count;
+    internal static int WorldPartCount => WorldParts.Count;
 
     private static void StartSession(string id)
     {
@@ -70,8 +87,16 @@ internal static class ReplayVisualAssets
             DestroyCopy(part.Mesh);
             foreach (Material mat in part.Materials) DestroyCopy(mat);
         }
+        foreach (WorldPart part in WorldParts)
+        {
+            DestroyCopy(part.Mesh);
+            foreach (Material mat in part.Materials) DestroyCopy(mat);
+        }
         RigAssets.Clear();
         AvatarParts.Clear();
+        WorldParts.Clear();
+        WorldObjectIds.Clear();
+        _worldVertices = 0;
         _sessionId = "";
     }
 
@@ -276,6 +301,88 @@ internal static class ReplayVisualAssets
     internal static AvatarPart[] GetLocalParts(string sessionId) =>
         _sessionId == sessionId ? AvatarParts.ToArray() :
             Array.Empty<AvatarPart>();
+
+    // Captures only static MeshFilter + MeshRenderer geometry that already
+    // has a nearby collider in the live client. No scene loading or
+    // copying behaviours, NPC scripts, lighting components or terrain AI.
+    internal static void CacheNearbyWorld(string sessionId,
+        Collider[] colliders, Vector3 origin, float radius, string zone)
+    {
+        if (string.IsNullOrEmpty(sessionId) || colliders == null) return;
+        StartSession(sessionId);
+        if (WorldParts.Count >= MaxWorldMeshes) return;
+        int newThisPass = 0;
+        int examined = Math.Min(colliders.Length, 256);
+        for (int i = 0; i < examined && newThisPass < 4 &&
+             WorldParts.Count < MaxWorldMeshes; i++)
+        {
+            var hit = colliders[i];
+            if (hit == null) continue;
+            Transform? at = hit.transform;
+            // Prefer the exact collided mesh; permit two ancestors for
+            // common scene-collider layouts without scanning all objects.
+            for (int depth = 0; depth < 3 && at != null; depth++)
+            {
+                string name = at.name ?? "";
+                if (name.StartsWith("PlayerRigv4", StringComparison.Ordinal) ||
+                    name.StartsWith("OtherPlayerv2", StringComparison.Ordinal))
+                    break;
+                if (at.GetComponent<Animator>() != null) break;
+                var filter = at.GetComponent<MeshFilter>();
+                var renderer = at.GetComponent<MeshRenderer>();
+                if (filter == null || renderer == null ||
+                    !renderer.enabled || !renderer.gameObject.activeInHierarchy ||
+                    renderer.gameObject.layer == 20)
+                {
+                    at = at.parent;
+                    continue;
+                }
+                Mesh? source = filter.sharedMesh;
+                if (source == null || source.vertexCount < 30 ||
+                    source.vertexCount > 20000 ||
+                    _worldVertices + source.vertexCount > MaxTotalWorldVertices ||
+                    Vector3.Distance(renderer.transform.position, origin) >
+                        radius + 15f)
+                    break;
+                int id = filter.GetInstanceID();
+                if (WorldObjectIds.Contains(id)) break;
+                Mesh? mesh = null;
+                Material[] materials = Array.Empty<Material>();
+                try
+                {
+                    mesh = UnityEngine.Object.Instantiate(source);
+                    mesh.hideFlags = HideFlags.DontUnloadUnusedAsset;
+                    materials = CopyMaterials(renderer);
+                    WorldParts.Add(new WorldPart
+                    {
+                        Name = WorldActorRecords.Safe(source.name),
+                        Zone = WorldActorRecords.Safe(zone),
+                        Mesh = mesh, Materials = materials,
+                        Position = renderer.transform.position,
+                        Rotation = renderer.transform.rotation,
+                        Scale = renderer.transform.lossyScale
+                    });
+                    WorldObjectIds.Add(id);
+                    _worldVertices += source.vertexCount;
+                    newThisPass++;
+                }
+                catch
+                {
+                    DestroyCopy(mesh);
+                    foreach (Material mat in materials) DestroyCopy(mat);
+                }
+                break;
+            }
+        }
+        if (newThisPass > 0)
+            Plugin.ModLogger.LogInfo("[WorldVisuals] Cached " +
+                WorldParts.Count + " static scene meshes, " +
+                _worldVertices + " vertices (SAME PROCESS ONLY).");
+    }
+
+    internal static WorldPart[] GetWorldParts(string sessionId) =>
+        _sessionId == sessionId ? WorldParts.ToArray() :
+            Array.Empty<WorldPart>();
 
     internal static GameObject CreateStaticPart(string name, Mesh mesh,
         Material[] mats)
