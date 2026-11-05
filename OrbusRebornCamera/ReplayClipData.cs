@@ -6,7 +6,7 @@ using System.IO;
 namespace OrbusBetterMirror;
 
 // No Unity dependency: the same reader is used by the player and CI tests.
-// File formats v1/v2 and v3 (local avatar root pose) are supported.
+// Supports v1-v4; v4 has targeted local PlayerRigv4 transform tracks.
 internal enum ReplayTransitionKind { None, Gap, Teleport, ZoneChange }
 
 internal struct ReplayPoseValue
@@ -23,6 +23,8 @@ internal sealed class ReplayClipFrame
     internal string Zone = "(not recorded)";
     internal ReplayTransitionKind Transition;
     internal ReplayPoseValue Head, Left, Right, Avatar;
+    internal ReplayPoseValue AvatarRigRoot, AvatarModelHead;
+    internal ReplayPoseValue AvatarModelLeft, AvatarModelRight;
 }
 
 internal sealed class ReplayClipData
@@ -34,6 +36,10 @@ internal sealed class ReplayClipData
     internal readonly string AvatarMeshHint;
     internal readonly int AvatarBoneCountHint;
     internal int AvatarAnchorSamples { get; }
+    internal int RigRootSamples { get; }
+    internal int ModelHeadSamples { get; }
+    internal int ModelLeftSamples { get; }
+    internal int ModelRightSamples { get; }
     internal int TeleportCount { get; }
     internal int GapCount { get; }
     internal int ZoneChangeCount { get; }
@@ -54,14 +60,23 @@ internal sealed class ReplayClipData
         AvatarMeshHint = avatarMeshHint;
         AvatarBoneCountHint = avatarBoneCountHint;
         int avatarCount = 0;
+        int rootCount = 0, headCount = 0, leftCount = 0, rightCount = 0;
         foreach (ReplayClipFrame frame in frames)
         {
             if (frame.Avatar.Valid) avatarCount++;
+            if (frame.AvatarRigRoot.Valid) rootCount++;
+            if (frame.AvatarModelHead.Valid) headCount++;
+            if (frame.AvatarModelLeft.Valid) leftCount++;
+            if (frame.AvatarModelRight.Valid) rightCount++;
             if (frame.Transition == ReplayTransitionKind.Teleport) TeleportCount++;
             else if (frame.Transition == ReplayTransitionKind.Gap) GapCount++;
             else if (frame.Transition == ReplayTransitionKind.ZoneChange) ZoneChangeCount++;
         }
         AvatarAnchorSamples = avatarCount;
+        RigRootSamples = rootCount;
+        ModelHeadSamples = headCount;
+        ModelLeftSamples = leftCount;
+        ModelRightSamples = rightCount;
     }
 
     // Replay position is relative to the clip start (0 to Duration).
@@ -158,7 +173,11 @@ internal static class ReplayClipReader
                 Head = Pose(fields, headers, "head"),
                 Left = Pose(fields, headers, "left"),
                 Right = Pose(fields, headers, "right"),
-                Avatar = Pose(fields, headers, "avatar")
+                Avatar = Pose(fields, headers, "avatar"),
+                AvatarRigRoot = Pose(fields, headers, "avatar_root"),
+                AvatarModelHead = Pose(fields, headers, "avatar_head"),
+                AvatarModelLeft = Pose(fields, headers, "avatar_left"),
+                AvatarModelRight = Pose(fields, headers, "avatar_right")
             };
             if (double.IsInfinity(frame.Seconds) ||
                 double.IsNaN(frame.Seconds) ||
