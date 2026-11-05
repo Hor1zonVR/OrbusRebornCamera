@@ -11,6 +11,8 @@
     <Compile Include="../OrbusRebornCamera/ReplayBufferRecorder.cs" />
     <Compile Include="../OrbusRebornCamera/ReplayClipData.cs" />
     <Compile Include="../OrbusRebornCamera/CameraDiagnostics.ReplayViewer.cs" />
+    <Compile Include="../OrbusRebornCamera/CameraDiagnostics.OfflineLab.cs" />
+    <Compile Include="../OrbusRebornCamera/OfflineWorldInventory.cs" />
     <Compile Include="../OrbusRebornCamera/CameraDiagnostics.Recording.cs" />
     <Compile Include="replay-buffer/UnityCompileStubs.cs" />
   </ItemGroup>
