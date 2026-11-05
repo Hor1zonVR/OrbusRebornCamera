@@ -77,6 +77,27 @@ public sealed partial class CameraDiagnostics
         _offlineVisualRoot.layer = ReplayVisualAssets.ReplayLayer;
         UnityEngine.Object.DontDestroyOnLoad(_offlineVisualRoot);
 
+        // The detached menu/offline scene can have no usable light.
+        // Only illuminate RC's dedicated layer; never alter RenderSettings
+        // or light the actual VR world.
+        try
+        {
+            var lamp = new GameObject("RC Offline Model Light");
+            lamp.layer = ReplayVisualAssets.ReplayLayer;
+            lamp.transform.SetParent(_offlineVisualRoot.transform, false);
+            lamp.transform.rotation = Quaternion.Euler(42f, -35f, 0f);
+            var light = lamp.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.2f;
+            light.cullingMask = 1 << ReplayVisualAssets.ReplayLayer;
+            light.shadows = LightShadows.None;
+        }
+        catch (Exception ex)
+        {
+            Plugin.ModLogger.LogWarning("[VisualCache] Offline preview " +
+                "light unavailable: " + ex.GetType().Name);
+        }
+
         foreach (ReplayVisualAssets.AvatarPart part in
                  ReplayVisualAssets.GetLocalParts(_replayClip.SessionId))
         {
