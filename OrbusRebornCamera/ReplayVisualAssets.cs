@@ -16,8 +16,8 @@ internal static class ReplayVisualAssets
     internal const int ReplayLayer = 29;
     internal const int MaxRigAssets = 12;
     internal const int MaxLocalParts = 24;
-    internal const int MaxWorldMeshes = 96;
-    internal const int MaxTotalWorldVertices = 450000;
+    internal const int MaxWorldMeshes = 128;
+    internal const int MaxTotalWorldVertices = 750000;
     private const int MaxMeshVertices = 30000;
     internal sealed class RigAsset
     {
@@ -64,6 +64,13 @@ internal static class ReplayVisualAssets
     private static readonly HashSet<int> WorldObjectIds = new();
     private static int _worldVertices;
     private static int _largeGroundMeshes;
+    private static int _foliageMeshes;
+    private static int _structuralMeshes;
+    private static int _lodSkipped;
+    private static readonly Queue<(Transform at, int depth)> StructuralQueue = new();
+    private static readonly HashSet<int> StructuralVisited = new();
+    private static string _structuralZone = "";
+    private static bool _rootsSeeded;
     private static string _sessionId = "";
     internal static string SessionId => _sessionId;
     internal static int RigCount => RigAssets.Count;
@@ -103,6 +110,13 @@ internal static class ReplayVisualAssets
         WorldObjectIds.Clear();
         _worldVertices = 0;
         _largeGroundMeshes = 0;
+        _foliageMeshes = 0;
+        _structuralMeshes = 0;
+        _lodSkipped = 0;
+        StructuralQueue.Clear();
+        StructuralVisited.Clear();
+        _structuralZone = "";
+        _rootsSeeded = false;
         _sessionId = "";
     }
 
@@ -432,6 +446,112 @@ internal static class ReplayVisualAssets
         return WorldActorRecords.Safe(string.Join("/", path));
     }
 
+    // Unity's scene hierarchy has colliders and renderers on different
+    // branches. This second pass bypasses the collider requirement for
+    // known Highsteppe static roots, but is deliberately incremental.
+    // Names from the real .visuals.txt report are listed first;
+    // additional root names are only probes, NOT assumed to exist.
+    private static readonly string[] StructuralRootNames =
+    {
+        "CenterCourt", "FellowshipCourt", "UndergroundStatic", "Nate_HS",
+        "HighsteppeStatic", "Highsteppe", "ZoneHighsteppe", "TownStatic"
+    };
+
+    internal static void CacheHighsteppeStructure(string sessionId,
+        Vector3 origin, float radius, string zone)
+    {
+        if (string.IsNullOrEmpty(sessionId) ||
+            !zone.Contains("Highsteppe", StringComparison.OrdinalIgnoreCase))
+            return;
+        StartSession(sessionId);
+        if (zone != _structuralZone)
+        {
+            StructuralQueue.Clear();
+            StructuralVisited.Clear();
+            _structuralZone = zone;
+            _rootsSeeded = false;
+        }
+        if (!_rootsSeeded)
+        {
+            _rootsSeeded = true;
+            int found = 0;
+            foreach (string name in StructuralRootNames)
+            {
+                try
+                {
+                    GameObject root = GameObject.Find(name);
+                    if (root == null) continue;
+                    StructuralQueue.Enqueue((root.transform, 0));
+                    found++;
+                }
+                catch (Exception) { /* scene may be switching */ }
+            }
+            Plugin.ModLogger.LogInfo("[WorldStructure] Targeted Highsteppe " +
+                "root probes found " + found + " of " +
+                StructuralRootNames.Length + "; no global scene scan.");
+        }
+
+        int scanned = 0, copied = 0;
+        const int MaxNodesPerPass = 160;
+        const int MaxNewMeshesPerPass = 12;
+        const int MaxQueuedNodes = 9000;
+        while (StructuralQueue.Count > 0 && scanned < MaxNodesPerPass &&
+               copied < MaxNewMeshesPerPass &&
+               WorldParts.Count < MaxWorldMeshes)
+        {
+            var item = StructuralQueue.Dequeue();
+            try
+            {
+                Transform at = item.at;
+                if (at == null) continue;
+                if (!StructuralVisited.Add(at.GetInstanceID())) continue;
+                scanned++;
+                if (IsAnimatedOrPlayer(at)) continue;
+
+                if (TryCopyStaticRenderer(at, origin, radius, zone))
+                    copied++;
+                if (item.depth >= 11) continue;
+
+                // Avoid a single huge root expanding into thousands of
+                // potentially unrelated children in one frame.
+                int children = at.childCount;
+                if (children > 250 || StructuralQueue.Count + children >
+                    MaxQueuedNodes) continue;
+                for (int j = 0; j < children; j++)
+                    StructuralQueue.Enqueue((at.GetChild(j), item.depth + 1));
+            }
+            catch (Exception) { /* world stream/despawn */ }
+        }
+
+        if (copied > 0)
+            Plugin.ModLogger.LogInfo("[WorldStructure] Copied " + copied +
+                " static meshes this pass, visited " + scanned +
+                " nodes, queue=" + StructuralQueue.Count +
+                ", total=" + WorldParts.Count + ". No gameplay objects copied.");
+    }
+
+    private static bool IsFoliageName(string name)
+    {
+        return name.Contains("tree", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("grass", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("bush", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("leaf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsStructuralName(string name)
+    {
+        return name.Contains("floor", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("ground", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("wall", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("building", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("roof", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("terrain", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("road", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("path", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("house", StringComparison.OrdinalIgnoreCase) ||
+            name.Contains("bridge", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool TryCopyStaticRenderer(Transform at,
         Vector3 origin, float radius, string zone)
     {
@@ -443,13 +563,32 @@ internal static class ReplayVisualAssets
             return false;
 
         Mesh? source = filter.sharedMesh;
-        if (source == null || source.vertexCount < 24 ||
-            source.vertexCount > 20000 ||
-            // A few large ground/terrain pieces are useful, but they
-            // must not monopolize our intentionally small cache.
-            (source.vertexCount > 14000 && _largeGroundMeshes >= 5) ||
-            _worldVertices + source.vertexCount > MaxTotalWorldVertices ||
-            Vector3.Distance(renderer.transform.position, origin) > radius + 20f)
+        if (source == null) return false;
+        string meshName = source.name ?? "";
+        // Higher-detail LODs are a waste of scarce mesh slots when the
+        // corresponding LOD0 is already in the live scene. Choose LOD0.
+        if (meshName.EndsWith("_LOD1", StringComparison.OrdinalIgnoreCase) ||
+            meshName.EndsWith("_LOD2", StringComparison.OrdinalIgnoreCase) ||
+            meshName.EndsWith("_LOD3", StringComparison.OrdinalIgnoreCase))
+        {
+            _lodSkipped++;
+            return false;
+        }
+        bool foliage = IsFoliageName(meshName);
+        bool structure = IsStructuralName(meshName);
+        int vertices = source.vertexCount;
+        // Large floors/walls were previously thrown out at 20k vertices.
+        // Allow a small number of genuine structures to be larger.
+        int meshLimit = structure ? 120000 : 20000;
+        if (vertices < 24 || vertices > meshLimit ||
+            (foliage && _foliageMeshes >= 12) ||
+            (vertices > 14000 && _largeGroundMeshes >= 7) ||
+            _worldVertices + vertices > MaxTotalWorldVertices)
+            return false;
+        // A building's pivot may be far outside its visible walls.
+        // Bounds.SqrDistance checks the actual visible geometry extent.
+        float maxDist = radius + 20f;
+        if (renderer.bounds.SqrDistance(origin) > maxDist * maxDist)
             return false;
 
         int id = filter.GetInstanceID();
@@ -475,6 +614,8 @@ internal static class ReplayVisualAssets
             WorldObjectIds.Add(id);
             _worldVertices += source.vertexCount;
             if (source.vertexCount > 14000) _largeGroundMeshes++;
+            if (foliage) _foliageMeshes++;
+            if (structure) _structuralMeshes++;
             return true;
         }
         catch (Exception)
@@ -497,6 +638,12 @@ internal static class ReplayVisualAssets
         sb.AppendLine("world_mesh_copies=" + WorldParts.Count);
         sb.AppendLine("world_total_vertices=" + _worldVertices);
         sb.AppendLine("large_ground_meshes=" + _largeGroundMeshes);
+        sb.AppendLine("foliage_meshes=" + _foliageMeshes);
+        sb.AppendLine("structural_meshes=" + _structuralMeshes);
+        sb.AppendLine("lower_lods_skipped=" + _lodSkipped);
+        sb.AppendLine("structural_scene_nodes_seen=" + StructuralVisited.Count);
+        sb.AppendLine("structural_scene_nodes_remaining=" + StructuralQueue.Count);
+        sb.AppendLine("structural_scene_zone=" + _structuralZone);
         sb.AppendLine("world_copy_cap=" + MaxWorldMeshes);
         sb.AppendLine("world_vertex_cap=" + MaxTotalWorldVertices);
         sb.AppendLine("world_copy_is_portable=false");
