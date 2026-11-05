@@ -169,6 +169,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
     {
         float delta = Time.unscaledDeltaTime;
         _elapsed += delta;
+        UpdateOfflineInventory();
 
         // No timed diagnostics; F8 requests a manual camera snapshot.
 
@@ -249,7 +250,8 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         if (JustPressed(7))
             ToggleStaticMode();
 
-        MonitorDroneWorld();
+        if (!_offlineReplayActive)
+            MonitorDroneWorld();
         HandleDroneInput();
         UpdateKeyframePlayback(delta);
         UpdateReplayPlayback(delta);
@@ -265,6 +267,16 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         {
             if (_desktop == null)
                 return;
+
+            if (_offlineReplayActive)
+            {
+                // A self-contained background and grid, not the live Orbus world.
+                // Never run game-camera culling/FOV sync on the offline stage.
+                _desktop.aspect = Mathf.Max(1f, Screen.width) /
+                    Mathf.Max(1f, Screen.height);
+                ApplyDronePose();
+                return;
+            }
 
             // Refresh camera FOV if resolution or
             // configuration changes.
@@ -895,6 +907,8 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
 
     private void DisableCamera()
     {
+        if (_offlineReplayActive)
+            StopOfflineReplay();
         StopKeyframePlayback();
         LeaveDrone();
         if (_mode == CameraMode.Drone)
