@@ -174,21 +174,33 @@ public sealed partial class CameraDiagnostics
         ReplayPoseValue head = EvaluatedPose(0);
         if (!head.Valid) return;
 
-        // Static reference grid at the clip's original location.
-        // It never follows the moving character during playback.
-        ReplayPoseValue initial = _replayClip.Frames[0].Head;
-        if (!initial.Valid) initial = head;
-        float cx = Mathf.Round(initial.X);
-        float cz = Mathf.Round(initial.Z);
-        float y = initial.Y - 1.65f;
+        // A previous version permanently placed the 20m grid under the
+        // *first frame*. Clips that start in CharacterSelectHybrid and
+        // teleport ~1 km into Highsteppe left the grid in the wrong world.
+        //
+        // Use the current region's recorded first pose for ground height,
+        // and draw a world-aligned, tiled 60m window around the moving
+        // playback marker. Grid lines stay on *absolute metre boundaries*:
+        // they do NOT slide under the avatar as it walks. We only reveal
+        // more tiles when the replay crosses a 10m window boundary.
+        ReplayPoseValue region = _replayClip.GridReferenceAt(_replayElapsed);
+        if (!region.Valid) region = head;
+        float y = region.Y - 1.65f;
+        float cx = (float)(Math.Floor(head.X / 10d) * 10d);
+        float cz = (float)(Math.Floor(head.Z / 10d) * 10d);
+        const int halfSpan = 30;
         Color grid = new Color(.18f, .31f, .37f, .42f);
-        Color main = new Color(.33f, .61f, .7f, .72f);
-        for (int i = -10; i <= 10; i++)
+        Color major = new Color(.33f, .61f, .7f, .72f);
+        for (int i = -halfSpan; i <= halfSpan; i++)
         {
-            DrawGuideLine(new Vector3(cx + i, y, cz - 10f),
-                new Vector3(cx + i, y, cz + 10f), i == 0 ? main : grid);
-            DrawGuideLine(new Vector3(cx - 10f, y, cz + i),
-                new Vector3(cx + 10f, y, cz + i), i == 0 ? main : grid);
+            float x = cx + i;
+            float z = cz + i;
+            Color xTint = ((int)Math.Round(x)) % 10 == 0 ? major : grid;
+            Color zTint = ((int)Math.Round(z)) % 10 == 0 ? major : grid;
+            DrawGuideLine(new Vector3(x, y, cz - halfSpan),
+                new Vector3(x, y, cz + halfSpan), xTint);
+            DrawGuideLine(new Vector3(cx - halfSpan, y, z),
+                new Vector3(cx + halfSpan, y, z), zTint);
         }
 
         Color link = new Color(.62f, .8f, .91f, .78f);
