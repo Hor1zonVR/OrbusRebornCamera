@@ -152,9 +152,9 @@ if ([string]::IsNullOrWhiteSpace($existingTag)) {
 Check-Result "Pushing release tag"
 
 # Query drafts explicitly because 'gh release view' hides untagged drafts.
-$releaseJson = & gh api "repos/$repo/releases?per_page=100"
+$releaseJson = (& gh api "repos/$repo/releases?per_page=100" | Out-String)
 Check-Result "Finding existing release drafts"
-$releases = @($releaseJson | ConvertFrom-Json)
+$releases = @(ConvertFrom-Json -InputObject $releaseJson)
 $published = $releases | Where-Object {
     $_.tag_name -eq $tag -and -not $_.draft
 } | Select-Object -First 1
