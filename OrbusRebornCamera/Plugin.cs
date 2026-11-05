@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.27"
+    "0.9.28"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -262,7 +262,7 @@ public sealed class Plugin : BasePlugin
             "to 10-50. Does not load unseen areas or reveal remote entities.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.27 - bounded building-child mesh capture and visual-cache verification");
+        Log.LogInfo("OrbusRebornCamera v0.9.28 - targeted Highsteppe floors/walls/architecture scene hierarchy capture");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -342,6 +342,7 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("VISUAL PROTOTYPE: caches real meshes/materials in same process for offline render-only replay.");
         Log.LogInfo("Optional static world cache: ReplayBuffer.CacheNearbyWorldGeometry (OFF by default); no saved map file.");
         Log.LogInfo("World cache probes nearby collider child renderers at bounded depth; .visuals.txt lists real cached meshes.");
+        Log.LogInfo("New structural capture: targeted Highsteppe scene roots, larger wall/floor meshes, LOD0 preference and bounds-based distance.");
         Log.LogInfo("Ctrl+Shift+R = Start/stop the legacy 60-second pose diagnostic");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
