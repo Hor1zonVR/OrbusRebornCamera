@@ -63,6 +63,7 @@ internal static class ReplayVisualAssets
     private static readonly List<WorldPart> WorldParts = new();
     private static readonly HashSet<int> WorldObjectIds = new();
     private static int _worldVertices;
+    private static int _largeGroundMeshes;
     private static string _sessionId = "";
     internal static string SessionId => _sessionId;
     internal static int RigCount => RigAssets.Count;
@@ -101,6 +102,7 @@ internal static class ReplayVisualAssets
         WorldParts.Clear();
         WorldObjectIds.Clear();
         _worldVertices = 0;
+        _largeGroundMeshes = 0;
         _sessionId = "";
     }
 
@@ -327,6 +329,11 @@ internal static class ReplayVisualAssets
         Collider[] colliders, Vector3 origin, float radius, string zone)
     {
         if (string.IsNullOrEmpty(sessionId) || colliders == null) return;
+        // Never fill the limited cache with menu/character-select scenery
+        // before reaching the real recorded destination.
+        if (zone == "(unknown)" ||
+            zone.Contains("CharacterSelect", StringComparison.OrdinalIgnoreCase))
+            return;
         StartSession(sessionId);
         if (WorldParts.Count >= MaxWorldMeshes) return;
 
@@ -438,6 +445,9 @@ internal static class ReplayVisualAssets
         Mesh? source = filter.sharedMesh;
         if (source == null || source.vertexCount < 24 ||
             source.vertexCount > 20000 ||
+            // A few large ground/terrain pieces are useful, but they
+            // must not monopolize our intentionally small cache.
+            (source.vertexCount > 14000 && _largeGroundMeshes >= 5) ||
             _worldVertices + source.vertexCount > MaxTotalWorldVertices ||
             Vector3.Distance(renderer.transform.position, origin) > radius + 20f)
             return false;
@@ -464,6 +474,7 @@ internal static class ReplayVisualAssets
             });
             WorldObjectIds.Add(id);
             _worldVertices += source.vertexCount;
+            if (source.vertexCount > 14000) _largeGroundMeshes++;
             return true;
         }
         catch (Exception)
@@ -485,6 +496,7 @@ internal static class ReplayVisualAssets
         sb.AppendLine("local_avatar_mesh_parts=" + AvatarParts.Count);
         sb.AppendLine("world_mesh_copies=" + WorldParts.Count);
         sb.AppendLine("world_total_vertices=" + _worldVertices);
+        sb.AppendLine("large_ground_meshes=" + _largeGroundMeshes);
         sb.AppendLine("world_copy_cap=" + MaxWorldMeshes);
         sb.AppendLine("world_vertex_cap=" + MaxTotalWorldVertices);
         sb.AppendLine("world_copy_is_portable=false");
