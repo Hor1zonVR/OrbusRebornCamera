@@ -57,6 +57,10 @@ namespace UnityEngine
     }
     public class Transform
     {
+        public Transform? parent => null;
+        public Transform? Find(string path) => null;
+        public T[] GetComponentsInChildren<T>(bool includeInactive) =>
+            Array.Empty<T>();
         public string name => "test-bone";
         public Vector3 position => default;
         public Quaternion rotation => default;
@@ -68,16 +72,25 @@ namespace UnityEngine
     }
     public class GameObject
     {
+        public T? GetComponent<T>() where T : class => null;
         public int layer => 20;
     }
-    public class SkinnedMeshRenderer
+    public class Renderer
     {
-        public string name => "test-avatar";
+        public string name => "renderer";
+        public bool enabled => true;
         public GameObject gameObject => new();
         public Transform transform => new();
+        public Material[] sharedMaterials => Array.Empty<Material>();
+    }
+    public class MeshFilter
+    {
+        public Mesh sharedMesh => new();
+    }
+    public class SkinnedMeshRenderer : Renderer
+    {
         public Transform rootBone => new();
         public Mesh sharedMesh => new();
-        public Material[] sharedMaterials => Array.Empty<Material>();
         public Transform[] bones => Array.Empty<Transform>();
     }
     public static class Resources
