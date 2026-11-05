@@ -35,6 +35,8 @@ internal static class ReplayVisualAssets
     internal sealed class WorldPart
     {
         internal string Name = "";
+        internal string SourcePath = "";
+        internal int VertexCount;
         internal string Zone = "";
         internal Mesh Mesh = null!;
         internal Material[] Materials = Array.Empty<Material>();
@@ -317,79 +319,192 @@ internal static class ReplayVisualAssets
     // Captures only static MeshFilter + MeshRenderer geometry that already
     // has a nearby collider in the live client. No scene loading or
     // copying behaviours, NPC scripts, lighting components or terrain AI.
+    // Survey only a few collider-parent subtrees. In Orbus, a building's
+    // physical collider can sit on a parent whose renderable walls, doors
+    // and props are CHILD objects. v0.9.26 missed those descendants.
+    // All traversal is bounded and runs only every ~3.5 sec when opted in.
     internal static void CacheNearbyWorld(string sessionId,
         Collider[] colliders, Vector3 origin, float radius, string zone)
     {
         if (string.IsNullOrEmpty(sessionId) || colliders == null) return;
         StartSession(sessionId);
         if (WorldParts.Count >= MaxWorldMeshes) return;
+
         int newThisPass = 0;
-        int examined = Math.Min(colliders.Length, 256);
-        for (int i = 0; i < examined && newThisPass < 4 &&
-             WorldParts.Count < MaxWorldMeshes; i++)
+        int nodesExamined = 0;
+        int inspected = Math.Min(colliders.Length, 256);
+        var visited = new HashSet<int>();
+        const int maxNodesPerSurvey = 220;
+        const int maxCopiedPerSurvey = 8;
+
+        for (int i = 0; i < inspected &&
+             newThisPass < maxCopiedPerSurvey &&
+             WorldParts.Count < MaxWorldMeshes &&
+             nodesExamined < maxNodesPerSurvey; i++)
         {
-            var hit = colliders[i];
+            Collider hit = colliders[i];
             if (hit == null) continue;
-            Transform? at = hit.transform;
-            // Prefer the exact collided mesh; permit two ancestors for
-            // common scene-collider layouts without scanning all objects.
-            for (int depth = 0; depth < 3 && at != null; depth++)
+            try
             {
-                string name = at.name ?? "";
-                if (name.StartsWith("PlayerRigv4", StringComparison.Ordinal) ||
-                    name.StartsWith("OtherPlayerv2", StringComparison.Ordinal))
-                    break;
-                if (at.GetComponent<Animator>() != null) break;
-                var filter = at.GetComponent<MeshFilter>();
-                var renderer = at.GetComponent<MeshRenderer>();
-                if (filter == null || renderer == null ||
-                    !renderer.enabled || !renderer.gameObject.activeInHierarchy ||
-                    renderer.gameObject.layer == 20)
-                {
-                    at = at.parent;
+                Transform collided = hit.transform;
+                if (collided == null ||
+                    Vector3.Distance(collided.position, origin) > radius + 22f)
                     continue;
-                }
-                Mesh? source = filter.sharedMesh;
-                if (source == null || source.vertexCount < 30 ||
-                    source.vertexCount > 20000 ||
-                    _worldVertices + source.vertexCount > MaxTotalWorldVertices ||
-                    Vector3.Distance(renderer.transform.position, origin) >
-                        radius + 15f)
-                    break;
-                int id = filter.GetInstanceID();
-                if (WorldObjectIds.Contains(id)) break;
-                Mesh? mesh = null;
-                Material[] materials = Array.Empty<Material>();
-                try
+
+                // A nearby building's mesh may be a sibling of its collider.
+                // Start one parent up where possible; never traverse more
+                // than 3 child levels or 220 total nodes across the survey.
+                Transform root = collided.parent ?? collided;
+                if (IsAnimatedOrPlayer(root)) continue;
+
+                var queue = new Queue<(Transform at, int depth)>();
+                queue.Enqueue((root, 0));
+                while (queue.Count > 0 &&
+                       nodesExamined < maxNodesPerSurvey &&
+                       newThisPass < maxCopiedPerSurvey &&
+                       WorldParts.Count < MaxWorldMeshes)
                 {
-                    mesh = UnityEngine.Object.Instantiate(source);
-                    mesh.hideFlags = HideFlags.DontUnloadUnusedAsset;
-                    materials = CopyMaterials(renderer);
-                    WorldParts.Add(new WorldPart
-                    {
-                        Name = WorldActorRecords.Safe(source.name),
-                        Zone = WorldActorRecords.Safe(zone),
-                        Mesh = mesh, Materials = materials,
-                        Position = renderer.transform.position,
-                        Rotation = renderer.transform.rotation,
-                        Scale = renderer.transform.lossyScale
-                    });
-                    WorldObjectIds.Add(id);
-                    _worldVertices += source.vertexCount;
-                    newThisPass++;
+                    var next = queue.Dequeue();
+                    Transform at = next.at;
+                    if (at == null) continue;
+                    int transformId = at.GetInstanceID();
+                    if (!visited.Add(transformId)) continue;
+                    nodesExamined++;
+
+                    if (IsAnimatedOrPlayer(at)) continue;
+                    if (TryCopyStaticRenderer(at, origin, radius, zone))
+                        newThisPass++;
+
+                    if (next.depth >= 3) continue;
+                    int childCount = at.childCount;
+                    // Avoid iterating huge scene roots which might contain
+                    // thousands of unrelated/distant world objects.
+                    if (childCount > 60) continue;
+                    for (int child = 0; child < childCount; child++)
+                        queue.Enqueue((at.GetChild(child), next.depth + 1));
                 }
-                catch
-                {
-                    DestroyCopy(mesh);
-                    foreach (Material mat in materials) DestroyCopy(mat);
-                }
-                break;
+            }
+            catch (Exception)
+            {
+                // A despawned or streamed scene collider is not an error.
+                // Do not abort the working pose/actor recording.
             }
         }
+
         if (newThisPass > 0)
             Plugin.ModLogger.LogInfo("[WorldVisuals] Cached " +
-                WorldParts.Count + " static scene meshes, " +
-                _worldVertices + " vertices (SAME PROCESS ONLY).");
+                WorldParts.Count + " static meshes (" +
+                _worldVertices + " vertices); +" + newThisPass +
+                " on this pass, " + nodesExamined +
+                " nearby hierarchy nodes visited.");
+    }
+
+    private static bool IsAnimatedOrPlayer(Transform? node)
+    {
+        for (int i = 0; node != null && i < 8; i++, node = node.parent)
+        {
+            string name = node.name ?? "";
+            if (name.StartsWith("PlayerRigv4", StringComparison.Ordinal) ||
+                name.StartsWith("OtherPlayerv2", StringComparison.Ordinal))
+                return true;
+            if (node.GetComponent<Animator>() != null)
+                return true;
+        }
+        return false;
+    }
+
+    private static string WorldHierarchyPath(Transform from)
+    {
+        var path = new List<string>(10);
+        Transform? at = from;
+        for (int i = 0; at != null && i < 10; i++, at = at.parent)
+            path.Add(WorldActorRecords.Safe(at.name));
+        path.Reverse();
+        return WorldActorRecords.Safe(string.Join("/", path));
+    }
+
+    private static bool TryCopyStaticRenderer(Transform at,
+        Vector3 origin, float radius, string zone)
+    {
+        MeshFilter? filter = at.GetComponent<MeshFilter>();
+        MeshRenderer? renderer = at.GetComponent<MeshRenderer>();
+        if (filter == null || renderer == null || !renderer.enabled ||
+            !renderer.gameObject.activeInHierarchy ||
+            renderer.gameObject.layer == 20)
+            return false;
+
+        Mesh? source = filter.sharedMesh;
+        if (source == null || source.vertexCount < 24 ||
+            source.vertexCount > 20000 ||
+            _worldVertices + source.vertexCount > MaxTotalWorldVertices ||
+            Vector3.Distance(renderer.transform.position, origin) > radius + 20f)
+            return false;
+
+        int id = filter.GetInstanceID();
+        if (WorldObjectIds.Contains(id)) return false;
+        Mesh? mesh = null;
+        Material[] materials = Array.Empty<Material>();
+        try
+        {
+            mesh = UnityEngine.Object.Instantiate(source);
+            mesh.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            materials = CopyMaterials(renderer);
+            WorldParts.Add(new WorldPart
+            {
+                Name = WorldActorRecords.Safe(source.name),
+                SourcePath = WorldHierarchyPath(at),
+                VertexCount = source.vertexCount,
+                Zone = WorldActorRecords.Safe(zone),
+                Mesh = mesh, Materials = materials,
+                Position = renderer.transform.position,
+                Rotation = renderer.transform.rotation,
+                Scale = renderer.transform.lossyScale
+            });
+            WorldObjectIds.Add(id);
+            _worldVertices += source.vertexCount;
+            return true;
+        }
+        catch (Exception)
+        {
+            DestroyCopy(mesh);
+            foreach (Material mat in materials) DestroyCopy(mat);
+            return false;
+        }
+    }
+
+    internal static string CaptureDiagnosticReport(string sessionId)
+    {
+        var sb = new System.Text.StringBuilder(9000);
+        sb.AppendLine("# RebornCamera same-process visual cache report v1");
+        sb.AppendLine("# Diagnostic names/positions only, not mesh geometry.");
+        sb.AppendLine("session_matches=" + (_sessionId == sessionId));
+        sb.AppendLine("cached_session_id=" + _sessionId);
+        sb.AppendLine("rig_mesh_copies=" + RigAssets.Count);
+        sb.AppendLine("local_avatar_mesh_parts=" + AvatarParts.Count);
+        sb.AppendLine("world_mesh_copies=" + WorldParts.Count);
+        sb.AppendLine("world_total_vertices=" + _worldVertices);
+        sb.AppendLine("world_copy_cap=" + MaxWorldMeshes);
+        sb.AppendLine("world_vertex_cap=" + MaxTotalWorldVertices);
+        sb.AppendLine("world_copy_is_portable=false");
+        foreach (RigAsset actor in RigAssets.Values)
+            sb.AppendLine("rig=" + actor.ActorKey +
+                " mesh=" + WorldActorRecords.Safe(actor.MeshName) +
+                " bones=" + actor.BoneCount);
+        foreach (AvatarPart part in AvatarParts)
+            sb.AppendLine("avatar_part=" + part.PoseChannel +
+                " mesh=" + WorldActorRecords.Safe(part.Name));
+        for (int i = 0; i < WorldParts.Count; i++)
+        {
+            WorldPart part = WorldParts[i];
+            sb.AppendLine("world_" + i + "_mesh=" + part.Name);
+            sb.AppendLine("world_" + i + "_path=" + part.SourcePath);
+            sb.AppendLine("world_" + i + "_zone=" + part.Zone);
+            sb.AppendLine("world_" + i + "_vertices=" + part.VertexCount);
+            sb.AppendLine("world_" + i + "_position=" +
+                part.Position.x + "," + part.Position.y + "," +
+                part.Position.z);
+        }
+        return sb.ToString();
     }
 
     internal static WorldPart[] GetWorldParts(string sessionId) =>
