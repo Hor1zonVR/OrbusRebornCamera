@@ -270,6 +270,63 @@ internal sealed class NearbyWorldActorCapture
         return true;
     }
 
+    // Targeted, bounded diagnostic at the moment Save Clip is pressed.
+    // Only actor roots already discovered near this local player are visited.
+    // A manifest identifies potential meshes; it does NOT persist mesh bytes,
+    // clothing appearance, enemy AI state, or exact animation poses.
+    internal string CaptureManifest()
+    {
+        var sb = new System.Text.StringBuilder(8000);
+        sb.AppendLine("# RebornCamera nearby world actor visual manifest v1");
+        sb.AppendLine("# actor identities are local to this game process");
+        sb.AppendLine("# only actors currently near player are inspected");
+        sb.AppendLine("# player names, mesh bytes, animations, voice NOT captured");
+        foreach (LiveActor actor in _actors.Values)
+        {
+            if (!actor.InRange || actor.Root == null) continue;
+            try
+            {
+                sb.AppendLine("actor_key=" + WorldActorRecords.Safe(actor.Key));
+                sb.AppendLine("actor_category=" +
+                    WorldActorRecords.Safe(actor.Category));
+                sb.AppendLine("actor_prefab=" +
+                    WorldActorRecords.Safe(actor.Prefab));
+                var skins = actor.Root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                int count = skins == null ? 0 : Math.Min(8, skins.Length);
+                sb.AppendLine("skinned_renderers=" +
+                    (skins == null ? 0 : skins.Length));
+                for (int i = 0; i < count; i++)
+                {
+                    var skin = skins[i];
+                    if (skin == null) continue;
+                    var mesh = skin.sharedMesh;
+                    sb.AppendLine("mesh_" + i + "=" +
+                        WorldActorRecords.Safe(mesh == null ? "(none)" : mesh.name));
+                    sb.AppendLine("mesh_" + i + "_vertex_count=" +
+                        (mesh == null ? 0 : mesh.vertexCount));
+                    var bones = skin.bones;
+                    sb.AppendLine("mesh_" + i + "_bones=" +
+                        (bones == null ? 0 : bones.Length));
+                    var materials = skin.sharedMaterials;
+                    int m = materials == null ? 0 : Math.Min(4, materials.Length);
+                    for (int j = 0; j < m; j++)
+                        sb.AppendLine("mesh_" + i + "_material_" + j + "=" +
+                            WorldActorRecords.Safe(materials[j] == null ?
+                                "(none)" : materials[j].name));
+                }
+                if (skins != null && skins.Length > count)
+                    sb.AppendLine("additional_meshes_omitted=true");
+                sb.AppendLine("end_actor=" + actor.Key);
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine("inspection_error=" +
+                    WorldActorRecords.Safe(ex.GetType().Name));
+            }
+        }
+        return sb.ToString();
+    }
+
     internal void Snapshot(double now, double firstSeconds,
         double lastSeconds, out WorldActorIdentity[] identities,
         out WorldActorObservation[] samples)
