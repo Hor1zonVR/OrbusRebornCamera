@@ -34,6 +34,8 @@ internal sealed class ReplayClipData
     internal readonly string SessionId;
     internal readonly string FileName;
     internal readonly string AvatarMeshHint;
+    // Indexed once per clip, never rescanned on every GL render.
+    private readonly int[] _gridSegmentAnchorIndices;
     internal readonly int AvatarBoneCountHint;
     internal int AvatarAnchorSamples { get; }
     internal int RigRootSamples { get; }
@@ -61,6 +63,29 @@ internal sealed class ReplayClipData
         AvatarBoneCountHint = avatarBoneCountHint;
         int avatarCount = 0;
         int rootCount = 0, headCount = 0, leftCount = 0, rightCount = 0;
+        _gridSegmentAnchorIndices = new int[frames.Length];
+        int segmentAnchor = -1;
+        for (int i = 0; i < frames.Length; i++)
+        {
+            ReplayClipFrame frame = frames[i];
+            // The grid should change elevation/reference on teleports
+            // and genuine location/zone changes, but not during ordinary
+            // movement or a dropped frame. Never alter saved world coords.
+            bool locationChanged = i > 0 &&
+                !string.Equals(frame.Zone, frames[i - 1].Zone,
+                    StringComparison.Ordinal) &&
+                frame.Zone != "(unknown)" &&
+                frame.Zone != "(not recorded)" &&
+                frames[i - 1].Zone != "(unknown)" &&
+                frames[i - 1].Zone != "(not recorded)";
+            if (frame.Head.Valid &&
+                (segmentAnchor < 0 ||
+                 frame.Transition == ReplayTransitionKind.Teleport ||
+                 frame.Transition == ReplayTransitionKind.ZoneChange ||
+                 locationChanged))
+                segmentAnchor = i;
+            _gridSegmentAnchorIndices[i] = segmentAnchor;
+        }
         foreach (ReplayClipFrame frame in frames)
         {
             if (frame.Avatar.Valid) avatarCount++;
@@ -79,13 +104,10 @@ internal sealed class ReplayClipData
         ModelRightSamples = rightCount;
     }
 
-    // Replay position is relative to the clip start (0 to Duration).
-    // On a gap, zone change or teleport, hold the previous pose until the
-    // next recorded sample, then snap. Never interpolate an unknown path.
-    internal void Evaluate(double elapsed, out ReplayClipFrame a,
-        out ReplayClipFrame b, out float blend)
+    private int IndexAt(double elapsed)
     {
-        double absolute = FirstSeconds + Math.Max(0d, Math.Min(Duration, elapsed));
+        double absolute = FirstSeconds +
+            Math.Max(0d, Math.Min(Duration, elapsed));
         int lo = 0, hi = Frames.Length;
         while (lo < hi)
         {
@@ -93,7 +115,25 @@ internal sealed class ReplayClipData
             if (Frames[mid].Seconds <= absolute) lo = mid + 1;
             else hi = mid;
         }
-        int index = Math.Max(0, lo - 1);
+        return Math.Max(0, lo - 1);
+    }
+
+    // A stationary reference for *the current recorded region*.
+    // Head travel does not shift it; teleports/zone transitions do.
+    internal ReplayPoseValue GridReferenceAt(double elapsed)
+    {
+        int index = _gridSegmentAnchorIndices[IndexAt(elapsed)];
+        return index < 0 ? default : Frames[index].Head;
+    }
+
+    // Replay position is relative to the clip start (0 to Duration).
+    // On a gap, zone change or teleport, hold the previous pose until the
+    // next recorded sample, then snap. Never interpolate an unknown path.
+    internal void Evaluate(double elapsed, out ReplayClipFrame a,
+        out ReplayClipFrame b, out float blend)
+    {
+        double absolute = FirstSeconds + Math.Max(0d, Math.Min(Duration, elapsed));
+        int index = IndexAt(elapsed);
         a = Frames[index];
         b = Frames[Math.Min(index + 1, Frames.Length - 1)];
         double seconds = b.Seconds - a.Seconds;
