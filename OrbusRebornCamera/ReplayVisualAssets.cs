@@ -354,7 +354,9 @@ internal static class ReplayVisualAssets
                 // A nearby building's mesh may be a sibling of its collider.
                 // Start one parent up where possible; never traverse more
                 // than 3 child levels or 220 total nodes across the survey.
-                Transform root = collided.parent ?? collided;
+                Transform? parent = collided.parent;
+                Transform root = parent != null && parent.childCount <= 60
+                    ? parent : collided;
                 if (IsAnimatedOrPlayer(root)) continue;
 
                 var queue = new Queue<(Transform at, int depth)>();
