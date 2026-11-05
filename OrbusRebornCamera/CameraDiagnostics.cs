@@ -252,6 +252,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         MonitorDroneWorld();
         HandleDroneInput();
         UpdateKeyframePlayback(delta);
+        UpdateReplayPlayback(delta);
         DesktopFreecamActive = _mode == CameraMode.Drone;
     }
 
