@@ -9,7 +9,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.20"
+    "0.9.21"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -237,7 +237,7 @@ public sealed class Plugin : BasePlugin
             "Default 300 seconds / five minutes.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.20 - offline pose stage and local world asset survey");
+        Log.LogInfo("OrbusRebornCamera v0.9.21 - local avatar anchor capture and replay ghost");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -306,7 +306,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Replay viewer: seek, pause, play and focus recorded head via desktop-only freecam markers");
         Log.LogInfo("F2 OFFLINE tab: explicit pose preview without joining server (placeholder grid only)");
         Log.LogInfo("F2 OFFLINE tab: export local installed-world asset inventory (read-only)");
-        Log.LogInfo("Saved clips v2 tag teleport, loading gaps and loaded Unity scene zones");
+        Log.LogInfo("Saved clips v3 add local Minicam avatar anchor and rig metadata (when available)");
+        Log.LogInfo("Replay ghost uses recorded avatar anchor or head-derived fallback; real mesh animations NOT recorded");
+        Log.LogInfo("Save Clip also writes RC_Clip_*.avatar.txt descriptor alongside TSV");
         Log.LogInfo("Ctrl+Shift+R = Start/stop the legacy 60-second pose diagnostic");
         Log.LogInfo("F2 = Toggle desktop creator panel");
         Log.LogInfo("Creator Panel: camera modes, FOV, smoothness, distance, detach, avatar");
