@@ -76,18 +76,26 @@ public sealed partial class CameraDiagnostics
         if (!_showObservedActors)
         {
             _showObservedActors = true;
-            _showObservedBones = false; // simple axes
+            _showObservedBones = false;
+            _showObservedModels = false; // axes
         }
-        else if (!_showObservedBones)
-            _showObservedBones = true; // real captured bone links
+        else if (!_showObservedBones && !_showObservedModels)
+            _showObservedBones = true; // real recorded bones
+        else if (_showObservedBones)
+        {
+            _showObservedBones = false;
+            _showObservedModels = true; // real cached model (same process)
+        }
         else
         {
             _showObservedActors = false;
-            _showObservedBones = false;
+            _showObservedModels = false;
         }
+        UpdateOfflineVisuals();
     }
 
     private string ActorDisplayLabel => !_showObservedActors ? "OFF" :
+        _showObservedModels ? "MODELS" :
         _showObservedBones ? "BONES" : "AXES";
 
     private static Vector3 AnimatedBonePosition(WorldRigSample first,
@@ -142,6 +150,12 @@ public sealed partial class CameraDiagnostics
 
         foreach (WorldActorObservation actor in at)
         {
+            // Models take the place of diagnostic crosses where cached
+            // matching real mesh assets exist. Unavailable models retain
+            // their axes rather than vanishing from the replay.
+            if (_showObservedModels && _offlineVisualRoot != null &&
+                _offlineRigVisuals.ContainsKey(actor.ActorKey))
+                continue;
             Vector3 p = new Vector3(actor.X, actor.Y, actor.Z);
             float s = actor.Category == "remote_player_candidate"
                 ? .30f : .23f;
