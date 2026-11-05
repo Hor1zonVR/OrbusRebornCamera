@@ -5,6 +5,11 @@ on:
     paths:
       - 'OrbusRebornCamera/ReplayRingBuffer.cs'
       - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
+      - 'OrbusRebornCamera/NearbyWorldActorCapture.cs'
+      - 'OrbusRebornCamera/WorldActorRecords.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.WorldActors.cs'
+      - 'tests/WorldActorTimeline.CompileTest.csproj'
+      - 'tests/world-actors/**'
       - 'OrbusRebornCamera/LocalAvatarCapture.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.ReplayGhost.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
@@ -24,6 +29,11 @@ on:
     paths:
       - 'OrbusRebornCamera/ReplayRingBuffer.cs'
       - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
+      - 'OrbusRebornCamera/NearbyWorldActorCapture.cs'
+      - 'OrbusRebornCamera/WorldActorRecords.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.WorldActors.cs'
+      - 'tests/WorldActorTimeline.CompileTest.csproj'
+      - 'tests/world-actors/**'
       - 'OrbusRebornCamera/LocalAvatarCapture.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.ReplayGhost.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
@@ -54,4 +64,5 @@ jobs:
           dotnet run --project tests/ReplayRingBuffer.CompileTest.csproj -c Release
           dotnet run --project tests/ReplayBuffer.IntegrationCompileTest.csproj -c Release
           dotnet run --project tests/ReplayClipReader.CompileTest.csproj -c Release
+          dotnet run --project tests/WorldActorTimeline.CompileTest.csproj -c Release
           dotnet run --project tests/OfflineWorldInventory.CompileTest.csproj -c Release
