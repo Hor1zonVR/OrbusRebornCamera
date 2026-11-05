@@ -211,24 +211,30 @@ internal static class ReplayVisualAssets
         if (rig == null) return;
 
         // Read only precisely known paths, not whole-scene components.
-        var target = new (string path, int channel)[]
+        var target = new (string path, string posePath, int channel)[]
         {
-            ("Avatar/Torso/BodyParent", 3),
-            ("Avatar/Torso/ShoulderParent", 3),
-            ("Camera (eye)/Head/headPivot", 5),
-            ("Controller (left)/Grabber/Hand/model", 6),
-            ("Controller (right)/Grabber/Hand/model", 7)
+            ("Avatar/Torso/BodyParent", "Avatar/Torso/BodyParent", 3),
+            ("Avatar/Torso/ShoulderParent", "Avatar/Torso/BodyParent", 3),
+            ("Camera (eye)/Head/headPivot", "Camera (eye)/Head", 5),
+            ("Controller (left)/Grabber/Hand/model",
+                "Controller (left)/Grabber/Hand/model", 6),
+            ("Controller (right)/Grabber/Hand/model",
+                "Controller (right)/Grabber/Hand/model", 7)
         };
         foreach (var item in target)
         {
             Transform? anchor = rig.Find(item.path);
             if (anchor == null) continue;
+            // The recorded channels follow BodyParent/Head/model, NOT
+            // the shoulder/headPivot search ancestors. Offsets must
+            // always be stored relative to the RECORDED transform.
+            Transform poseAnchor = rig.Find(item.posePath) ?? anchor;
             try
             {
                 var skins = anchor.GetComponentsInChildren<SkinnedMeshRenderer>(true);
                 int n = skins == null ? 0 : Math.Min(12, skins.Length);
                 for (int i = 0; i < n && AvatarParts.Count < MaxLocalParts; i++)
-                    CacheAvatarPart(item.channel, anchor, skins[i], null);
+                    CacheAvatarPart(item.channel, poseAnchor, skins[i], null);
                 var filters = anchor.GetComponentsInChildren<MeshFilter>(true);
                 n = filters == null ? 0 : Math.Min(12, filters.Length);
                 for (int i = 0; i < n && AvatarParts.Count < MaxLocalParts; i++)
@@ -237,7 +243,7 @@ internal static class ReplayVisualAssets
                     if (filter == null) continue;
                     var renderer = filter.GetComponent<MeshRenderer>();
                     if (renderer != null)
-                        CacheAvatarPart(item.channel, anchor, renderer, filter.sharedMesh);
+                        CacheAvatarPart(item.channel, poseAnchor, renderer, filter.sharedMesh);
                 }
             }
             catch (Exception ex)
