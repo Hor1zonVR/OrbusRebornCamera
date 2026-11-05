@@ -17,6 +17,7 @@ internal sealed class NearbyWorldActorCapture
     private const int MaxTrackedActors = 24;
     private const int MaxAncestry = 12;
     private readonly Dictionary<int, LiveActor> _actors = new();
+    private readonly WorldRigCapture _rigs = new();
     private ReplayRingBuffer<WorldActorObservation>? _observations;
     private double _nextSurvey, _nextSample, _lastWarning;
     private int _sequence, _window = 300;
@@ -50,6 +51,7 @@ internal sealed class NearbyWorldActorCapture
     {
         _observations?.Clear();
         _actors.Clear();
+        _rigs.Clear();
         _sequence = 0;
         _nextSurvey = _nextSample = 0d;
         _hadCandidates = false;
@@ -130,6 +132,42 @@ internal sealed class NearbyWorldActorCapture
                 actor.InRange = false;
                 actor.WasPresent = false;
             }
+        }
+
+        // Run a second, lower-frequency pass for true skin-bone animation.
+        // A maximum of four *nearby* visually animated actors are sampled
+        // per pass; the existing 10Hz root/Animator timeline is unchanged.
+        if (Plugin.RecordNearbyRigBones != null &&
+            Plugin.RecordNearbyRigBones.Value)
+        {
+            if (_rigs.BeginTick(seconds, windowSeconds))
+            {
+                var near = new List<(LiveActor actor, float distance)>(24);
+                foreach (LiveActor actor in _actors.Values)
+                {
+                    if (!actor.InRange || actor.Root == null) continue;
+                    try
+                    {
+                        near.Add((actor,
+                            Vector3.Distance(actor.Root.position, localPosition)));
+                    }
+                    catch (Exception) { /* possible zone/despawn */ }
+                }
+                near.Sort((a, b) => a.distance.CompareTo(b.distance));
+                int recorded = 0;
+                foreach (var item in near)
+                {
+                    if (_rigs.TryCapture(item.actor.Key, item.actor.Category,
+                        item.actor.Root!, seconds))
+                        recorded++;
+                    if (recorded >= WorldRigCapture.MaxSimultaneousRigs)
+                        break;
+                }
+            }
+        }
+        else
+        {
+            _rigs.Clear();
         }
     }
 
@@ -326,6 +364,12 @@ internal sealed class NearbyWorldActorCapture
         }
         return sb.ToString();
     }
+
+    internal void SnapshotRigs(double now, double firstSeconds,
+        double lastSeconds, out WorldRigDefinition[] definitions,
+        out WorldRigSample[] samples) =>
+        _rigs.Snapshot(now, firstSeconds, lastSeconds,
+            out definitions, out samples);
 
     internal void Snapshot(double now, double firstSeconds,
         double lastSeconds, out WorldActorIdentity[] identities,
