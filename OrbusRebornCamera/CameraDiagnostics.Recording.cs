@@ -4,60 +4,74 @@ namespace OrbusBetterMirror;
 
 public sealed partial class CameraDiagnostics
 {
-    // Fourth Creator Studio tab. Uses the existing Orbus-themed panel
-    // styles and layout; the in-world headset UI remains untouched.
+    // The Recording tab is bounded by StudioContentY+406. UI stays compact
+    // so all controls remain reachable on a small/scale-adjusted window.
     private void DrawRecordingTab(float x, float y, float w)
     {
         StudioSection(x, y, w, "INSTANT REPLAY BUFFER");
+        StudioFill(new Rect(x, y + 29f, w, 46f), StudioSurface);
+        StudioBorder(new Rect(x, y + 29f, w, 46f), StudioStroke);
+        StudioText(new Rect(x + 11f, y + 31f, w - 22f, 21f),
+            ReplayBufferRecorder.State + "  /  " +
+            ReplayBufferRecorder.FrameCount + " frames", _studioHeading);
+        StudioText(new Rect(x + 11f, y + 51f, w - 22f, 20f),
+            ReplayBufferRecorder.AvailableSeconds.ToString("0") + " / " +
+            ReplayBufferRecorder.DurationSeconds + " secs  |  " +
+            ReplayBufferRecorder.LastSaveStatus, _studioMuted);
 
-        StudioFill(new Rect(x, y + 31f, w, 68f), StudioSurface);
-        StudioBorder(new Rect(x, y + 31f, w, 68f), StudioStroke);
-        StudioText(new Rect(x + 13f, y + 37f, w - 26f, 23f),
-            ReplayBufferRecorder.State, _studioHeading);
-
-        string available = ReplayBufferRecorder.AvailableSeconds.ToString("0") +
-            " / " + ReplayBufferRecorder.DurationSeconds +
-            " seconds  |  " + ReplayBufferRecorder.FrameCount + " pose frames";
-        StudioText(new Rect(x + 13f, y + 66f, w - 26f, 24f),
-            available, _studioMuted);
-
-        if (StudioButton(new Rect(x, y + 110f, w, 43f),
+        if (StudioButton(new Rect(x, y + 82f, w, 36f),
             "SAVE LAST " + (ReplayBufferRecorder.DurationSeconds / 60f)
-                .ToString("0.#") + " MINUTES   Ctrl+Shift+C",
-            false, true))
-        {
+                .ToString("0.#") + " MINUTES   Ctrl+Shift+C", false, true))
             ReplayBufferRecorder.SaveLastClip();
-        }
 
-        if (StudioButton(new Rect(x, y + 162f, w, 39f),
+        if (StudioButton(new Rect(x, y + 123f, w, 34f),
             "Rolling buffer: " +
-                (ReplayBufferRecorder.Enabled ? "ENABLED" : "DISABLED"),
+            (ReplayBufferRecorder.Enabled ? "ENABLED" : "DISABLED"),
             ReplayBufferRecorder.Enabled))
-        {
             ReplayBufferRecorder.SetEnabled(!ReplayBufferRecorder.Enabled);
-        }
 
-        StudioSection(x, y + 210f, w, "BUFFER DURATION");
         float third = (w - 18f) / 3f;
         int[] values = { 60, 180, 300 };
         string[] labels = { "1 MIN", "3 MIN", "5 MIN" };
         for (int i = 0; i < values.Length; i++)
         {
             if (StudioButton(new Rect(x + i * (third + 9f),
-                    y + 245f, third, 36f), labels[i],
+                    y + 164f, third, 33f), labels[i],
                 ReplayBufferRecorder.DurationSeconds == values[i]))
-            {
                 ReplayBufferRecorder.SetDurationSeconds(values[i]);
-            }
         }
 
-        StudioFill(new Rect(x, y + 300f, w, 102f), StudioSurface);
-        StudioBorder(new Rect(x, y + 300f, w, 102f), StudioStroke);
-        StudioText(new Rect(x + 12f, y + 306f, w - 24f, 22f),
-            "LATEST CLIP STATUS", _studioHeading);
-        StudioText(new Rect(x + 12f, y + 335f, w - 24f, 25f),
-            ReplayBufferRecorder.LastSaveStatus, _studioMuted);
-        StudioText(new Rect(x + 12f, y + 372f, w - 24f, 20f),
-            "POSE DATA ONLY  /  NO WORLD REPLAY YET", _studioMuted);
+        StudioSection(x, y + 205f, w, "POSE REPLAY VIEWER (DESKTOP)");
+        string info = _replayClip == null ? _replayMessage :
+            _replayClip.Count + " frames | " + _replayClip.TeleportCount +
+            " teleports | " + _replayClip.GapCount + " gaps";
+        StudioText(new Rect(x + 2f, y + 226f, w - 4f, 20f),
+            info, _studioMuted);
+
+        float half = (w - 9f) * .5f;
+        if (StudioButton(new Rect(x, y + 250f, half, 35f),
+            "Load latest saved clip", false, true))
+            LoadLatestReplay();
+        if (StudioButton(new Rect(x + half + 9f, y + 250f,
+            half, 35f), "Focus recorded head", false))
+            FocusReplayHead();
+
+        if (StudioButton(new Rect(x, y + 291f, half, 35f),
+            _replayPlaying ? "Pause replay" : "Play replay",
+            _replayPlaying))
+            ToggleReplayPlayback();
+        if (StudioButton(new Rect(x + half + 9f, y + 291f,
+            half, 35f), "Close replay", false))
+            ClearReplay();
+
+        float length = _replayClip == null ? 1f :
+            (float)System.Math.Max(.01d, _replayClip.Duration);
+        float next = StudioSlider(8, x, y + 346f, w, "Replay time",
+            (float)_replayElapsed, 0f, length,
+            ReplayTime(_replayElapsed) + " / " +
+            ReplayTime(_replayClip?.Duration ?? 0d));
+        if (_replayClip != null &&
+            UnityEngine.Mathf.Abs(next - (float)_replayElapsed) > .001f)
+            SeekReplay(next);
     }
 }
