@@ -190,7 +190,7 @@ internal sealed class LocalAvatarCapture
             int count = bones == null ? 0 : Math.Min(160, bones.Length);
             for (int i = 0; i < count; i++)
             {
-                Transform bone = bones[i];
+                var bone = bones[i];
                 report.AppendLine("bone_" + i + "=" +
                     (bone == null ? "(null)" : Clean(bone.name)));
             }
@@ -201,7 +201,7 @@ internal sealed class LocalAvatarCapture
             int n = materials == null ? 0 : Math.Min(12, materials.Length);
             for (int i = 0; i < n; i++)
             {
-                Material material = materials[i];
+                var material = materials[i];
                 report.AppendLine("material_" + i + "=" +
                     (material == null ? "(null)" : Clean(material.name)));
             }
