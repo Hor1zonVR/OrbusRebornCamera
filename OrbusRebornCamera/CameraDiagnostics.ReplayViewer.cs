@@ -26,7 +26,7 @@ public sealed partial class CameraDiagnostics
         return (t / 60).ToString("00") + ":" + (t % 60).ToString("00");
     }
 
-    private void LoadLatestReplay()
+    private void LoadLatestReplay(bool useLiveWorld = true)
     {
         try
         {
@@ -62,12 +62,17 @@ public sealed partial class CameraDiagnostics
                 loaded.FileName + " " + _replayMessage +
                 " duration=" + ReplayTime(loaded.Duration) +
                 " zones=" + loaded.Frames[0].Zone);
-            if (_mode != CameraMode.Drone && !EnterFreecam())
-                Plugin.ModLogger.LogWarning(
-                    "[ReplayViewer] Loaded clip, but freecam unavailable. " +
-                    "Enter a loaded world and enable freecam.");
-            else
+            if (_offlineReplayActive)
                 FocusReplayHead();
+            else if (useLiveWorld)
+            {
+                if (_mode != CameraMode.Drone && !EnterFreecam())
+                    Plugin.ModLogger.LogWarning(
+                        "[ReplayViewer] Loaded clip; freecam unavailable. " +
+                        "Use OFFLINE tab for no-server pose preview.");
+                else
+                    FocusReplayHead();
+            }
         }
         catch (Exception ex)
         {
@@ -195,6 +200,7 @@ public sealed partial class CameraDiagnostics
                 GL.Begin(GL.LINES);
                 try
                 {
+                    DrawOfflineStageGrid();
                     DrawReplayMarker(EvaluatedPose(0),
                         ReplayHeadRadius, new Color(.32f, .87f, 1f, 1f));
                     DrawReplayMarker(EvaluatedPose(1),
