@@ -224,7 +224,7 @@ public sealed partial class CameraDiagnostics
         if (StudioButton(new Rect(x, y + 178f, half, 36f),
             "Load latest clip", false))
         {
-            LoadLatestReplay(!_offlineReplayActive);
+            LoadLatestReplay(false);
         }
         if (StudioButton(new Rect(x + half + 10f, y + 178f,
             half, 36f), "Focus recorded head", false))
