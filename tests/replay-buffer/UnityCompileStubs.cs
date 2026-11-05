@@ -27,6 +27,7 @@ namespace UnityEngine
         { x = px; y = py; z = pz; }
         public float sqrMagnitude => x*x + y*y + z*z;
         public Vector3 normalized => default;
+        public static Vector3 zero => default;
         public static Vector3 up => default;
         public static Vector3 forward => default;
         public static Vector3 back => default;
