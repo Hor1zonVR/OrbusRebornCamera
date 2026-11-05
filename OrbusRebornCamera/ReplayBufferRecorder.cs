@@ -62,6 +62,10 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         public Pose Left;
         public Pose Right;
         public Pose Avatar;
+        public Pose AvatarRigRoot;
+        public Pose AvatarModelHead;
+        public Pose AvatarModelLeft;
+        public Pose AvatarModelRight;
     }
 
     private ReplayRingBuffer<Frame>? _buffer;
@@ -280,6 +284,18 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         LocalAvatarCapture.Sample avatar = _localAvatar.Read(eye, _clockSeconds);
         if (avatar.Valid)
             frame.Avatar = Pose.From(avatar.Position, avatar.Rotation);
+        if (avatar.Root.Valid)
+            frame.AvatarRigRoot = Pose.From(
+                avatar.Root.Position, avatar.Root.Rotation);
+        if (avatar.ModelHead.Valid)
+            frame.AvatarModelHead = Pose.From(
+                avatar.ModelHead.Position, avatar.ModelHead.Rotation);
+        if (avatar.ModelLeft.Valid)
+            frame.AvatarModelLeft = Pose.From(
+                avatar.ModelLeft.Position, avatar.ModelLeft.Rotation);
+        if (avatar.ModelRight.Valid)
+            frame.AvatarModelRight = Pose.From(
+                avatar.ModelRight.Position, avatar.ModelRight.Rotation);
         frame.Transition = _hasPreviousFrame
             ? TransitionBetween(_previousFrame, frame) : "none";
         _previousFrame = frame;
@@ -435,8 +451,10 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                 temporary, FileMode.CreateNew, FileAccess.Write,
                 FileShare.None, 65536), new UTF8Encoding(false)))
             {
-                writer.WriteLine("# RebornCamera rolling pose clip v3");
-                writer.WriteLine("# content=LOCAL_HEAD_HANDS_AVATAR_ANCHOR_ONLY");
+                writer.WriteLine("# RebornCamera rolling pose clip v4");
+                writer.WriteLine("# content=LOCAL_PLAYER_RIG_TRANSFORMS_NO_MESH");
+                writer.WriteLine("# rig_source=PlayerRigv4/Avatar/Torso/BodyParent");
+                writer.WriteLine("# appearance_or_equipment_state_recorded=false");
                 writer.WriteLine("# avatar_mesh_hint=" + avatarMeshHint);
                 writer.WriteLine("# avatar_bone_count_hint=" +
                     avatarBoneCount.ToString(Invariant));
@@ -459,7 +477,15 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                     "\tright_valid\tright_x\tright_y\tright_z\tright_qx\tright_qy\tright_qz\tright_qw" +
                     "\tzone\ttransition" +
                     "\tavatar_valid\tavatar_x\tavatar_y\tavatar_z" +
-                    "\tavatar_qx\tavatar_qy\tavatar_qz\tavatar_qw");
+                    "\tavatar_qx\tavatar_qy\tavatar_qz\tavatar_qw" +
+                    "\tavatar_root_valid\tavatar_root_x\tavatar_root_y\tavatar_root_z" +
+                    "\tavatar_root_qx\tavatar_root_qy\tavatar_root_qz\tavatar_root_qw" +
+                    "\tavatar_head_valid\tavatar_head_x\tavatar_head_y\tavatar_head_z" +
+                    "\tavatar_head_qx\tavatar_head_qy\tavatar_head_qz\tavatar_head_qw" +
+                    "\tavatar_left_valid\tavatar_left_x\tavatar_left_y\tavatar_left_z" +
+                    "\tavatar_left_qx\tavatar_left_qy\tavatar_left_qz\tavatar_left_qw" +
+                    "\tavatar_right_valid\tavatar_right_x\tavatar_right_y\tavatar_right_z" +
+                    "\tavatar_right_qx\tavatar_right_qy\tavatar_right_qz\tavatar_right_qw");
 
                 var line = new StringBuilder(420);
                 foreach (Frame frame in frames)
@@ -474,6 +500,10 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                     line.Append('\t').Append(frame.Zone);
                     line.Append('\t').Append(frame.Transition);
                     AppendPose(line, frame.Avatar);
+                    AppendPose(line, frame.AvatarRigRoot);
+                    AppendPose(line, frame.AvatarModelHead);
+                    AppendPose(line, frame.AvatarModelLeft);
+                    AppendPose(line, frame.AvatarModelRight);
                     writer.WriteLine(line.ToString());
                 }
             }
