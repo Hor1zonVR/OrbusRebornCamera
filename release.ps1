@@ -125,17 +125,74 @@ Check-Result "Git push"
 $commit = (& git rev-parse HEAD).Trim()
 Check-Result "Reading commit"
 
-# Publish the release and upload the DLL.
+# Publish the release and upload the DLL. Create the Git tag FIRST:
+# GitHub's draft-release publish endpoint can fail with HTTP 500 when
+# the tag is absent. Always reuse an uploaded draft instead of creating
+# duplicate orphan drafts on retries.
 Write-Host ""
 Write-Host "[3/4] Publishing $tag..." -ForegroundColor Yellow
 
-& gh release create $tag $dll `
-    --repo $repo `
-    --target $commit `
-    --title "OrbusRebornCamera $tag" `
-    --generate-notes
+& git fetch origin --tags
+Check-Result "Fetching release tags"
 
-Check-Result "GitHub release"
+$existingTag = (& git tag --list $tag).Trim()
+Check-Result "Checking release tag"
+if ([string]::IsNullOrWhiteSpace($existingTag)) {
+    & git tag $tag $commit
+    Check-Result "Creating release tag"
+} else {
+    $tagCommit = (& git rev-list -n 1 $tag).Trim()
+    Check-Result "Reading existing release tag"
+    if ($tagCommit -ne $commit) {
+        throw "Tag $tag already exists at $tagCommit, not $commit. Refusing to overwrite a published release tag."
+    }
+}
+
+& git push origin "refs/tags/$tag"
+Check-Result "Pushing release tag"
+
+# Query drafts explicitly because 'gh release view' hides untagged drafts.
+$releaseJson = & gh api "repos/$repo/releases?per_page=100"
+Check-Result "Finding existing release drafts"
+$releases = @($releaseJson | ConvertFrom-Json)
+$published = $releases | Where-Object {
+    $_.tag_name -eq $tag -and -not $_.draft
+} | Select-Object -First 1
+if ($published) {
+    Write-Host "$tag is already published; not creating another release." -ForegroundColor Green
+} else {
+    $draft = $releases | Where-Object {
+        $_.tag_name -eq $tag -and $_.draft
+    } | Sort-Object updated_at -Descending | Select-Object -First 1
+
+    if ($draft) {
+        Write-Host "Recovering existing draft release ID $($draft.id)..." -ForegroundColor Yellow
+        $uploaded = $draft.assets | Where-Object {
+            $_.name -eq "BetterMirror.dll"
+        } | Select-Object -First 1
+        if (-not $uploaded) {
+            & gh release upload $tag $dll --repo $repo
+            Check-Result "Uploading missing draft DLL"
+        } else {
+            # Avoid reusing an out-of-date asset after plugin source changes.
+            $localHash = (Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($uploaded.digest -and $uploaded.digest -ne "sha256:$localHash") {
+                throw "Draft ID $($draft.id) has a different BetterMirror.dll. Review the draft rather than publishing the wrong build."
+            }
+            Write-Host "Reusing uploaded BetterMirror.dll (no re-upload)." -ForegroundColor Green
+        }
+        & gh api --method PATCH "repos/$repo/releases/$($draft.id)" `
+            -F "draft=false" -f "target_commitish=$commit" --jq ".html_url"
+        Check-Result "Publishing existing draft $($draft.id)"
+    } else {
+        & gh release create $tag $dll `
+            --repo $repo `
+            --target $commit `
+            --title "OrbusRebornCamera $tag" `
+            --generate-notes
+        Check-Result "Creating GitHub release"
+    }
+}
 
 # Confirm the release exists.
 Write-Host ""
