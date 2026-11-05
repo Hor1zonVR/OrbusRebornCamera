@@ -1,224 +1,321 @@
 using System;
+using System.Text;
 using UnityEngine;
 
 namespace OrbusBetterMirror;
 
 /// <summary>
-/// Optional cached local-avatar anchor sampling. Reuses the Minicam layer RC
-/// already uses for rendering the local character in the desktop camera.
-/// Never clones objects, writes transforms, invokes game/network methods, or
-/// enumerates player accounts. A cached renderer is read at 30Hz; a bounded
-/// lookup is attempted at most once every 12 seconds.
+/// Read-only, hierarchy-targeted local avatar capture. The local PlayerRigv4
+/// structure is grounded in prior AvatarInspector logs from Renewed/Spades:
+///   PlayerRigv4/Avatar/Torso/BodyParent (Minicam layer)
+///   PlayerRigv4/Camera (eye)/Head
+///   PlayerRigv4/Controller (left|right)/Grabber/Hand/model
+/// It is deliberately independent of obfuscated C# class names. No global
+/// SkinnedMeshRenderer scan, network access, cloning, or pose manipulation.
 /// </summary>
 internal sealed class LocalAvatarCapture
 {
-    internal struct Sample
+    internal struct TrackedPose
     {
         internal bool Valid;
         internal Vector3 Position;
         internal Quaternion Rotation;
     }
 
-    private const double RescanSeconds = 12d;
-    private const float MaximumEyeDistance = 2.8f;
-    private const int MaxRendererCandidates = 900;
+    internal struct Sample
+    {
+        // Kept compatible with the existing v3 avatar anchor writer.
+        internal bool Valid;
+        internal Vector3 Position;
+        internal Quaternion Rotation;
+        internal TrackedPose Root;
+        internal TrackedPose ModelHead;
+        internal TrackedPose ModelLeft;
+        internal TrackedPose ModelRight;
+    }
 
-    private SkinnedMeshRenderer? _renderer;
-    private Transform? _anchor;
-    private double _nextScan;
+    private const double RetrySeconds = 3.0;
+    private const int MaxManifestRenderersPerPart = 48;
+    private const int MaxManifestBones = 72;
+    private const int MaxManifestMaterials = 8;
+
+    private Transform? _playerRig;
+    private Transform? _body;
+    private Transform? _head;
+    private Transform? _leftHand;
+    private Transform? _rightHand;
+    private double _nextResolve;
     private bool _reportedFound;
-    private bool _reportedNoLayer;
+    private bool _reportedMissing;
+    private string _lastReason = "not inspected";
 
     internal string MeshHint { get; private set; } = "(not resolved)";
     internal int BoneCount { get; private set; }
-    internal bool HasAnchor => _anchor != null && _renderer != null;
+    internal bool HasAnchor => _body != null;
+
+    private static bool IsLocalRootName(string? name) =>
+        !string.IsNullOrEmpty(name) &&
+        (name == "PlayerRigv4" ||
+         name.StartsWith("PlayerRigv4(", StringComparison.Ordinal));
+
+    private static Transform? ParentRigOf(Transform? child)
+    {
+        Transform? at = child;
+        for (int depth = 0; at != null && depth < 14; depth++)
+        {
+            if (IsLocalRootName(at.name)) return at;
+            at = at.parent;
+        }
+        return null;
+    }
+
+    private static TrackedPose ReadPose(Transform? transform)
+    {
+        if (transform == null) return default;
+        return new TrackedPose
+        {
+            Valid = true,
+            Position = transform.position,
+            Rotation = transform.rotation
+        };
+    }
+
+    private void ResetRig()
+    {
+        _playerRig = null;
+        _body = null;
+        _head = null;
+        _leftHand = null;
+        _rightHand = null;
+        MeshHint = "(not resolved)";
+        BoneCount = 0;
+    }
 
     internal Sample Read(Camera eye, double clockSeconds)
     {
         if (eye == null) return default;
-        int minicamLayer = LayerMask.NameToLayer("Minicam");
-        if (minicamLayer < 0)
-        {
-            if (!_reportedNoLayer)
-            {
-                _reportedNoLayer = true;
-                Plugin.ModLogger.LogWarning(
-                    "[AvatarCapture] Minicam layer unavailable. " +
-                    "Recording head/hands; model anchor marked missing.");
-            }
-            return default;
-        }
-
-        if (_renderer != null && _anchor != null)
-        {
-            try
-            {
-                if (_renderer.gameObject.layer == minicamLayer &&
-                    Vector3.Distance(_anchor.position,
-                        eye.transform.position) <= MaximumEyeDistance)
-                {
-                    return new Sample
-                    {
-                        Valid = true,
-                        Position = _anchor.position,
-                        Rotation = _anchor.rotation
-                    };
-                }
-            }
-            catch (Exception)
-            {
-                // Scene transitions can destroy these cached objects.
-            }
-            _renderer = null;
-            _anchor = null;
-        }
-
-        if (clockSeconds < _nextScan) return default;
-        _nextScan = clockSeconds + RescanSeconds;
-        try { FindLocalAvatar(eye, minicamLayer); }
-        catch (Exception ex)
-        {
-            Plugin.ModLogger.LogWarning(
-                "[AvatarCapture] Avatar lookup skipped: " + ex.Message);
-        }
-
-        if (_anchor == null) return default;
-        return new Sample
-        {
-            Valid = true,
-            Position = _anchor.position,
-            Rotation = _anchor.rotation
-        };
-    }
-
-    private void FindLocalAvatar(Camera eye, int localLayer)
-    {
-        // This renderer enumeration is the same kind of information already
-        // inspected by AvatarDiagnostics, but runs at most once per 12s.
-        // The Minicam layer and a small eye-distance bound exclude scenery,
-        // NPCs and distant people. Identity is still a heuristic; if RC
-        // cannot find a convincing local mesh, it exports no avatar pose.
-        var renderers = Resources.FindObjectsOfTypeAll<SkinnedMeshRenderer>();
-        float bestScore = float.MaxValue;
-        SkinnedMeshRenderer? best = null;
-        Transform? bestAnchor = null;
-        int examined = 0;
-
-        foreach (SkinnedMeshRenderer renderer in renderers)
-        {
-            if (++examined > MaxRendererCandidates) break;
-            if (renderer == null || renderer.gameObject == null ||
-                renderer.gameObject.layer != localLayer)
-                continue;
-
-            Transform anchor = renderer.rootBone != null
-                ? renderer.rootBone : renderer.transform;
-            if (anchor == null) continue;
-            Vector3 pos = anchor.position;
-            float distance = Vector3.Distance(pos, eye.transform.position);
-            if (distance > MaximumEyeDistance) continue;
-
-            // Prefer a rig close to the local eye. Reject ambiguous
-            // equally-close candidates rather than claiming player identity.
-            float score = distance;
-            if (score < bestScore)
-            {
-                bestScore = score;
-                best = renderer;
-                bestAnchor = anchor;
-            }
-        }
-
-        if (best == null || bestAnchor == null) return;
-        _renderer = best;
-        _anchor = bestAnchor;
-
         try
         {
-            Mesh mesh = best.sharedMesh;
-            MeshHint = Clean(mesh != null ? mesh.name : best.name);
-            var bones = best.bones;
-            BoneCount = bones == null ? 0 : bones.Length;
+            // Only consider the local player owning the known source eye.
+            // Do not guess which of hundreds of remote avatar renderers
+            // belongs to us, and don't match by player account or location.
+            Transform? rig = ParentRigOf(eye.transform);
+            if (rig == null || _playerRig == null ||
+                rig != _playerRig || _body == null)
+            {
+                ResetRig();
+                if (clockSeconds < _nextResolve) return default;
+                _nextResolve = clockSeconds + RetrySeconds;
+                if (rig == null)
+                {
+                    _lastReason = "eye camera is not under PlayerRigv4";
+                    LogUnresolved();
+                    return default;
+                }
+                ResolveRig(rig);
+                if (_body == null)
+                {
+                    LogUnresolved();
+                    return default;
+                }
+            }
+
+            TrackedPose body = ReadPose(_body);
+            return new Sample
+            {
+                Valid = body.Valid,
+                Position = body.Position,
+                Rotation = body.Rotation,
+                Root = ReadPose(_playerRig),
+                ModelHead = ReadPose(_head),
+                ModelLeft = ReadPose(_leftHand),
+                ModelRight = ReadPose(_rightHand)
+            };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            MeshHint = "(mesh unavailable)";
-            BoneCount = 0;
+            ResetRig();
+            _lastReason = "source eye or avatar hierarchy invalid: " +
+                ex.GetType().Name;
+            LogUnresolved();
+            return default;
         }
+    }
+
+    private void ResolveRig(Transform rig)
+    {
+        _playerRig = rig;
+        _body = rig.Find("Avatar/Torso/BodyParent");
+        _head = rig.Find("Camera (eye)/Head");
+        _leftHand = rig.Find("Controller (left)/Grabber/Hand/model");
+        _rightHand = rig.Find("Controller (right)/Grabber/Hand/model");
+
+        if (_body == null)
+        {
+            _lastReason = "PlayerRigv4 found, BodyParent path missing";
+            return;
+        }
+
+        _lastReason = "PlayerRigv4/Avatar/Torso/BodyParent resolved";
+        MeshHint = "BodyParent hierarchy (not a mesh identifier)";
+        BoneCount = 0;
 
         if (!_reportedFound)
         {
             _reportedFound = true;
             Plugin.ModLogger.LogInfo(
-                "[AvatarCapture] Local Minicam rig candidate: " +
-                MeshHint + ", bones=" + BoneCount +
-                ". Recording its anchor pose; mesh geometry/animations " +
-                "are NOT yet serialized.");
+                "[AvatarCapture] Verified local PlayerRigv4/BODY ANCHOR. " +
+                "Head=" + (_head != null) +
+                ", left hand=" + (_leftHand != null) +
+                ", right hand=" + (_rightHand != null) +
+                ". Saving actual transform tracks; NO mesh/animation playback yet.");
         }
     }
 
-    // Called only on Save Clip, on the main thread. This is a small
-    // descriptor of asset names and rig joints, not a mesh or animation
-    // export. It will help map the real Orbus character in a future build.
-    internal string CaptureRigManifest()
+    private void LogUnresolved()
     {
-        var report = new System.Text.StringBuilder(8192);
-        report.AppendLine("# RebornCamera local avatar rig manifest v1");
-        report.AppendLine("# LOCAL MINICAM CANDIDATE ONLY");
-        report.AppendLine("# no vertices, skin weights, textures or animations");
-        report.AppendLine("mesh_hint=" + MeshHint);
-        report.AppendLine("bone_count_hint=" + BoneCount);
-        if (_renderer == null || _anchor == null)
-        {
-            report.AppendLine("status=no_avatar_rig_resolved");
-            return report.ToString();
-        }
+        if (_reportedMissing) return;
+        _reportedMissing = true;
+        Plugin.ModLogger.LogWarning(
+            "[AvatarCapture] Targeted rig not resolved: " + _lastReason);
+    }
 
+    private static string Safe(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "(none)";
+        string clean = value.Replace('\t', ' ').Replace('\r', ' ')
+            .Replace('\n', ' ').Replace('=', '-');
+        return clean.Length > 100 ? clean.Substring(0, 100) : clean;
+    }
+
+    private static string PathWithin(Transform? node, Transform? boundary)
+    {
+        if (node == null) return "(missing)";
+        var parts = new System.Collections.Generic.List<string>();
+        Transform? at = node;
+        for (int depth = 0; at != null && depth < 20; depth++)
+        {
+            parts.Add(Safe(at.name));
+            if (boundary != null && at == boundary) break;
+            at = at.parent;
+        }
+        parts.Reverse();
+        return string.Join("/", parts);
+    }
+
+    private static void AppendPose(StringBuilder sb, string prefix,
+        Transform? transform)
+    {
+        sb.AppendLine(prefix + "_path=" + PathWithin(transform, null));
+        if (transform == null) return;
+        Vector3 pos = transform.position;
+        Quaternion rot = transform.rotation;
+        sb.AppendLine(prefix + "_position=" + pos.x + "," + pos.y +
+            "," + pos.z);
+        sb.AppendLine(prefix + "_rotation=" + rot.x + "," + rot.y +
+            "," + rot.z + "," + rot.w);
+    }
+
+    private static void AppendPart(StringBuilder sb, string part,
+        Transform? node, Transform? rig)
+    {
+        sb.AppendLine("part=" + part + " path=" + PathWithin(node, rig));
+        if (node == null) return;
+
+        // Targeted only: local avatar, model head and two hand objects.
+        // No global scan. This is called only when Save Clip is pressed.
         try
         {
-            report.AppendLine("status=local_minicam_candidate");
-            report.AppendLine("renderer=" + Clean(_renderer.name));
-            report.AppendLine("root_bone=" + Clean(_anchor.name));
-            var mesh = _renderer.sharedMesh;
-            if (mesh != null)
-            {
-                report.AppendLine("mesh=" + Clean(mesh.name));
-                report.AppendLine("vertices=" + mesh.vertexCount);
-            }
-
-            var bones = _renderer.bones;
-            int count = bones == null ? 0 : Math.Min(160, bones.Length);
+            var renderers = node.GetComponentsInChildren<Renderer>(true);
+            int total = renderers == null ? 0 : renderers.Length;
+            sb.AppendLine("renderer_count=" + total);
+            int count = Math.Min(total, MaxManifestRenderersPerPart);
             for (int i = 0; i < count; i++)
             {
-                var bone = bones[i];
-                report.AppendLine("bone_" + i + "=" +
-                    (bone == null ? "(null)" : Clean(bone.name)));
-            }
-            if (bones != null && bones.Length > count)
-                report.AppendLine("bone_names_truncated=true");
+                var renderer = renderers[i];
+                if (renderer == null) continue;
+                sb.AppendLine("renderer_" + i + "_path=" +
+                    PathWithin(renderer.transform, rig));
+                sb.AppendLine("renderer_" + i + "_type=" +
+                    Safe(renderer.GetType().Name));
+                sb.AppendLine("renderer_" + i + "_enabled=" + renderer.enabled);
+                sb.AppendLine("renderer_" + i + "_layer=" +
+                    renderer.gameObject.layer);
 
-            var materials = _renderer.sharedMaterials;
-            int n = materials == null ? 0 : Math.Min(12, materials.Length);
-            for (int i = 0; i < n; i++)
-            {
-                var material = materials[i];
-                report.AppendLine("material_" + i + "=" +
-                    (material == null ? "(null)" : Clean(material.name)));
+                SkinnedMeshRenderer? skin = renderer as SkinnedMeshRenderer;
+                if (skin != null)
+                {
+                    var mesh = skin.sharedMesh;
+                    sb.AppendLine("renderer_" + i + "_mesh=" +
+                        (mesh == null ? "(none)" : Safe(mesh.name)));
+                    sb.AppendLine("renderer_" + i + "_vertices=" +
+                        (mesh == null ? 0 : mesh.vertexCount));
+                    var bones = skin.bones;
+                    int n = bones == null ? 0 : Math.Min(
+                        MaxManifestBones, bones.Length);
+                    sb.AppendLine("renderer_" + i + "_bone_count=" +
+                        (bones == null ? 0 : bones.Length));
+                    sb.AppendLine("renderer_" + i + "_root_bone=" +
+                        PathWithin(skin.rootBone, rig));
+                    for (int b = 0; b < n; b++)
+                        sb.AppendLine("renderer_" + i + "_bone_" + b + "=" +
+                            PathWithin(bones[b], rig));
+                    if (bones != null && bones.Length > n)
+                        sb.AppendLine("renderer_" + i +
+                            "_bone_names_truncated=true");
+                }
+                else
+                {
+                    var meshFilter = renderer.gameObject.GetComponent<MeshFilter>();
+                    var mesh = meshFilter == null ? null : meshFilter.sharedMesh;
+                    if (mesh != null)
+                    {
+                        sb.AppendLine("renderer_" + i + "_mesh=" +
+                            Safe(mesh.name));
+                        sb.AppendLine("renderer_" + i + "_vertices=" +
+                            mesh.vertexCount);
+                    }
+                }
+
+                var materials = renderer.sharedMaterials;
+                int mCount = materials == null ? 0 : Math.Min(
+                    MaxManifestMaterials, materials.Length);
+                for (int m = 0; m < mCount; m++)
+                    sb.AppendLine("renderer_" + i + "_material_" + m +
+                        "=" + (materials[m] == null ? "(none)" :
+                        Safe(materials[m].name)));
             }
+            if (total > count) sb.AppendLine("renderers_truncated=true");
         }
         catch (Exception ex)
         {
-            report.AppendLine("manifest_incomplete=" +
-                Clean(ex.GetType().Name));
+            sb.AppendLine("part_error=" + Safe(ex.GetType().Name));
         }
-        return report.ToString();
     }
 
-    private static string Clean(string input)
+    internal string CaptureRigManifest()
     {
-        if (string.IsNullOrWhiteSpace(input)) return "(unnamed)";
-        input = input.Replace('\t', ' ').Replace('\r', ' ')
-            .Replace('\n', ' ').Replace('=', '-');
-        return input.Length > 100 ? input.Substring(0, 100) : input;
+        var sb = new StringBuilder(12000);
+        sb.AppendLine("# RebornCamera targeted local avatar report v2");
+        sb.AppendLine("# hierarchy rooted at the SOURCE EYE'S PlayerRigv4");
+        sb.AppendLine("# READ-ONLY: no mesh export, animation or network calls");
+        sb.AppendLine("capture_status=" + (_body != null ?
+            "body_anchor_resolved" : "not_resolved"));
+        sb.AppendLine("last_reason=" + Safe(_lastReason));
+        sb.AppendLine("mesh_hint=" + MeshHint);
+        sb.AppendLine("bone_count_hint=" + BoneCount);
+        sb.AppendLine("player_rig=" + PathWithin(_playerRig, null));
+        AppendPose(sb, "body", _body);
+        AppendPose(sb, "head", _head);
+        AppendPose(sb, "hand_left", _leftHand);
+        AppendPose(sb, "hand_right", _rightHand);
+        if (_playerRig != null)
+        {
+            AppendPart(sb, "Avatar", _playerRig.Find("Avatar"), _playerRig);
+            AppendPart(sb, "HeadVisual", _head, _playerRig);
+            AppendPart(sb, "LeftHand", _leftHand, _playerRig);
+            AppendPart(sb, "RightHand", _rightHand, _playerRig);
+        }
+        return sb.ToString();
     }
 }
