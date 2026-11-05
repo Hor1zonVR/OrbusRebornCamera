@@ -61,11 +61,13 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         public Pose Head;
         public Pose Left;
         public Pose Right;
+        public Pose Avatar;
     }
 
     private ReplayRingBuffer<Frame>? _buffer;
     private readonly List<Task<string>> _pending = new();
     private readonly string _sessionId = Guid.NewGuid().ToString("N");
+    private readonly LocalAvatarCapture _localAvatar = new();
 
     private Camera? _eye;
     private bool _hotkeyWasDown;
@@ -275,6 +277,9 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             Left = ReadHand(XRNode.LeftHand, originPosition, originRotation),
             Right = ReadHand(XRNode.RightHand, originPosition, originRotation)
         };
+        LocalAvatarCapture.Sample avatar = _localAvatar.Read(eye, _clockSeconds);
+        if (avatar.Valid)
+            frame.Avatar = Pose.From(avatar.Position, avatar.Rotation);
         frame.Transition = _hasPreviousFrame
             ? TransitionBetween(_previousFrame, frame) : "none";
         _previousFrame = frame;
@@ -380,6 +385,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         string destination = Path.Combine(folder, name);
         string sessionId = _sessionId;
         int duration = _configuredSeconds;
+        string avatarMeshHint = _localAvatar.MeshHint;
+        int avatarBoneCount = _localAvatar.BoneCount;
         _lastStatus = "Saving " + snapshot.Length + " pose samples...";
         Plugin.ModLogger.LogInfo(
             "[ReplayBuffer] Queued " + snapshot.Length +
@@ -388,7 +395,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         // Unity objects and game APIs are NEVER touched on the worker.
         // Taking a copy leaves the live rolling buffer uninterrupted.
         _pending.Add(Task.Run(() =>
-            WriteClip(destination, clipId, sessionId, duration, snapshot)));
+            WriteClip(destination, clipId, sessionId, duration, snapshot,
+                avatarMeshHint, avatarBoneCount)));
     }
 
     private void DrainCompletedSaves()
@@ -414,7 +422,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
     }
 
     private static string WriteClip(string destination, string clipId,
-        string sessionId, int duration, Frame[] frames)
+        string sessionId, int duration, Frame[] frames,
+        string avatarMeshHint, int avatarBoneCount)
     {
         string temporary = destination + ".partial";
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -424,8 +433,13 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                 temporary, FileMode.CreateNew, FileAccess.Write,
                 FileShare.None, 65536), new UTF8Encoding(false)))
             {
-                writer.WriteLine("# RebornCamera rolling pose clip v2");
-                writer.WriteLine("# content=POSE_ONLY_NO_WORLD_RECONSTRUCTION");
+                writer.WriteLine("# RebornCamera rolling pose clip v3");
+                writer.WriteLine("# content=LOCAL_HEAD_HANDS_AVATAR_ANCHOR_ONLY");
+                writer.WriteLine("# avatar_mesh_hint=" + avatarMeshHint);
+                writer.WriteLine("# avatar_bone_count_hint=" +
+                    avatarBoneCount.ToString(Invariant));
+                writer.WriteLine("# avatar_mesh_geometry_recorded=false");
+                writer.WriteLine("# avatar_bone_animations_recorded=false");
                 writer.WriteLine("# clip_id=" + clipId);
                 writer.WriteLine("# session_id=" + sessionId);
                 writer.WriteLine("# requested_window_seconds=" +
@@ -441,7 +455,9 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                     "\thead_valid\thead_x\thead_y\thead_z\thead_qx\thead_qy\thead_qz\thead_qw" +
                     "\tleft_valid\tleft_x\tleft_y\tleft_z\tleft_qx\tleft_qy\tleft_qz\tleft_qw" +
                     "\tright_valid\tright_x\tright_y\tright_z\tright_qx\tright_qy\tright_qz\tright_qw" +
-                    "\tzone\ttransition");
+                    "\tzone\ttransition" +
+                    "\tavatar_valid\tavatar_x\tavatar_y\tavatar_z" +
+                    "\tavatar_qx\tavatar_qy\tavatar_qz\tavatar_qw");
 
                 var line = new StringBuilder(420);
                 foreach (Frame frame in frames)
@@ -455,6 +471,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                     AppendPose(line, frame.Right);
                     line.Append('\t').Append(frame.Zone);
                     line.Append('\t').Append(frame.Transition);
+                    AppendPose(line, frame.Avatar);
                     writer.WriteLine(line.ToString());
                 }
             }
