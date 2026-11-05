@@ -57,7 +57,8 @@ public sealed partial class CameraDiagnostics
             _replayPlaying = false;
             _replayMessage = loaded.Count + " frames | " +
                 loaded.TeleportCount + " teleports | " +
-                loaded.GapCount + " gaps";
+                loaded.GapCount + " gaps | " +
+                loaded.AvatarAnchorSamples + " avatar poses";
             Plugin.ModLogger.LogInfo("[ReplayViewer] Loaded " +
                 loaded.FileName + " " + _replayMessage +
                 " duration=" + ReplayTime(loaded.Duration) +
@@ -121,9 +122,9 @@ public sealed partial class CameraDiagnostics
         _replayClip.Evaluate(_replayElapsed, out ReplayClipFrame a,
             out ReplayClipFrame b, out float blend);
         ReplayPoseValue left = which == 0 ? a.Head :
-            which == 1 ? a.Left : a.Right;
+            which == 1 ? a.Left : which == 2 ? a.Right : a.Avatar;
         ReplayPoseValue right = which == 0 ? b.Head :
-            which == 1 ? b.Left : b.Right;
+            which == 1 ? b.Left : which == 2 ? b.Right : b.Avatar;
         if (!left.Valid || blend <= 0f || !right.Valid) return left;
 
         Vector3 pos = Vector3.Lerp(ReplayPosition(left),
@@ -201,6 +202,7 @@ public sealed partial class CameraDiagnostics
                 try
                 {
                     DrawOfflineStageGrid();
+                    DrawReplayHumanoid();
                     DrawReplayMarker(EvaluatedPose(0),
                         ReplayHeadRadius, new Color(.32f, .87f, 1f, 1f));
                     DrawReplayMarker(EvaluatedPose(1),
