@@ -72,6 +72,7 @@ namespace UnityEngine
         public static Quaternion Inverse(Quaternion q) => default;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => default;
         public static Quaternion LookRotation(Vector3 a, Vector3 b) => default;
+        public static Quaternion Euler(float x, float y, float z) => default;
         public static float Angle(Quaternion a, Quaternion b) => 0f;
         public static Quaternion operator *(Quaternion a, Quaternion b) => default;
         public static Vector3 operator *(Quaternion a, Vector3 b) => default;
@@ -163,6 +164,15 @@ namespace UnityEngine
     }
     public enum StereoTargetEyeMask { None }
     public enum CameraClearFlags { SolidColor }
+    public enum LightType { Directional }
+    public enum LightShadows { None }
+    public class Light
+    {
+        public LightType type { get; set; }
+        public LightShadows shadows { get; set; }
+        public float intensity { get; set; }
+        public int cullingMask { get; set; }
+    }
     public class Camera
     {
         public static Camera[] allCameras => Array.Empty<Camera>();
