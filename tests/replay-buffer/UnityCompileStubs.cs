@@ -57,11 +57,13 @@ namespace UnityEngine
     }
     public class Transform
     {
+        public string name => "test-bone";
         public Vector3 position => default;
         public Quaternion rotation => default;
     }
     public class Mesh
     {
+        public int vertexCount => 100;
         public string name => "test-mesh";
     }
     public class GameObject
@@ -75,6 +77,7 @@ namespace UnityEngine
         public Transform transform => new();
         public Transform rootBone => new();
         public Mesh sharedMesh => new();
+        public Material[] sharedMaterials => Array.Empty<Material>();
         public Transform[] bones => Array.Empty<Transform>();
     }
     public static class Resources
@@ -111,6 +114,7 @@ namespace UnityEngine
     }
     public class Material
     {
+        public string name => "test-material";
         public bool SetPass(int i) => true;
     }
     public struct Matrix4x4
