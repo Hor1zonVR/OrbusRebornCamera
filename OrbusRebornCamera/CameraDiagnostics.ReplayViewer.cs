@@ -58,6 +58,7 @@ public sealed partial class CameraDiagnostics
             _replayClip = loaded;
             LoadWorldActorSidecar(files[0]);
             _replayElapsed = 0d;
+            if (_offlineReplayActive) BuildOfflineVisuals();
             _replayPlaying = false;
             _replayMessage = loaded.Count + " frames | " +
                 loaded.TeleportCount + " teleports | " +
@@ -91,6 +92,7 @@ public sealed partial class CameraDiagnostics
 
     private void ClearReplay()
     {
+        ClearOfflineVisuals();
         _replayPlaying = false;
         _replayClip = null;
         _worldActorTimeline = null;
