@@ -32,7 +32,7 @@ internal sealed class WorldActorIdentity
 
 internal static class WorldActorRecords
 {
-    internal const int MaxActorIdentities = 32;
+    internal const int MaxActorIdentities = 128;
     internal const int MaxObservations = 180000;
     private static readonly CultureInfo Number = CultureInfo.InvariantCulture;
 
