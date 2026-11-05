@@ -113,11 +113,59 @@ static class ReplayReaderTests
             "v3 transition detection unchanged");
     }
 
+    static void TestV4()
+    {
+        var lines = Clip(true).Split('\n');
+        var text = new StringBuilder();
+        text.AppendLine("# RebornCamera rolling pose clip v4");
+        text.AppendLine("# avatar_mesh_hint=BodyParent hierarchy (not a mesh identifier)");
+        foreach (string raw in lines)
+        {
+            string line = raw.TrimEnd('\r');
+            if (line.Length == 0 || line.StartsWith("#")) continue;
+            if (line.StartsWith("seconds\t", StringComparison.Ordinal))
+            {
+                foreach (string prefix in new[] {
+                    "avatar", "avatar_root", "avatar_head",
+                    "avatar_left", "avatar_right"
+                })
+                {
+                    line += "\t" + prefix + "_valid\t" + prefix + "_x\t" +
+                        prefix + "_y\t" + prefix + "_z\t" +
+                        prefix + "_qx\t" + prefix + "_qy\t" +
+                        prefix + "_qz\t" + prefix + "_qw";
+                }
+            }
+            else if (char.IsDigit(line[0]))
+            {
+                line += "\t" + Pose(true, 7f);
+                line += "\t" + Pose(true, 8f);
+                line += "\t" + Pose(true, 9f);
+                line += "\t" + Pose(true, 10f);
+                line += "\t" + Pose(true, 11f);
+            }
+            text.AppendLine(line);
+        }
+        ReplayClipData clip = ReplayClipReader.Read(
+            new StringReader(text.ToString()), "v4.tsv");
+        Check(clip.Count == 6, "v4 frame count");
+        Check(clip.AvatarAnchorSamples == 6, "v4 BodyParent samples");
+        Check(clip.RigRootSamples == 6, "v4 rig root samples");
+        Check(clip.ModelHeadSamples == 6, "v4 model head samples");
+        Check(clip.ModelLeftSamples == 6, "v4 model left samples");
+        Check(clip.ModelRightSamples == 6, "v4 model right samples");
+        Check(clip.Frames[2].AvatarRigRoot.X == 8f, "root position");
+        Check(clip.Frames[2].AvatarModelHead.X == 9f, "head position");
+        Check(clip.Frames[2].AvatarModelRight.X == 11f, "right hand position");
+        Check(clip.TeleportCount == 1, "v4 teleport safety");
+    }
+
     static void Main()
     {
         Test(false);
         Test(true);
         TestV3();
+        TestV4();
         bool refused = false;
         try
         {
@@ -126,6 +174,6 @@ static class ReplayReaderTests
         }
         catch (InvalidDataException) { refused = true; }
         Check(refused, "refuse invalid file");
-        Console.WriteLine("ReplayClipReader tests passed (v1/v2/v3, avatar anchor, teleport, gap, seek).");
+        Console.WriteLine("ReplayClipReader tests passed (v1-v4, real rig tracks, teleport, gap, seek).");
     }
 }
