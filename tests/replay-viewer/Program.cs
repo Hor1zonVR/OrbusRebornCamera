@@ -78,10 +78,46 @@ static class ReplayReaderTests
         Check(!data.Frames[3].Left.Valid, "invalid hand preserved");
     }
 
+    static void TestV3()
+    {
+        string v2 = Clip(true);
+        string[] lines = v2.Split('\n');
+        var v3 = new StringBuilder();
+        v3.AppendLine("# avatar_mesh_hint=LocalBardBody");
+        v3.AppendLine("# avatar_bone_count_hint=72");
+        foreach (string raw in lines)
+        {
+            string line = raw.TrimEnd('\r');
+            if (line.Length == 0) continue;
+            if (line.StartsWith("# RebornCamera rolling pose clip v2",
+                    StringComparison.Ordinal))
+                v3.AppendLine("# RebornCamera rolling pose clip v3");
+            else if (line.StartsWith("seconds\t", StringComparison.Ordinal))
+                v3.AppendLine(line + "\tavatar_valid\tavatar_x\tavatar_y" +
+                    "\tavatar_z\tavatar_qx\tavatar_qy\tavatar_qz\tavatar_qw");
+            else if (char.IsDigit(line[0]))
+                v3.AppendLine(line + "\t" + Pose(true, 10.5f));
+            else v3.AppendLine(line);
+        }
+
+        ReplayClipData data = ReplayClipReader.Read(
+            new StringReader(v3.ToString()), "v3.tsv");
+        Check(data.Count == 6, "v3 frame count");
+        Check(data.AvatarAnchorSamples == 6, "avatar anchors parsed");
+        Check(data.AvatarMeshHint == "LocalBardBody", "mesh hint parsed");
+        Check(data.AvatarBoneCountHint == 72, "bone count parsed");
+        Check(data.Frames[1].Avatar.Valid &&
+            Math.Abs(data.Frames[1].Avatar.X - 10.5f) < .001f,
+            "avatar root position parsed");
+        Check(data.TeleportCount == 1 && data.GapCount == 1,
+            "v3 transition detection unchanged");
+    }
+
     static void Main()
     {
         Test(false);
         Test(true);
+        TestV3();
         bool refused = false;
         try
         {
@@ -90,6 +126,6 @@ static class ReplayReaderTests
         }
         catch (InvalidDataException) { refused = true; }
         Check(refused, "refuse invalid file");
-        Console.WriteLine("ReplayClipReader tests passed (v1 + v2, jump, gap, zone, seek).");
+        Console.WriteLine("ReplayClipReader tests passed (v1/v2/v3, avatar anchor, teleport, gap, seek).");
     }
 }
