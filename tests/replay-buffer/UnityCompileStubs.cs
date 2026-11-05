@@ -30,7 +30,7 @@ namespace UnityEngine
         public static void Destroy(Object? obj) { }
         public static void DontDestroyOnLoad(Object target) { }
     }
-    public struct Bounds { }
+    public struct Bounds { public float SqrDistance(Vector3 point) => 0f; }
     public class MonoBehaviour { public MonoBehaviour(IntPtr pointer) { } }
     public struct Rect
     {
@@ -106,6 +106,7 @@ namespace UnityEngine
     public class GameObject : Object
     {
         public GameObject(string name = "test") { }
+        public static GameObject? Find(string name) => null;
         public Transform transform => new();
         public T? GetComponent<T>() where T : class => null;
         public T AddComponent<T>() where T : new() => new();
@@ -135,6 +136,7 @@ namespace UnityEngine
     public class Renderer
     {
         public int GetInstanceID() => 5;
+        public Bounds bounds => new();
         public string name => "renderer";
         public bool enabled => true;
         public GameObject gameObject => new();
