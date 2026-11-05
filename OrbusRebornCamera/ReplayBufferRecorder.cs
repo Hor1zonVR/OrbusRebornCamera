@@ -445,6 +445,10 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             snapshot[0].Seconds, snapshot[snapshot.Length - 1].Seconds,
             out WorldRigDefinition[] rigDefinitions,
             out WorldRigSample[] rigSamples);
+        Plugin.ModLogger.LogInfo("[WorldRigs] Save snapshot: " +
+            rigDefinitions.Length + " actual skin rigs, " +
+            rigSamples.Length + " animated bone frames; " +
+            actorSamples.Length + " nearby actor observations.");
         _lastStatus = "Saving " + snapshot.Length + " pose samples...";
         Plugin.ModLogger.LogInfo(
             "[ReplayBuffer] Queued " + snapshot.Length +
