@@ -56,6 +56,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         public double Seconds;
         public long UtcTicks;
         public string Scene;
+        public string Zone;
+        public string Transition;
         public Pose Head;
         public Pose Left;
         public Pose Right;
@@ -73,6 +75,10 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
     private float _nextErrorLog;
     private int _configuredSeconds;
     private string _lastStatus = "Waiting for VR tracking";
+    private string _zone = "(unknown)";
+    private double _nextZoneRefresh;
+    private Frame _previousFrame;
+    private bool _hasPreviousFrame;
 
     internal static bool Enabled =>
         Plugin.ReplayBufferEnabled != null && Plugin.ReplayBufferEnabled.Value;
@@ -118,6 +124,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         if (!enabled)
         {
             current._buffer?.Clear();
+            current._hasPreviousFrame = false;
             current._lastStatus = "Buffer stopped and cleared";
         }
         else
@@ -197,7 +204,10 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         if (!Enabled)
         {
             if (_previousEnabled)
+            {
                 _buffer?.Clear();
+                _hasPreviousFrame = false;
+            }
             _previousEnabled = false;
             _sampleAccumulator = 0f;
             return;
@@ -250,16 +260,68 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
 
         string scene = SceneManager.GetActiveScene().name ?? "";
         scene = scene.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
+        if (_clockSeconds >= _nextZoneRefresh)
+        {
+            _zone = LoadedZoneSignature();
+            _nextZoneRefresh = _clockSeconds + 1d;
+        }
         Frame frame = new Frame
         {
             Seconds = _clockSeconds,
             UtcTicks = DateTime.UtcNow.Ticks,
             Scene = scene,
+            Zone = _zone,
             Head = Pose.From(eye.transform.position, eye.transform.rotation),
             Left = ReadHand(XRNode.LeftHand, originPosition, originRotation),
             Right = ReadHand(XRNode.RightHand, originPosition, originRotation)
         };
+        frame.Transition = _hasPreviousFrame
+            ? TransitionBetween(_previousFrame, frame) : "none";
+        _previousFrame = frame;
+        _hasPreviousFrame = true;
         _buffer!.Add(frame);
+    }
+
+    private static string LoadedZoneSignature()
+    {
+        // The active scene commonly remains BootstrapWeathermaker. Read
+        // loaded additive zone scenes instead, without inspecting server data.
+        var zones = new List<string>();
+        for (int i = 0; i < SceneManager.sceneCount; i++)
+        {
+            var scene = SceneManager.GetSceneAt(i);
+            if (!scene.IsValid() || !scene.isLoaded) continue;
+            string name = scene.name ?? "";
+            if (name.Length == 0 ||
+                name == "BootstrapWeathermaker" ||
+                name == "DontDestroyOnLoad")
+                continue;
+            zones.Add(name.Replace('\t', ' ').Replace('\r', ' ')
+                .Replace('\n', ' '));
+        }
+        zones.Sort(StringComparer.Ordinal);
+        return zones.Count == 0 ? "(unknown)" : string.Join("|", zones);
+    }
+
+    private static string TransitionBetween(Frame previous, Frame current)
+    {
+        double dt = current.Seconds - previous.Seconds;
+        if (dt <= 0d) return "Gap";
+        if (previous.Head.Valid && current.Head.Valid)
+        {
+            double dx = current.Head.X - previous.Head.X;
+            double dy = current.Head.Y - previous.Head.Y;
+            double dz = current.Head.Z - previous.Head.Z;
+            double moved = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (moved > 12d && moved / dt > 35d)
+                return "Teleport";
+        }
+        if (dt > .25d) return "Gap";
+        if (previous.Zone != current.Zone &&
+            previous.Zone != "(unknown)" &&
+            current.Zone != "(unknown)")
+            return "ZoneChange";
+        return "None";
     }
 
     private static Pose ReadHand(XRNode node, Vector3 origin,
@@ -362,7 +424,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                 temporary, FileMode.CreateNew, FileAccess.Write,
                 FileShare.None, 65536), new UTF8Encoding(false)))
             {
-                writer.WriteLine("# RebornCamera rolling pose clip v1");
+                writer.WriteLine("# RebornCamera rolling pose clip v2");
                 writer.WriteLine("# content=POSE_ONLY_NO_WORLD_RECONSTRUCTION");
                 writer.WriteLine("# clip_id=" + clipId);
                 writer.WriteLine("# session_id=" + sessionId);
@@ -378,7 +440,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                 writer.WriteLine("seconds\tutc_ticks\tscene" +
                     "\thead_valid\thead_x\thead_y\thead_z\thead_qx\thead_qy\thead_qz\thead_qw" +
                     "\tleft_valid\tleft_x\tleft_y\tleft_z\tleft_qx\tleft_qy\tleft_qz\tleft_qw" +
-                    "\tright_valid\tright_x\tright_y\tright_z\tright_qx\tright_qy\tright_qz\tright_qw");
+                    "\tright_valid\tright_x\tright_y\tright_z\tright_qx\tright_qy\tright_qz\tright_qw" +
+                    "\tzone\ttransition");
 
                 var line = new StringBuilder(420);
                 foreach (Frame frame in frames)
@@ -390,6 +453,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                     AppendPose(line, frame.Head);
                     AppendPose(line, frame.Left);
                     AppendPose(line, frame.Right);
+                    line.Append('\t').Append(frame.Zone);
+                    line.Append('\t').Append(frame.Transition);
                     writer.WriteLine(line.ToString());
                 }
             }
