@@ -5,6 +5,8 @@ on:
     paths:
       - 'OrbusRebornCamera/ReplayRingBuffer.cs'
       - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
+      - 'OrbusRebornCamera/LocalAvatarCapture.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.ReplayGhost.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.ReplayViewer.cs'
       - 'OrbusRebornCamera/ReplayClipData.cs'
@@ -22,6 +24,8 @@ on:
     paths:
       - 'OrbusRebornCamera/ReplayRingBuffer.cs'
       - 'OrbusRebornCamera/ReplayBufferRecorder.cs'
+      - 'OrbusRebornCamera/LocalAvatarCapture.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.ReplayGhost.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.ReplayViewer.cs'
       - 'OrbusRebornCamera/ReplayClipData.cs'
