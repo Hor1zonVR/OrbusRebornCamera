@@ -57,6 +57,7 @@ internal static class ReplayVisualAssets
     private static readonly Dictionary<string, RigAsset> RigAssets =
         new(StringComparer.Ordinal);
     private static readonly List<AvatarPart> AvatarParts = new();
+    private static readonly HashSet<int> AvatarRendererIds = new();
     private static readonly List<WorldPart> WorldParts = new();
     private static readonly HashSet<int> WorldObjectIds = new();
     private static int _worldVertices;
@@ -94,6 +95,7 @@ internal static class ReplayVisualAssets
         }
         RigAssets.Clear();
         AvatarParts.Clear();
+        AvatarRendererIds.Clear();
         WorldParts.Clear();
         WorldObjectIds.Clear();
         _worldVertices = 0;
@@ -206,7 +208,7 @@ internal static class ReplayVisualAssets
     {
         if (string.IsNullOrEmpty(sessionId) || eye == null) return;
         StartSession(sessionId);
-        if (AvatarParts.Count > 0) return;
+        if (AvatarParts.Count >= MaxLocalParts) return;
         Transform? rig = FindLocalRig(eye.transform);
         if (rig == null) return;
 
@@ -262,7 +264,10 @@ internal static class ReplayVisualAssets
         Renderer renderer, Mesh? provided)
     {
         if (renderer == null || !renderer.enabled ||
-            !renderer.gameObject.activeInHierarchy) return;
+            !renderer.gameObject.activeInHierarchy ||
+            AvatarParts.Count >= MaxLocalParts) return;
+        int rendererId = renderer.GetInstanceID();
+        if (AvatarRendererIds.Contains(rendererId)) return;
         Mesh? mesh = null;
         Material[] materials = Array.Empty<Material>();
         try
@@ -296,6 +301,7 @@ internal static class ReplayVisualAssets
                 Rotation = inverse * renderer.transform.rotation,
                 Scale = renderer.transform.lossyScale
             });
+            AvatarRendererIds.Add(rendererId);
         }
         catch
         {
