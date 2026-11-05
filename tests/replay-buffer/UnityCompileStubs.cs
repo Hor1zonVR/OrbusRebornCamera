@@ -141,6 +141,7 @@ namespace UnityEngine
     {
         public T? GetComponent<T>() where T : class => null;
         public Mesh sharedMesh { get; set; } = new();
+        public int GetInstanceID() => 5;
     }
     public class MeshRenderer : Renderer { }
     public class SkinnedMeshRenderer : Renderer
@@ -277,6 +278,7 @@ namespace OrbusBetterMirror
         internal static TestConfig<int> ReplayBufferSeconds = new(300);
         internal static TestConfig<bool> RecordNearbyActors = new(true);
         internal static TestConfig<bool> RecordNearbyRigBones = new(true);
+        internal static TestConfig<bool> CacheNearbyWorldGeometry = new(false);
         internal static TestConfig<float> NearbyActorRadius = new(30f);
         internal static TestLogger ModLogger = new();
     }
