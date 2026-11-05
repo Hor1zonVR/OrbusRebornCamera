@@ -63,6 +63,11 @@
       <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.AnimationModule"
+               Condition="Exists('$(GameDir)\BepInEx\interop\UnityEngine.AnimationModule.dll')">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.AnimationModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
 
     <Reference Include="UnityEngine.InputModule">
       <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.InputModule.dll</HintPath>
