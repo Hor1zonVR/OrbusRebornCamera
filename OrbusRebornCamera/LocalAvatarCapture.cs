@@ -98,8 +98,7 @@ internal sealed class LocalAvatarCapture
         // The Minicam layer and a small eye-distance bound exclude scenery,
         // NPCs and distant people. Identity is still a heuristic; if RC
         // cannot find a convincing local mesh, it exports no avatar pose.
-        SkinnedMeshRenderer[] renderers =
-            Resources.FindObjectsOfTypeAll<SkinnedMeshRenderer>();
+        var renderers = Resources.FindObjectsOfTypeAll<SkinnedMeshRenderer>();
         float bestScore = float.MaxValue;
         SkinnedMeshRenderer? best = null;
         Transform? bestAnchor = null;
@@ -138,7 +137,7 @@ internal sealed class LocalAvatarCapture
         {
             Mesh mesh = best.sharedMesh;
             MeshHint = Clean(mesh != null ? mesh.name : best.name);
-            Transform[] bones = best.bones;
+            var bones = best.bones;
             BoneCount = bones == null ? 0 : bones.Length;
         }
         catch (Exception)
