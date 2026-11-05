@@ -434,6 +434,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             snapshot[0].Seconds, snapshot[snapshot.Length - 1].Seconds,
             out WorldActorIdentity[] actorIdentities,
             out WorldActorObservation[] actorSamples);
+        string actorVisualManifest = _nearbyActors.CaptureManifest();
         _lastStatus = "Saving " + snapshot.Length + " pose samples...";
         Plugin.ModLogger.LogInfo(
             "[ReplayBuffer] Queued " + snapshot.Length +
@@ -444,7 +445,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         _pending.Add(Task.Run(() =>
             WriteClip(destination, clipId, sessionId, duration, snapshot,
                 avatarMeshHint, avatarBoneCount, avatarRigManifest,
-                actorIdentities, actorSamples)));
+                actorIdentities, actorSamples, actorVisualManifest)));
     }
 
     private void DrainCompletedSaves()
@@ -474,7 +475,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         string avatarMeshHint, int avatarBoneCount,
         string avatarRigManifest,
         WorldActorIdentity[] actorIdentities,
-        WorldActorObservation[] actorSamples)
+        WorldActorObservation[] actorSamples,
+        string actorVisualManifest)
     {
         string temporary = destination + ".partial";
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -574,6 +576,15 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                     "[WorldActors] Actor sidecar could not be saved: " +
                     ex.Message);
             }
+            try
+            {
+                string manifestPath = Path.ChangeExtension(
+                    destination, ".actors.manifest.txt");
+                File.WriteAllText(manifestPath, actorVisualManifest,
+                    new UTF8Encoding(false));
+            }
+            catch (IOException) { /* primary clip remains valid */ }
+            catch (UnauthorizedAccessException) { /* primary clip remains valid */ }
             return destination;
         }
         catch
