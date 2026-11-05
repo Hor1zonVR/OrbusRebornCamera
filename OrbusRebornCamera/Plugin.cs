@@ -54,6 +54,7 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<int> ReplayBufferSeconds = null!;
     internal static ConfigEntry<bool> RecordNearbyActors = null!;
     internal static ConfigEntry<bool> RecordNearbyRigBones = null!;
+    internal static ConfigEntry<bool> CacheNearbyWorldGeometry = null!;
     internal static ConfigEntry<float> NearbyActorRadius = null!;
 
     public override void Load()
@@ -249,6 +250,12 @@ public sealed class Plugin : BasePlugin
             "Opt-in style real 5Hz bone-pose recording for up to 4 nearby " +
             "skinned NPC/pet/player candidates. May increase memory and clip " +
             "size; disable here in RebornMenu if performance suffers.");
+        CacheNearbyWorldGeometry = Config.Bind(
+            "ReplayBuffer", "CacheNearbyWorldGeometry", false,
+            "Experimental: retain up to 96 nearby static MeshFilter scene " +
+            "mesh copies (450k vertices total) for same-process offline " +
+            "scenery rendering. May stutter in VR. Opt in via RebornMenu. " +
+            "Does not save mesh data to the replay file.");
         NearbyActorRadius = Config.Bind(
             "ReplayBuffer", "NearbyActorRadius", 30f,
             "Physics neighborhood for actor observations in metres, clamped " +
