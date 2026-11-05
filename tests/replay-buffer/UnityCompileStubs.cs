@@ -106,6 +106,7 @@ namespace UnityEngine
     public class GameObject : Object
     {
         public GameObject(string name = "test") { }
+        public string name => "test-root";
         public static GameObject? Find(string name) => null;
         public Transform transform => new();
         public T? GetComponent<T>() where T : class => null;
@@ -248,6 +249,8 @@ namespace UnityEngine.SceneManagement
         public string name => "stub-scene";
         public bool isLoaded => true;
         public bool IsValid() => true;
+        public UnityEngine.GameObject[] GetRootGameObjects() =>
+            Array.Empty<UnityEngine.GameObject>();
     }
     public static class SceneManager
     {
