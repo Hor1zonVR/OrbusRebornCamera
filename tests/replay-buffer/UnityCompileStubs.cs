@@ -132,6 +132,7 @@ namespace UnityEngine
     }
     public class Renderer
     {
+        public int GetInstanceID() => 5;
         public string name => "renderer";
         public bool enabled => true;
         public GameObject gameObject => new();
