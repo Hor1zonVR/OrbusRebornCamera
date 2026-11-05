@@ -74,6 +74,21 @@ public sealed partial class CameraDiagnostics
             _desktop.enabled = true;
 
             _offlineStatus = "Offline stage ACTIVE. Cached models work only in same process.";
+            // If this recording already has a same-process visual cache,
+            // show the actual mesh experiment by default instead of
+            // leaving the previous Bones diagnostic mode selected.
+            if (_replayClip != null &&
+                ReplayVisualAssets.SessionId == _replayClip.SessionId &&
+                (ReplayVisualAssets.RigCount > 0 ||
+                 ReplayVisualAssets.AvatarPartCount > 0))
+            {
+                _showObservedActors = true;
+                _showObservedBones = false;
+                _showObservedModels = true;
+                Plugin.ModLogger.LogInfo(
+                    "[ReplayVisuals] MODEL preview selected for this " +
+                    "same-process clip. Switch to BONES for diagnostics.");
+            }
             BuildOfflineVisuals();
             FocusReplayHead();
             Plugin.ModLogger.LogInfo(
