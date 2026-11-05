@@ -327,6 +327,12 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                 }
             }
         }
+        else
+        {
+            // Disabling actor capture in RebornMenu also removes its
+            // buffered observations; it doesn't silently export old data.
+            _nearbyActors.Clear();
+        }
     }
 
     private static string LoadedZoneSignature()
