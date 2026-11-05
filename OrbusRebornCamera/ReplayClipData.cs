@@ -6,7 +6,7 @@ using System.IO;
 namespace OrbusBetterMirror;
 
 // No Unity dependency: the same reader is used by the player and CI tests.
-// File format v1 (27 columns) and v2 (appended zone/transition) are supported.
+// File formats v1/v2 and v3 (local avatar root pose) are supported.
 internal enum ReplayTransitionKind { None, Gap, Teleport, ZoneChange }
 
 internal struct ReplayPoseValue
@@ -22,7 +22,7 @@ internal sealed class ReplayClipFrame
     internal string Scene = "";
     internal string Zone = "(not recorded)";
     internal ReplayTransitionKind Transition;
-    internal ReplayPoseValue Head, Left, Right;
+    internal ReplayPoseValue Head, Left, Right, Avatar;
 }
 
 internal sealed class ReplayClipData
@@ -31,6 +31,9 @@ internal sealed class ReplayClipData
     internal readonly string ClipId;
     internal readonly string SessionId;
     internal readonly string FileName;
+    internal readonly string AvatarMeshHint;
+    internal readonly int AvatarBoneCountHint;
+    internal int AvatarAnchorSamples { get; }
     internal int TeleportCount { get; }
     internal int GapCount { get; }
     internal int ZoneChangeCount { get; }
@@ -39,7 +42,8 @@ internal sealed class ReplayClipData
     internal int Count => Frames.Length;
 
     internal ReplayClipData(ReplayClipFrame[] frames, string clipId,
-        string sessionId, string fileName)
+        string sessionId, string fileName,
+        string avatarMeshHint = "(not recorded)", int avatarBoneCountHint = 0)
     {
         if (frames.Length == 0)
             throw new InvalidDataException("Replay has no pose frames.");
@@ -47,12 +51,17 @@ internal sealed class ReplayClipData
         ClipId = clipId;
         SessionId = sessionId;
         FileName = fileName;
+        AvatarMeshHint = avatarMeshHint;
+        AvatarBoneCountHint = avatarBoneCountHint;
+        int avatarCount = 0;
         foreach (ReplayClipFrame frame in frames)
         {
+            if (frame.Avatar.Valid) avatarCount++;
             if (frame.Transition == ReplayTransitionKind.Teleport) TeleportCount++;
             else if (frame.Transition == ReplayTransitionKind.Gap) GapCount++;
             else if (frame.Transition == ReplayTransitionKind.ZoneChange) ZoneChangeCount++;
         }
+        AvatarAnchorSamples = avatarCount;
     }
 
     // Replay position is relative to the clip start (0 to Duration).
@@ -103,6 +112,8 @@ internal static class ReplayClipReader
         var frames = new List<ReplayClipFrame>(9000);
         var headers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         string clipId = "", sessionId = "";
+        string avatarMeshHint = "(not recorded)";
+        int avatarBoneCountHint = 0;
         int lineNumber = 0;
         while (true)
         {
@@ -117,6 +128,11 @@ internal static class ReplayClipReader
                     clipId = metadata.Substring("clip_id=".Length);
                 else if (metadata.StartsWith("session_id=", StringComparison.Ordinal))
                     sessionId = metadata.Substring("session_id=".Length);
+                else if (metadata.StartsWith("avatar_mesh_hint=", StringComparison.Ordinal))
+                    avatarMeshHint = metadata.Substring("avatar_mesh_hint=".Length);
+                else if (metadata.StartsWith("avatar_bone_count_hint=", StringComparison.Ordinal))
+                    int.TryParse(metadata.Substring("avatar_bone_count_hint=".Length),
+                        NumberStyles.Integer, Invariant, out avatarBoneCountHint);
                 continue;
             }
             string[] fields = line.Split('\t');
@@ -141,7 +157,8 @@ internal static class ReplayClipReader
                 Zone = Text(fields, headers, "zone", "(not recorded)"),
                 Head = Pose(fields, headers, "head"),
                 Left = Pose(fields, headers, "left"),
-                Right = Pose(fields, headers, "right")
+                Right = Pose(fields, headers, "right"),
+                Avatar = Pose(fields, headers, "avatar")
             };
             if (double.IsInfinity(frame.Seconds) ||
                 double.IsNaN(frame.Seconds) ||
@@ -164,7 +181,8 @@ internal static class ReplayClipReader
             }
             frames.Add(frame);
         }
-        return new ReplayClipData(frames.ToArray(), clipId, sessionId, fileName);
+        return new ReplayClipData(frames.ToArray(), clipId, sessionId,
+            fileName, avatarMeshHint, avatarBoneCountHint);
     }
 
     internal static ReplayTransitionKind DetectTransition(
