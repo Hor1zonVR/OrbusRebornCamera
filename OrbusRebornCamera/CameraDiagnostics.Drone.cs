@@ -416,12 +416,14 @@ public sealed partial class CameraDiagnostics
 
     private void OnDisable()
     {
+        if (_offlineReplayActive) StopOfflineReplay();
         LeaveDrone();
         RestoreCinematicRendering();
     }
 
     private void OnDestroy()
     {
+        if (_offlineReplayActive) StopOfflineReplay();
         LeaveDrone();
         RestoreCinematicRendering();
         DestroyPathPreviewMaterial();
