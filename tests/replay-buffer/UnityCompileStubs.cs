@@ -58,6 +58,9 @@ namespace UnityEngine
     public class Transform
     {
         public Transform? parent => null;
+        public GameObject gameObject => new();
+        public int GetInstanceID() => 1;
+        public T? GetComponent<T>() where T : class => null;
         public Transform? Find(string path) => null;
         public T[] GetComponentsInChildren<T>(bool includeInactive) =>
             Array.Empty<T>();
@@ -74,6 +77,26 @@ namespace UnityEngine
     {
         public T? GetComponent<T>() where T : class => null;
         public int layer => 20;
+        public bool activeInHierarchy => true;
+    }
+    public class Collider
+    {
+        public Transform transform => new();
+    }
+    public static class Physics
+    {
+        public static Collider[] OverlapSphere(Vector3 position, float radius) =>
+            Array.Empty<Collider>();
+    }
+    public struct AnimatorStateInfo
+    {
+        public int fullPathHash => 0;
+        public float normalizedTime => 0f;
+    }
+    public class Animator
+    {
+        public bool isActiveAndEnabled => true;
+        public AnimatorStateInfo GetCurrentAnimatorStateInfo(int layer) => default;
     }
     public class Renderer
     {
@@ -214,6 +237,8 @@ namespace OrbusBetterMirror
     {
         internal static TestConfig<bool> ReplayBufferEnabled = new(true);
         internal static TestConfig<int> ReplayBufferSeconds = new(300);
+        internal static TestConfig<bool> RecordNearbyActors = new(true);
+        internal static TestConfig<float> NearbyActorRadius = new(30f);
         internal static TestLogger ModLogger = new();
     }
 
