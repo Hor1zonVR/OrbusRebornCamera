@@ -198,8 +198,17 @@ internal sealed class WorldActorTimeline
             {
                 WorldActorObservation next = track[lo];
                 double dt = next.Seconds - prior.Seconds;
+                double dx = next.X - prior.X;
+                double dy = next.Y - prior.Y;
+                double dz = next.Z - prior.Z;
+                double distance = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                bool suddenJump = dt > 0d && distance > 12d &&
+                    distance / dt > 35d;
+                bool zoneSwap = prior.Zone != next.Zone &&
+                    prior.Zone != "(unknown)" &&
+                    next.Zone != "(unknown)";
                 if (dt > 0d && dt <= .3d && next.Event == "pose" &&
-                    prior.Event != "leave")
+                    prior.Event != "leave" && !suddenJump && !zoneSwap)
                 {
                     float t = (float)((seconds - prior.Seconds) / dt);
                     prior.X += (next.X - prior.X) * t;
