@@ -33,6 +33,13 @@ runtime. The new report addresses that blind spot.
   **450,000 mesh vertices total**. It avoids traversing giant scene
   roots, player rigs and roots containing Animator components.
 - It does not do a full-scene `FindObjectsOfTypeAll` scan.
+- It skips character-selection scenes so they cannot exhaust the
+  small cache before Highsteppe loads. Only a few very large ground
+  pieces can consume the total vertex budget; more slots remain for
+  smaller architectural mesh objects.
+- If a matching same-process character cache exists when opening
+  the offline viewer, RC starts in `ACTORS: MODELS` mode automatically.
+  The `BONES` and `AXES` modes remain available for comparisons.
 - Existing saved local pose and actor bone streams remain compatible.
 - When you **Save Clip**, a new
   `RC_Clip_....visuals.txt` report is written, containing:
