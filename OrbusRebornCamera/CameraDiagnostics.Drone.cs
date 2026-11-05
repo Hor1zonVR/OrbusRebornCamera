@@ -74,6 +74,7 @@ public sealed partial class CameraDiagnostics
 
     private bool RecenterDroneToPlayer(string reason)
     {
+        if (_offlineReplayActive) return false;
         Camera? playerEye = FindVRCamera();
         if (playerEye == null || _desktop == null)
             return false;
@@ -166,6 +167,11 @@ public sealed partial class CameraDiagnostics
 
     private void ToggleFreecam()
     {
+        if (_offlineReplayActive)
+        {
+            StopOfflineReplay();
+            return;
+        }
         if (_mode == CameraMode.Drone)
         {
             StopKeyframePlayback();
@@ -365,7 +371,7 @@ public sealed partial class CameraDiagnostics
 
         // The game camera may be recreated on world changes; do not permanently
         // point the recording camera at a destroyed or unrelated scene object.
-        if (_source == null)
+        if (!_offlineReplayActive && _source == null)
         {
             _source = FindVRCamera();
             if (_source != null)
