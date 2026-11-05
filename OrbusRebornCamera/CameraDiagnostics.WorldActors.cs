@@ -92,6 +92,16 @@ public sealed partial class CameraDiagnostics
             _showObservedModels = false;
         }
         UpdateOfflineVisuals();
+        Plugin.ModLogger.LogInfo("[ReplayVisuals] Display " +
+            ActorDisplayLabel + ", clip=" +
+            (_replayClip == null ? "(none)" : _replayClip.ClipId) +
+            ", session_cache_match=" +
+            (_replayClip != null &&
+             ReplayVisualAssets.SessionId == _replayClip.SessionId) +
+            ", cached_rigs=" + ReplayVisualAssets.RigCount +
+            ", avatar_parts=" + ReplayVisualAssets.AvatarPartCount +
+            ", world_parts=" + ReplayVisualAssets.WorldPartCount +
+            ", built_rigs=" + _offlineRigVisuals.Count);
     }
 
     private string ActorDisplayLabel => !_showObservedActors ? "OFF" :
