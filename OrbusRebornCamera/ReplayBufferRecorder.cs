@@ -449,6 +449,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             out WorldActorIdentity[] actorIdentities,
             out WorldActorObservation[] actorSamples);
         string actorVisualManifest = _nearbyActors.CaptureManifest();
+        string visualCacheManifest = ReplayVisualAssets.CaptureDiagnosticReport(_sessionId);
         _nearbyActors.SnapshotRigs(_clockSeconds,
             snapshot[0].Seconds, snapshot[snapshot.Length - 1].Seconds,
             out WorldRigDefinition[] rigDefinitions,
@@ -468,7 +469,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             WriteClip(destination, clipId, sessionId, duration, snapshot,
                 avatarMeshHint, avatarBoneCount, avatarRigManifest,
                 actorIdentities, actorSamples, actorVisualManifest,
-                rigDefinitions, rigSamples)));
+                rigDefinitions, rigSamples, visualCacheManifest)));
     }
 
     private void DrainCompletedSaves()
@@ -500,7 +501,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         WorldActorIdentity[] actorIdentities,
         WorldActorObservation[] actorSamples,
         string actorVisualManifest,
-        WorldRigDefinition[] rigDefinitions, WorldRigSample[] rigSamples)
+        WorldRigDefinition[] rigDefinitions, WorldRigSample[] rigSamples,
+        string visualCacheManifest)
     {
         string temporary = destination + ".partial";
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -605,6 +607,19 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                 string manifestPath = Path.ChangeExtension(
                     destination, ".actors.manifest.txt");
                 File.WriteAllText(manifestPath, actorVisualManifest,
+                    new UTF8Encoding(false));
+            }
+            catch (IOException) { /* primary clip remains valid */ }
+            catch (UnauthorizedAccessException) { /* primary clip remains valid */ }
+
+            // The visual cache is intentionally same-process only.
+            // Exporting mesh names/paths lets us test which Highsteppe
+            // scenery objects were discovered without guessing from UI.
+            try
+            {
+                string visualPath = Path.ChangeExtension(
+                    destination, ".visuals.txt");
+                File.WriteAllText(visualPath, visualCacheManifest,
                     new UTF8Encoding(false));
             }
             catch (IOException) { /* primary clip remains valid */ }
