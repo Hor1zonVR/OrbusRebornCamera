@@ -238,6 +238,12 @@ internal sealed class NearbyWorldActorCapture
                 now >= _nextWorldCopy)
             {
                 _nextWorldCopy = now + 3.5d;
+                // First inspect known Highsteppe static scene hierarchies
+                // without requiring a nearby collider on every wall/floor.
+                // Then add small collision-adjacent props as before.
+                ReplayVisualAssets.CacheHighsteppeStructure(
+                    ReplayBufferRecorder.CurrentSessionId,
+                    origin, Math.Min(35f, radius), zone);
                 ReplayVisualAssets.CacheNearbyWorld(
                     ReplayBufferRecorder.CurrentSessionId,
                     colliders, origin, Math.Min(25f, radius), zone);
