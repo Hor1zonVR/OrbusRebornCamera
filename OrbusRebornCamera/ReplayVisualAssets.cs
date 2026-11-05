@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace OrbusBetterMirror;
 
@@ -71,6 +72,9 @@ internal static class ReplayVisualAssets
     private static readonly HashSet<int> StructuralVisited = new();
     private static string _structuralZone = "";
     private static bool _rootsSeeded;
+    private static float _lastRootSurveyAt;
+    private static Vector3 _lastRootSurveyOrigin;
+    private static int _sceneRootCandidates;
     private static string _sessionId = "";
     internal static string SessionId => _sessionId;
     internal static int RigCount => RigAssets.Count;
@@ -117,6 +121,9 @@ internal static class ReplayVisualAssets
         StructuralVisited.Clear();
         _structuralZone = "";
         _rootsSeeded = false;
+        _sceneRootCandidates = 0;
+        _lastRootSurveyAt = 0f;
+        _lastRootSurveyOrigin = default;
         _sessionId = "";
     }
 
@@ -464,7 +471,11 @@ internal static class ReplayVisualAssets
             !zone.Contains("Highsteppe", StringComparison.OrdinalIgnoreCase))
             return;
         StartSession(sessionId);
-        if (zone != _structuralZone)
+        bool movedFar = StructuralQueue.Count == 0 && _rootsSeeded &&
+            Vector3.Distance(origin, _lastRootSurveyOrigin) > 25f;
+        bool refresh = StructuralQueue.Count == 0 && _rootsSeeded &&
+            Time.unscaledTime - _lastRootSurveyAt > 35f;
+        if (zone != _structuralZone || movedFar || refresh)
         {
             StructuralQueue.Clear();
             StructuralVisited.Clear();
@@ -474,6 +485,8 @@ internal static class ReplayVisualAssets
         if (!_rootsSeeded)
         {
             _rootsSeeded = true;
+            _lastRootSurveyAt = Time.unscaledTime;
+            _lastRootSurveyOrigin = origin;
             int found = 0;
             foreach (string name in StructuralRootNames)
             {
@@ -486,9 +499,11 @@ internal static class ReplayVisualAssets
                 }
                 catch (Exception) { /* scene may be switching */ }
             }
-            Plugin.ModLogger.LogInfo("[WorldStructure] Targeted Highsteppe " +
-                "root probes found " + found + " of " +
-                StructuralRootNames.Length + "; no global scene scan.");
+            _sceneRootCandidates = TryAddRelevantSceneRoots();
+            Plugin.ModLogger.LogInfo("[WorldStructure] Named Highsteppe " +
+                "roots=" + found + ", matched loaded scene roots=" +
+                _sceneRootCandidates + ", queue=" + StructuralQueue.Count +
+                ". No full-scene child scan.");
         }
 
         int scanned = 0, copied = 0;
@@ -528,6 +543,56 @@ internal static class ReplayVisualAssets
                 " static meshes this pass, visited " + scanned +
                 " nodes, queue=" + StructuralQueue.Count +
                 ", total=" + WorldParts.Count + ". No gameplay objects copied.");
+    }
+
+    private static int TryAddRelevantSceneRoots()
+    {
+        // Scan only the top-level GameObjects of loaded scenes, not every
+        // renderer/transform. Select likely architecture root containers
+        // by their names. Their children are visited incrementally later.
+        int selected = 0, checkedRoots = 0;
+        try
+        {
+            int sceneCount = Math.Min(12, SceneManager.sceneCount);
+            for (int i = 0; i < sceneCount && checkedRoots < 1200; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (!scene.IsValid() || !scene.isLoaded) continue;
+                var roots = scene.GetRootGameObjects();
+                int count = roots == null ? 0 :
+                    Math.Min(roots.Length, 1200 - checkedRoots);
+                for (int j = 0; j < count; j++)
+                {
+                    GameObject root = roots[j];
+                    if (root == null) continue;
+                    checkedRoots++;
+                    string name = root.name ?? "";
+                    if (name.Contains("Highsteppe", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("CenterCourt", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("FellowshipCourt", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Terrain", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Building", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Ground", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Wall", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("TownStatic", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("Nate_HS", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("OverworldStatic", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (StructuralQueue.Count < 96)
+                        {
+                            StructuralQueue.Enqueue((root.transform, 0));
+                            selected++;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Plugin.ModLogger.LogWarning("[WorldStructure] Loaded-scene " +
+                "root inventory unavailable: " + ex.GetType().Name);
+        }
+        return selected;
     }
 
     private static bool IsFoliageName(string name)
@@ -642,6 +707,7 @@ internal static class ReplayVisualAssets
         sb.AppendLine("structural_meshes=" + _structuralMeshes);
         sb.AppendLine("lower_lods_skipped=" + _lodSkipped);
         sb.AppendLine("structural_scene_nodes_seen=" + StructuralVisited.Count);
+        sb.AppendLine("matched_loaded_scene_roots=" + _sceneRootCandidates);
         sb.AppendLine("structural_scene_nodes_remaining=" + StructuralQueue.Count);
         sb.AppendLine("structural_scene_zone=" + _structuralZone);
         sb.AppendLine("world_copy_cap=" + MaxWorldMeshes);
