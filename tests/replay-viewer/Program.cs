@@ -76,6 +76,19 @@ static class ReplayReaderTests
         data.Evaluate(-10, out a, out b, out blend);
         Check(a.Seconds == 0d, "seek clamp start");
         Check(!data.Frames[3].Left.Valid, "invalid hand preserved");
+        // Grid is stationary inside one uninterrupted region. It changes
+        // only when replay actually snaps to a teleport/new loaded zone.
+        Check(Math.Abs(data.GridReferenceAt(.1).X) < .001f,
+            "grid remains at original segment before teleport");
+        Check(Math.Abs(data.GridReferenceAt(.2).X - 212f) < .001f,
+            "grid relocates to recorded teleport destination");
+        Check(Math.Abs(data.GridReferenceAt(.5).X - 212f) < .001f,
+            "ordinary locomotion does not move grid anchor");
+        Check(Math.Abs(data.GridReferenceAt(1.2).X - 212f) < .001f,
+            "recording gap does not shift grid anchor");
+        if (v2)
+            Check(Math.Abs(data.GridReferenceAt(1.233).X - 212.3f) < .001f,
+                "loaded zone change shifts grid anchor");
     }
 
     static void TestV3()
