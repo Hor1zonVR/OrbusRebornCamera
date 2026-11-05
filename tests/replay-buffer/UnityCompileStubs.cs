@@ -29,6 +29,7 @@ namespace UnityEngine
         public Vector3 normalized => default;
         public static Vector3 zero => default;
         public static Vector3 up => default;
+        public static Vector3 down => default;
         public static Vector3 forward => default;
         public static Vector3 back => default;
         public static Vector3 right => default;
@@ -56,10 +57,25 @@ namespace UnityEngine
         public Vector3 position => default;
         public Quaternion rotation => default;
     }
+    public enum StereoTargetEyeMask { None }
+    public enum CameraClearFlags { SolidColor }
     public class Camera
     {
         public static Camera[] allCameras => Array.Empty<Camera>();
         public static Camera current => new Camera();
+        public bool enabled { get; set; }
+        public StereoTargetEyeMask stereoTargetEye { get; set; }
+        public int targetDisplay { get; set; }
+        public object? targetTexture { get; set; }
+        public float depth { get; set; }
+        public Rect rect { get; set; }
+        public int cullingMask { get; set; }
+        public CameraClearFlags clearFlags { get; set; }
+        public Color backgroundColor { get; set; }
+        public float nearClipPlane { get; set; }
+        public float farClipPlane { get; set; }
+        public float fieldOfView { get; set; }
+        public float aspect { get; set; }
         public bool isActiveAndEnabled => true;
         public bool stereoEnabled => true;
         public string name => "Camera (eye)";
@@ -82,7 +98,13 @@ namespace UnityEngine
         public static void Begin(int mode) { }
         public static void End() { }
     }
-    public static class Application { public static bool isFocused => true; }
+    public static class Application
+    {
+        public static bool isFocused => true;
+        public static string dataPath => "/tmp/test_data";
+        public static string streamingAssetsPath => "/tmp/test_data/StreamingAssets";
+    }
+    public static class Screen { public static int width => 1920; public static int height => 1080; }
     public static class Time
     {
         public static float unscaledDeltaTime => 0f;
@@ -93,6 +115,7 @@ namespace UnityEngine
         public static float Max(float a, float b) => Math.Max(a,b);
         public static float Abs(float a) => Math.Abs(a);
         public static float DeltaAngle(float a, float b) => 0f;
+        public static float Round(float a) => (float)Math.Round(a);
     }
 }
 
@@ -157,6 +180,12 @@ namespace OrbusBetterMirror
         private readonly UnityEngine.GUIStyle _studioMuted = new();
         private enum CameraMode { POV, Drone }
         private CameraMode _mode = CameraMode.Drone;
+        private CameraMode _lastFollowMode = CameraMode.POV;
+        private bool _autoStartHandled;
+        private bool _droneRecenterPending;
+        private bool _droneHasObservedEye;
+        private static bool DesktopFreecamActive { get; set; }
+        private UnityEngine.Camera? _source;
         private UnityEngine.Camera? _desktop = new();
         private bool IsCameraActive => true;
         private UnityEngine.Material? _pathPreviewMaterial = new();
@@ -164,6 +193,9 @@ namespace OrbusBetterMirror
         private UnityEngine.Vector3 _droneVelocity;
         private float _droneYaw, _dronePitch, _droneRoll;
         private void StopKeyframePlayback() { }
+        private void ReleaseDronePointer() { }
+        private void RestoreCinematicRendering() { }
+        private void CreateDesktopCamera() { _desktop = new UnityEngine.Camera(); }
         private bool EnterFreecam() => true;
         private bool EnsurePathPreviewMaterial() => true;
         private static void DrawGuideLine(UnityEngine.Vector3 from,
