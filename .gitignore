@@ -32,3 +32,7 @@ interop/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Consent-based replay relay storage contains private player recordings and hashed room keys
+party-sync-relay/data/
+party-sync-relay/*.partial
