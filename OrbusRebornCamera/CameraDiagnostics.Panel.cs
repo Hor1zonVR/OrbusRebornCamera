@@ -462,20 +462,24 @@ public sealed partial class CameraDiagnostics
     {
         StudioSection(x, y, w, "CAMERA PERSPECTIVE");
         float half = (w - 9f) * .5f;
-        if (StudioButton(new Rect(x, y + 31f, half, 37f),
+
+        if (StudioButton(new Rect(x, y + 31f, half, 33f),
             "First person", _mode == CameraMode.POV))
             SetPanelMode(CameraMode.POV);
-        if (StudioButton(new Rect(x + half + 9f, y + 31f, half, 37f),
+        if (StudioButton(new Rect(x + half + 9f, y + 31f, half, 33f),
             "Third person", _mode == CameraMode.ThirdPerson))
             SetPanelMode(CameraMode.ThirdPerson);
-        if (StudioButton(new Rect(x, y + 77f, half, 37f),
+        if (StudioButton(new Rect(x, y + 71f, half, 33f),
             "Selfie", _mode == CameraMode.Selfie))
             SetPanelMode(CameraMode.Selfie);
-        if (StudioButton(new Rect(x + half + 9f, y + 77f, half, 37f),
+        if (StudioButton(new Rect(x + half + 9f, y + 71f, half, 33f),
             "Static / detached", _mode == CameraMode.Static))
             SelectPanelStaticMode();
 
-        float fov = StudioSlider(1, x, y + 123f, w,
+        // Compact spacing deliberately leaves room for TWO independent
+        // third-person position sliders without covering the pinned footer.
+        // Maximum content bottom is y+406.
+        float fov = StudioSlider(1, x, y + 113f, w,
             "Horizontal FOV", Plugin.HorizontalFov.Value,
             50f, 150f,
             Plugin.HorizontalFov.Value.ToString("0") + "°");
@@ -493,7 +497,7 @@ public sealed partial class CameraDiagnostics
             _mode == CameraMode.Static &&
             _lastFollowMode == CameraMode.Selfie;
 
-        float smooth = StudioSlider(2, x, y + 186f, w,
+        float smooth = StudioSlider(2, x, y + 166f, w,
             "Follow smoothing", Plugin.Smoothing.Value, 0f, 20f,
             Plugin.Smoothing.Value.ToString("0.0"));
         smooth = Mathf.Round(smooth * 2f) / 2f;
@@ -504,9 +508,10 @@ public sealed partial class CameraDiagnostics
         {
             float distance = third ? Plugin.ThirdDistance.Value :
                 Plugin.SelfieDistance.Value;
-            float changed = StudioSlider(3, x, y + 248f, w,
+            float changed = StudioSlider(3, x, y + 219f, w,
                 third ? "Third-person distance" : "Selfie distance",
-                distance, .5f, 8f, distance.ToString("0.0") + "m");
+                distance, .5f, third ? 16f : 8f,
+                distance.ToString("0.0") + "m");
             changed = Mathf.Round(changed * 10f) / 10f;
             if (Mathf.Abs(changed - distance) > .05f)
             {
@@ -516,20 +521,38 @@ public sealed partial class CameraDiagnostics
         }
         else
         {
-            StudioFill(new Rect(x, y + 251f, w, 39f), StudioSurface);
-            StudioText(new Rect(x + 12f, y + 258f, w - 24f, 22f),
-                "Distance is available in Third Person / Selfie",
+            StudioFill(new Rect(x, y + 223f, w, 37f), StudioSurface);
+            StudioText(new Rect(x + 12f, y + 230f, w - 24f, 22f),
+                "Distance available in Third Person / Selfie",
+                _studioMuted);
+        }
+
+        if (third)
+        {
+            float height = StudioSlider(4, x, y + 272f, w,
+                "Third-person height (from head)",
+                Plugin.ThirdHeight.Value, -2f, 5f,
+                Plugin.ThirdHeight.Value.ToString("0.0") + "m");
+            height = Mathf.Round(height * 10f) / 10f;
+            if (Mathf.Abs(height - Plugin.ThirdHeight.Value) > .05f)
+                Plugin.ThirdHeight.Value = height;
+        }
+        else
+        {
+            StudioFill(new Rect(x, y + 276f, w, 37f), StudioSurface);
+            StudioText(new Rect(x + 12f, y + 283f, w - 24f, 22f),
+                "Height available in Third Person",
                 _studioMuted);
         }
 
         // Both toggles affect the creator desktop output only.
         bool show = Plugin.ShowLocalAvatar.Value;
         bool cleanHud = Plugin.HideDesktopLevelHud.Value;
-        if (StudioButton(new Rect(x, y + 313f, half, 34f),
+        if (StudioButton(new Rect(x, y + 328f, half, 31f),
             show ? "My avatar: ON" : "My avatar: OFF", show))
             ToggleLocalAvatar();
-        if (StudioButton(new Rect(x + half + 9f, y + 313f,
-            half, 34f),
+        if (StudioButton(new Rect(x + half + 9f, y + 328f,
+            half, 31f),
             cleanHud ? "Level HUD: HIDDEN" : "Level HUD: SHOWN",
             cleanHud))
         {
@@ -540,7 +563,7 @@ public sealed partial class CameraDiagnostics
                 ". Headset HUD is unchanged.");
         }
 
-        if (StudioButton(new Rect(x, y + 365f, w, 39f),
+        if (StudioButton(new Rect(x, y + 366f, w, 38f),
             IsCameraActive ? "Disable creator camera" :
                 "Enable creator camera", IsCameraActive))
             ToggleCamera();
