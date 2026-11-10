@@ -123,9 +123,9 @@ public sealed partial class CameraDiagnostics
     {
         if (!_showObservedActors || !_showObservedBones ||
             _worldRigTimeline == null || _worldActorTimeline == null ||
-            _replayClip == null) return;
+            _replayClip == null || !PrimaryPartyRecordingAvailable) return;
 
-        double when = _replayClip.FirstSeconds + _replayElapsed;
+        double when = _replayClip.FirstSeconds + LocalReplayElapsed;
         // Only actors currently observed in the matching actor timeline.
         // This prevents frozen bones after a pet/NPC leaves the recording.
         foreach (WorldActorObservation actor in _worldActorTimeline.VisibleAt(when))
@@ -153,10 +153,10 @@ public sealed partial class CameraDiagnostics
     private void RenderWorldActorMarkers()
     {
         if (!_showObservedActors || _replayClip == null ||
-            _worldActorTimeline == null) return;
+            _worldActorTimeline == null || !PrimaryPartyRecordingAvailable) return;
 
         var at = _worldActorTimeline.VisibleAt(
-            _replayClip.FirstSeconds + _replayElapsed);
+            _replayClip.FirstSeconds + LocalReplayElapsed);
 
         foreach (WorldActorObservation actor in at)
         {
