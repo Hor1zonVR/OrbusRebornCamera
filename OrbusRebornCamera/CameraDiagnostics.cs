@@ -43,6 +43,11 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
     private Camera? _source;
     private Camera? _desktop;
     private GameObject? _cameraRoot;
+    private DesktopLevelHudFilter? _levelHudFilter;
+
+    internal bool ShouldSuppressDesktopLevelHud =>
+        IsCameraActive && !_offlineReplayActive &&
+        Plugin.HideDesktopLevelHud.Value;
 
     private CameraMode _mode = CameraMode.POV;
     private CameraMode _lastFollowMode = CameraMode.POV;
@@ -92,7 +97,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         LoadKeyframes();
 
         Plugin.ModLogger.LogInfo(
-            $"RebornCam v0.9.28 ready. " +
+            $"RebornCam v0.9.29 ready. " +
             $"Mode={_mode}, " +
             $"FOV={GetHorizontalFov():0}, " +
             $"AutoStart={Plugin.StartEnabled.Value}"
@@ -491,6 +496,10 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         _desktop =
             _cameraRoot.AddComponent<Camera>();
 
+        // Camera-scoped OnPreCull/OnPostRender callbacks avoid changing
+        // the VR eye renderers, unlike SetActive or global UI hides.
+        _levelHudFilter = _cameraRoot.AddComponent<DesktopLevelHudFilter>();
+        _levelHudFilter.Owner = this;
         _desktop.enabled = false;
 
         Plugin.ModLogger.LogInfo(
@@ -924,6 +933,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         {
             _desktop.enabled = false;
         }
+        _levelHudFilter?.Restore();
 
         Plugin.ModLogger.LogInfo(
             "Creator camera DISABLED. " +
