@@ -178,7 +178,7 @@ public sealed partial class CameraDiagnostics
             actorKey, out ReplayVisualAssets.RigAsset? asset) ||
             asset == null) return;
         if (!_worldRigTimeline.TryAt(actorKey,
-            _replayClip.FirstSeconds + _replayElapsed,
+            _replayClip.FirstSeconds + LocalReplayElapsed,
             out WorldRigDefinition? definition, out _, out _, out _) ||
             definition == null || definition.BoneCount != asset.BoneCount)
             return;
@@ -227,7 +227,9 @@ public sealed partial class CameraDiagnostics
         }
 
         ReplayPoseValue currentHead = EvaluatedPose(0);
-        _replayClip.Evaluate(_replayElapsed,
+        bool localAvailable = PrimaryPartyRecordingAvailable;
+        _replayClip.Evaluate(Math.Max(0d, Math.Min(_replayClip.Duration,
+                LocalReplayElapsed)),
             out ReplayClipFrame currentFrame, out _, out _);
         foreach (StaticWorldVisual world in _offlineWorldVisuals)
         {
@@ -237,14 +239,15 @@ public sealed partial class CameraDiagnostics
                 world.Asset.Position, ReplayPosition(currentHead)) < 85f;
             bool zoneMatches = string.Equals(world.Asset.Zone,
                 currentFrame.Zone, StringComparison.Ordinal);
-            world.Object.SetActive(_showCachedWorld && near && zoneMatches);
+            world.Object.SetActive(localAvailable &&
+                _showCachedWorld && near && zoneMatches);
         }
 
         bool visible = _showObservedActors && _showObservedModels;
         foreach (LocalPartVisual part in _offlineLocalVisuals)
         {
             ReplayPoseValue pose = EvaluatedPose(part.Asset.PoseChannel);
-            bool available = visible && pose.Valid;
+            bool available = visible && localAvailable && pose.Valid;
             part.Object.SetActive(available);
             if (!available) continue;
             Vector3 position = ReplayPosition(pose);
@@ -257,10 +260,10 @@ public sealed partial class CameraDiagnostics
 
         foreach (RigVisual v in _offlineRigVisuals.Values)
             v.Root.SetActive(false);
-        if (!visible || _worldActorTimeline == null ||
+        if (!visible || !localAvailable || _worldActorTimeline == null ||
             _worldRigTimeline == null || _offlineVisualRoot == null) return;
 
-        double at = _replayClip.FirstSeconds + _replayElapsed;
+        double at = _replayClip.FirstSeconds + LocalReplayElapsed;
         foreach (WorldActorObservation actor in
                  _worldActorTimeline.VisibleAt(at))
         {
