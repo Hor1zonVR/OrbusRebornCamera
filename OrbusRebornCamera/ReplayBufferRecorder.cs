@@ -71,6 +71,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
     private ReplayRingBuffer<Frame>? _buffer;
     private readonly List<Task<string>> _pending = new();
     private readonly string _sessionId = Guid.NewGuid().ToString("N");
+    private ReplayPartySync? _partySync;
     private readonly LocalAvatarCapture _localAvatar = new();
     private readonly NearbyWorldActorCapture _nearbyActors = new();
 
@@ -124,6 +125,8 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
 
     internal static string LastSaveStatus =>
         _instance?._lastStatus ?? "No clip saved";
+    internal static string PartySyncStatus =>
+        _instance?._partySync?.Status ?? "Party Sync OFF (local recording only)";
 
     internal static void SetEnabled(bool enabled)
     {
@@ -154,7 +157,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             "[ReplayBuffer] Window set to " + seconds + " seconds.");
     }
 
-    internal static void SaveLastClip() => _instance?.QueueClip();
+    internal static void SaveLastClip() => _instance?.QueueClip(true);
 
     private static bool Held(int key) =>
         (GetAsyncKeyState(key) & 0x8000) != 0;
@@ -165,6 +168,27 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         _configuredSeconds = DurationSeconds;
         _previousEnabled = Enabled;
         _buffer = NewBuffer(_configuredSeconds);
+        if (Plugin.PartySyncEnabled != null &&
+            Plugin.PartySyncEnabled.Value)
+        {
+            _partySync = ReplayPartySync.Create(
+                Plugin.PartySyncRelayUrl.Value,
+                Plugin.PartySyncRoomId.Value,
+                Plugin.PartySyncRoomSecret.Value,
+                Plugin.PartySyncParticipantId.Value,
+                Path.Combine(Paths.ConfigPath, "OrbusRebornCamera", "PartyImports"),
+                message => Plugin.ModLogger.LogWarning("[PartySync] " + message));
+            if (_partySync != null)
+            {
+                _partySync.RemoteSaveRequested = () => QueueClip(false);
+                _partySync.ReceivedClip = file =>
+                    Plugin.ModLogger.LogInfo(
+                        "[PartySync] Partner recording received: " +
+                        Path.GetFileName(file));
+                _partySync.QueueRecentClips(Path.Combine(Paths.ConfigPath,
+                    "OrbusRebornCamera", "Clips"));
+            }
+        }
         Plugin.ModLogger.LogInfo(
             "[ReplayBuffer] Pose-only rolling buffer ready. " +
             "Ctrl+Shift+C saves the last " + _configuredSeconds +
@@ -193,11 +217,14 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
     private void Update()
     {
         DrainCompletedSaves();
+        // All remote work is asynchronous; network completion and any
+        // incoming save command are handled here on Unity's main thread.
+        _partySync?.Tick();
 
         bool hotkey = Application.isFocused && Held(CtrlKey) &&
                       Held(ShiftKey) && Held(CKey);
         if (hotkey && !_hotkeyWasDown)
-            QueueClip();
+            QueueClip(true);
         _hotkeyWasDown = hotkey;
     }
 
@@ -409,7 +436,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
         return null;
     }
 
-    private void QueueClip()
+    private void QueueClip(bool requestPartner)
     {
         if (!Enabled)
         {
@@ -431,6 +458,10 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             Plugin.ModLogger.LogWarning("[ReplayBuffer] " + _lastStatus);
             return;
         }
+
+        // One recorder's Save Last 5 Min requests the same window from its
+        // partner. A remote request never sends a request back (no ping-pong).
+        if (requestPartner) _partySync?.RequestPartnerSave();
 
         string folder = Path.Combine(Paths.ConfigPath,
             "OrbusRebornCamera", "Clips");
@@ -483,6 +514,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             {
                 string result = task.GetAwaiter().GetResult();
                 _lastStatus = "Saved: " + Path.GetFileName(result);
+                _partySync?.QueueUpload(ReplayPartyArchive.PackagePath(result));
                 Plugin.ModLogger.LogInfo("[ReplayBuffer] " + _lastStatus +
                     " | " + result);
             }
@@ -699,6 +731,7 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
             catch { /* failures are reported if normal update resumes */ }
         }
         DrainCompletedSaves();
+        _partySync?.Dispose();
         ReplayVisualAssets.Clear();
     }
 

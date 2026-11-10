@@ -304,6 +304,12 @@ namespace OrbusBetterMirror
         internal static TestConfig<float> ThirdDistance = new(2.5f);
         internal static TestConfig<float> ThirdHeight = new(.6f);
         internal static TestConfig<float> Smoothing = new(7f);
+        internal static TestConfig<bool> PartySyncEnabled = new(false);
+        internal static TestConfig<string> PartySyncRelayUrl = new("");
+        internal static TestConfig<string> PartySyncRoomId = new("");
+        internal static TestConfig<string> PartySyncRoomSecret = new("");
+        internal static TestConfig<string> PartySyncParticipantId =
+            new("00000000000000000000000000000001");
         internal static TestLogger ModLogger = new();
     }
 

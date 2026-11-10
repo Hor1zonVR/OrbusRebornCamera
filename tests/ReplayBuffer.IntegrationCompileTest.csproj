@@ -18,6 +18,7 @@
     <Compile Include="../OrbusRebornCamera/ReplayClipData.cs" />
     <Compile Include="../OrbusRebornCamera/ReplayPartyTimeline.cs" />
     <Compile Include="../OrbusRebornCamera/ReplayPartyArchive.cs" />
+    <Compile Include="../OrbusRebornCamera/ReplayPartySync.cs" />
     <Compile Include="../OrbusRebornCamera/CameraDiagnostics.PartyReplay.cs" />
     <Compile Include="../OrbusRebornCamera/CameraDiagnostics.ReplayViewer.cs" />
     <Compile Include="../OrbusRebornCamera/CameraDiagnostics.WorldActors.cs" />

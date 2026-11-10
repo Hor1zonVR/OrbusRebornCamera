@@ -15,7 +15,7 @@ public sealed partial class CameraDiagnostics
     private ReplayClipData? _partyPartner;
     private WorldActorTimeline? _partyActors;
     private WorldRigTimeline? _partyRigs;
-    private string _partyStatus = "Have both players save their buffer, then exchange .party.zip files.";
+    private string _partyStatus = "Auto Sync: saved clips arrive automatically when relay is configured.";
     private double _partyOffsetSeconds;
     private int _partyFocus; // 0 = own recording, 1 = imported partner
     private bool _partyFollow;
@@ -47,9 +47,9 @@ public sealed partial class CameraDiagnostics
 
             Directory.CreateDirectory(PartyImportFolder);
             string[] packages = Directory.GetFiles(
-                PartyImportFolder, "*.party.zip");
+                PartyImportFolder, "*.party.zip", SearchOption.AllDirectories);
             string[] poses = Array.FindAll(
-                Directory.GetFiles(PartyImportFolder, "RC_Clip_*.tsv"),
+                Directory.GetFiles(PartyImportFolder, "RC_Clip_*.tsv", SearchOption.AllDirectories),
                 file => !file.EndsWith(".actors.tsv",
                     StringComparison.OrdinalIgnoreCase));
             string[] files = new string[packages.Length + poses.Length];
@@ -57,7 +57,7 @@ public sealed partial class CameraDiagnostics
             poses.CopyTo(files, packages.Length);
             if (files.Length == 0)
             {
-                _partyStatus = "Put Jordan's .party.zip in PartyImports, then retry.";
+                _partyStatus = "No synced partner clips yet. Check Party Sync connection.";
                 Plugin.ModLogger.LogWarning(
                     "[PartyReplay] Waiting for partner archive in: " +
                     PartyImportFolder);
@@ -361,22 +361,21 @@ public sealed partial class CameraDiagnostics
 
     private void DrawPartyTab(float x, float y, float w)
     {
-        StudioSection(x, y, w, "TWO-PLAYER REPLAY (LOCAL FILES)");
+        StudioSection(x, y, w, "PARTY REPLAY - AUTOMATIC CLIP SYNC");
         StudioFill(new Rect(x, y + 28f, w, 58f), StudioSurface);
         StudioBorder(new Rect(x, y + 28f, w, 58f), StudioStroke);
         StudioText(new Rect(x + 10f, y + 32f, w - 20f, 24f),
-            "Both save clips. Jordan sends you his .party.zip.",
+            "Both enable the same private Party Sync room.",
             _studioBody);
         StudioText(new Rect(x + 10f, y + 56f, w - 20f, 21f),
-            "Copy it to: BepInEx/config/OrbusRebornCamera/PartyImports",
-            _studioMuted);
+            ReplayBufferRecorder.PartySyncStatus, _studioMuted);
 
         float half = (w - 9f) * .5f;
         if (StudioButton(new Rect(x, y + 95f, half, 36f),
             "Load my latest clip", false))
             LoadLatestReplay(false);
         if (StudioButton(new Rect(x + half + 9f, y + 95f,
-            half, 36f), "IMPORT PARTNER CLIP", false, true))
+            half, 36f), "OPEN SYNCED REPLAY", false, true))
             LoadImportedPartyClip();
 
         StudioText(new Rect(x + 4f, y + 139f, w - 8f, 22f),
