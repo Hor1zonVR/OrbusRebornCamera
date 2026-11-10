@@ -10,7 +10,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.32"
+    "0.9.33"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -59,6 +59,11 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<bool> RecordNearbyRigBones = null!;
     internal static ConfigEntry<bool> CacheNearbyWorldGeometry = null!;
     internal static ConfigEntry<float> NearbyActorRadius = null!;
+    internal static ConfigEntry<bool> PartySyncEnabled = null!;
+    internal static ConfigEntry<string> PartySyncRelayUrl = null!;
+    internal static ConfigEntry<string> PartySyncRoomId = null!;
+    internal static ConfigEntry<string> PartySyncRoomSecret = null!;
+    internal static ConfigEntry<string> PartySyncParticipantId = null!;
 
     public override void Load()
     {
@@ -280,8 +285,21 @@ public sealed class Plugin : BasePlugin
             "Physics neighborhood for actor observations in metres, clamped " +
             "to 10-50. Does not load unseen areas or reveal remote entities.");
 
+        // OFF until both consenting recorders configure the same private room.
+        // This is independent from GameMaster and never uses game login tokens.
+        PartySyncEnabled = Config.Bind("PartySync", "Enabled", false,
+            "When opted in, sync saved replay archives with a separately hosted private HTTPS relay.");
+        PartySyncRelayUrl = Config.Bind("PartySync", "RelayUrl", "",
+            "HTTPS base URL of the private relay. HTTP allowed ONLY for loopback testing.");
+        PartySyncRoomId = Config.Bind("PartySync", "RoomId", "",
+            "Random room ID from the relay's create-room command; share privately with your partner.");
+        PartySyncRoomSecret = Config.Bind("PartySync", "RoomSecret", "",
+            "Room access secret. Share only with invited recorders; never with a public server or GameMaster.");
+        PartySyncParticipantId = Config.Bind("PartySync", "RecorderId",
+            System.Guid.NewGuid().ToString("N"),
+            "Unique per-install recorder ID (not an Orbus account/character identifier).");
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.32 - party replay imports, UTC timeline and shareable clip ZIPs");
+        Log.LogInfo("OrbusRebornCamera v0.9.33 EXPERIMENTAL - opt-in automatic private party sync");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -376,8 +394,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Freecam: RMB+WASD even with F2 open (click outside panel); Q/E up/down");
         Log.LogInfo("While flying: Z/C bank camera, X level roll, Shift boost, Ctrl slow");
         Log.LogInfo("F2 opens Creator Studio: Camera / Freecam / Keyframes / Recording / Offline / Targets / Party");
-        Log.LogInfo("Party replay: each saved clip also creates a .party.zip, manual copy to PartyImports, UTC alignment");
-        Log.LogInfo("Party replay: portable pose and actor tracks only; geometry/audio/automatic party transfer not implemented");
+        Log.LogInfo("Party replay: private relay optionally exchanges saved recordings automatically");
+        Log.LogInfo("Party replay: manual ZIP import remains fallback; automatic game-party detection not yet implemented");
+        Log.LogInfo("Party replay: portable pose/actor/rig tracks only; full world geometry/audio unavailable");
         Log.LogInfo("Creator Studio: TARGETS selects already loaded remote players for desktop spectating");
         Log.LogInfo("Creator Studio: Level HUD toggle hides exact label/XP slider, never player avatar");
         Log.LogInfo("Creator Studio: TARGETS extended draw only affects already loaded actors/meshes");
