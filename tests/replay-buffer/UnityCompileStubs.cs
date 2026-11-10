@@ -239,6 +239,9 @@ namespace UnityEngine
         public static float Abs(float a) => Math.Abs(a);
         public static float DeltaAngle(float a, float b) => 0f;
         public static float Round(float a) => (float)Math.Round(a);
+        public static float Clamp(float v, float min, float max) =>
+            Math.Max(min, Math.Min(max, v));
+        public static float Exp(float value) => (float)Math.Exp(value);
     }
 }
 
@@ -298,6 +301,9 @@ namespace OrbusBetterMirror
         internal static TestConfig<bool> RecordNearbyRigBones = new(true);
         internal static TestConfig<bool> CacheNearbyWorldGeometry = new(false);
         internal static TestConfig<float> NearbyActorRadius = new(30f);
+        internal static TestConfig<float> ThirdDistance = new(2.5f);
+        internal static TestConfig<float> ThirdHeight = new(.6f);
+        internal static TestConfig<float> Smoothing = new(7f);
         internal static TestLogger ModLogger = new();
     }
 
@@ -306,6 +312,7 @@ namespace OrbusBetterMirror
         private readonly UnityEngine.Color StudioSurface = default;
         private readonly UnityEngine.Color StudioStroke = default;
         private readonly UnityEngine.GUIStyle _studioHeading = new();
+        private readonly UnityEngine.GUIStyle _studioBody = new();
         private readonly UnityEngine.GUIStyle _studioMuted = new();
         private enum CameraMode { POV, Drone }
         private CameraMode _mode = CameraMode.Drone;
