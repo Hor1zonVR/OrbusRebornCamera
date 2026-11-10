@@ -6,181 +6,205 @@ using UnityEngine;
 namespace OrbusBetterMirror;
 
 /// <summary>
-/// Suppresses the game's own top level/XP HUD renderers for the independent
-/// desktop creator camera only. The original renderers are restored straight
-/// after that camera finishes; VR eye cameras retain their normal HUD.
-/// 
-/// Based on confirmed QuestHelper mappings for both Orbus Community and
-/// Renewed/Spades:
-/// PlayerCharacter.Instance -> myPlayerAvatar -> topHud -> levelLabel
-/// ceh.blfr -> betm -> bebt -> bhch
-/// 
-/// Never disables a native GameObject, rewrites its layer or camera culling
-/// mask, changes game state, or touches QuestHelper's detached tracker.
+/// Desktop-only clean HUD. Target JUST the native level text and XP slider,
+/// not TopHud.GetComponentsInChildren: TopHud's hierarchy can include avatar
+/// renderers and hiding it made the player disappear in v0.9.29.
+/// Community dump: PlayerCharacter.myPlayerAvatar.topHud has fields
+/// levelLabel (SuperTextMesh) and xpBar (UnityEngine.UI.Slider).
+/// QuestHelper verified obfuscated chain: ceh.blfr/betm/bebt/bhch.
 /// </summary>
 public sealed class DesktopLevelHudFilter : MonoBehaviour
 {
     public DesktopLevelHudFilter(IntPtr pointer) : base(pointer) { }
 
-    private const BindingFlags Flags =
-        BindingFlags.Public | BindingFlags.NonPublic |
-        BindingFlags.Instance | BindingFlags.Static;
+    private const BindingFlags Flags = BindingFlags.Public |
+        BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
 
-    private const int MaxHudRenderers = 64;
-    private readonly List<Renderer> _suppressed = new();
-    private Renderer[]? _cachedRenderers;
-    private Component? _hud;
+    // Only renderer components attached to the two specific visual objects.
+    // Never crawl TopHud as a whole or disable its GameObject.
+    private readonly List<Renderer> _renderers = new();
+    private readonly List<Renderer> _hidden = new();
+    private readonly List<(Component canvas, float alpha)> _hiddenCanvas = new();
     private Component? _label;
+    private Component? _xp;
     private float _nextResolve;
-    private bool _loggedFound;
-    private bool _loggedMissing;
+    private bool _reported;
 
-    // Set by CameraDiagnostics when attaching this component to its
-    // separate, desktop-only Camera GameObject.
     internal CameraDiagnostics? Owner;
 
-    private static Type? FindManagedType(string name)
+    private static Type? FindType(string name)
     {
-        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+        foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
         {
             try
             {
-                Type? type = assembly.GetType(name, false);
-                if (type != null) return type;
+                Type? t = a.GetType(name, false);
+                if (t != null) return t;
             }
             catch { }
         }
         return null;
     }
 
-    private static object? GetMember(object? owner, string name)
+    private static object? Read(object? obj, string name)
     {
-        if (owner == null) return null;
-        bool isStatic = owner is Type;
-        Type type = isStatic ? (Type)owner : owner.GetType();
-        object? instance = isStatic ? null : owner;
+        if (obj == null) return null;
+        bool isStatic = obj is Type;
+        Type t = isStatic ? (Type)obj : obj.GetType();
+        object? target = isStatic ? null : obj;
         try
         {
-            PropertyInfo? property = type.GetProperty(name, Flags);
-            if (property != null) return property.GetValue(instance);
-            FieldInfo? field = type.GetField(name, Flags);
-            if (field != null) return field.GetValue(instance);
-            MethodInfo? getter = type.GetMethod(
-                "get_" + name, Flags, null, Type.EmptyTypes, null);
-            return getter?.Invoke(instance, null);
+            PropertyInfo? p = t.GetProperty(name, Flags);
+            if (p != null) return p.GetValue(target);
+            FieldInfo? f = t.GetField(name, Flags);
+            if (f != null) return f.GetValue(target);
         }
-        catch { return null; }
+        catch { }
+        return null;
     }
 
-    private static object? GetEither(object? owner,
-        string communityName, string renewedName) =>
-        GetMember(owner, communityName) ??
-        GetMember(owner, renewedName);
+    private static object? Either(object? obj, string one, string two) =>
+        Read(obj, one) ?? Read(obj, two);
 
-    private void ResolveNativeHud()
+    private static bool IsSliderType(Type? t)
     {
-        _cachedRenderers = null;
-        _hud = null;
-        _label = null;
+        for (; t != null; t = t.BaseType)
+            if (t.FullName == "UnityEngine.UI.Slider") return true;
+        return false;
+    }
 
+    private static Component? FindSlider(object? hud)
+    {
+        Component? slider = Read(hud, "xpBar") as Component;
+        if (slider != null || hud == null) return slider;
         try
         {
-            Type? type = FindManagedType("MagicalActual.PlayerCharacter");
-            object? character = GetMember(type, "Instance");
-            if (character == null)
+            foreach (FieldInfo field in hud.GetType().GetFields(Flags))
+                if (IsSliderType(field.FieldType))
+                    return field.GetValue(hud) as Component;
+        }
+        catch { }
+        return null;
+    }
+
+    private static bool IsInside(Transform candidate, Transform container)
+    {
+        Transform? t = candidate;
+        for (int i = 0; t != null && i < 12; i++, t = t.parent)
+            if (t == container) return true;
+        return false;
+    }
+
+    private static void CollectRenderers(Component? root, List<Renderer> dest,
+        bool searchChildren)
+    {
+        if (root == null || root.gameObject == null ||
+            !root.gameObject.activeInHierarchy) return;
+        Renderer? own = root.gameObject.GetComponent<Renderer>();
+        if (own != null && !dest.Contains(own)) dest.Add(own);
+
+        if (!searchChildren) return;
+        Renderer[] children = root.gameObject.GetComponentsInChildren<Renderer>(true);
+        if (children == null || children.Length > 12) return;
+        foreach (Renderer r in children)
+        {
+            if (r != null && r.transform != null &&
+                IsInside(r.transform, root.transform) && !dest.Contains(r))
+                dest.Add(r);
+        }
+    }
+
+    private void ResolveHud()
+    {
+        _label = null;
+        _xp = null;
+        _renderers.Clear();
+        try
+        {
+            Type? type = FindType("MagicalActual.PlayerCharacter");
+            object? player = Read(type, "Instance");
+            if (player == null)
+                player = Read(FindType("ceh"), "blfr");
+            object? avatar = Either(player, "myPlayerAvatar", "betm");
+            object? hud = Either(avatar, "topHud", "bebt");
+            _label = Either(hud, "levelLabel", "bhch") as Component;
+            _xp = FindSlider(hud);
+
+            // LevelLabel is a SuperTextMesh renderer. The XP Slider is a
+            // canvas UI element and often has no MeshRenderer at all.
+            CollectRenderers(_label, _renderers, true);
+            CollectRenderers(_xp, _renderers, false);
+
+            if (!_reported && _label != null)
             {
-                type = FindManagedType("ceh");
-                character = GetMember(type, "blfr");
-            }
-            object? avatar = GetEither(character, "myPlayerAvatar", "betm");
-            object? hud = GetEither(avatar, "topHud", "bebt");
-            object? label = GetEither(hud, "levelLabel", "bhch");
-
-            _hud = hud as Component;
-            _label = label as Component;
-
-            if (_hud == null || _label == null ||
-                _hud.gameObject == null || _label.gameObject == null ||
-                !_hud.gameObject.activeInHierarchy ||
-                !_label.gameObject.activeInHierarchy)
-                return;
-
-            // Only the native TopHud subtree. The custom QuestHelper tracker
-            // is detached from this hierarchy and is deliberately untouched.
-            Renderer[] renderers =
-                _hud.gameObject.GetComponentsInChildren<Renderer>(true);
-            if (renderers == null || renderers.Length > MaxHudRenderers)
-            {
-                Plugin.ModLogger.LogWarning(
-                    "[CleanHUD] Native TopHud too large; no renderers changed.");
-                return;
-            }
-
-            if (renderers.Length == 0)
-            {
-                Renderer? fallback = _label.gameObject.GetComponent<Renderer>();
-                if (fallback != null) renderers = new[] { fallback };
-            }
-
-            _cachedRenderers = renderers;
-            if (!_loggedFound)
-            {
-                _loggedFound = true;
+                _reported = true;
                 Plugin.ModLogger.LogInfo(
-                    "[CleanHUD] Located native TopHud with " +
-                    renderers.Length + " renderers. Desktop-only suppression ready.");
+                    "[CleanHUD] Exact HUD targets found: level=" +
+                    (_label != null) + ",xpBar=" + (_xp != null) +
+                    ",renderers=" + _renderers.Count +
+                    ". Never hiding TopHud/player root.");
             }
-            _loggedMissing = false;
         }
         catch (Exception ex)
         {
             Plugin.ModLogger.LogWarning(
-                "[CleanHUD] HUD detection failed: " + ex.Message);
+                "[CleanHUD] Exact HUD lookup failed: " + ex.Message);
+        }
+    }
+
+    private void SetCanvasAlpha(Component? root, bool hide)
+    {
+        if (root == null || root.gameObject == null ||
+            !root.gameObject.activeInHierarchy) return;
+        // Slider descendants are CanvasRenderer-based uGUI Graphics.
+        // Unlike altering the entire TopHud, only the XP subtree is touched.
+        Component[] components = root.gameObject.GetComponentsInChildren<Component>(true);
+        if (components == null || components.Length > 48) return;
+        foreach (Component node in components)
+        {
+            if (node == null || node.GetType().FullName != "UnityEngine.CanvasRenderer")
+                continue;
+            try
+            {
+                Type t = node.GetType();
+                MethodInfo? get = t.GetMethod("GetAlpha", Flags);
+                MethodInfo? set = t.GetMethod("SetAlpha", Flags);
+                if (get == null || set == null) continue;
+                object? value = get.Invoke(node, null);
+                if (value == null) continue;
+                float original = Convert.ToSingle(value);
+                _hiddenCanvas.Add((node, original));
+                set.Invoke(node, new object[] { 0f });
+            }
+            catch { }
         }
     }
 
     private void OnPreCull()
     {
-        // Always undo a previous incomplete render pass first.
         Restore();
-
         if (Owner == null || !Owner.ShouldSuppressDesktopLevelHud)
             return;
-
         try
         {
-            if (_cachedRenderers == null || _hud == null ||
-                _label == null || Time.unscaledTime >= _nextResolve)
+            if (_label == null || Time.unscaledTime >= _nextResolve)
             {
-                _nextResolve = Time.unscaledTime + 2f;
-                ResolveNativeHud();
+                _nextResolve = Time.unscaledTime + 1.5f;
+                ResolveHud();
             }
-
-            if (_cachedRenderers == null)
+            foreach (Renderer r in _renderers)
             {
-                if (!_loggedMissing)
-                {
-                    _loggedMissing = true;
-                    Plugin.ModLogger.LogInfo(
-                        "[CleanHUD] Waiting for native gameplay level HUD.");
-                }
-                return;
+                if (r == null || !r.enabled) continue;
+                _hidden.Add(r);
+                r.enabled = false;
             }
-
-            // All original enabled values are restored after our camera
-            // render. Do not change any other cameras, objects or layers.
-            foreach (Renderer renderer in _cachedRenderers)
-            {
-                if (renderer == null || !renderer.enabled) continue;
-                _suppressed.Add(renderer);
-                renderer.enabled = false;
-            }
+            SetCanvasAlpha(_xp, true);
         }
         catch (Exception ex)
         {
             Restore();
             Plugin.ModLogger.LogWarning(
-                "[CleanHUD] Render filter failed: " + ex.Message);
+                "[CleanHUD] Failed to hide exact HUD targets: " + ex.Message);
         }
     }
 
@@ -190,15 +214,27 @@ public sealed class DesktopLevelHudFilter : MonoBehaviour
 
     internal void Restore()
     {
-        for (int i = _suppressed.Count - 1; i >= 0; i--)
+        for (int i = _hidden.Count - 1; i >= 0; i--)
         {
             try
             {
-                Renderer? renderer = _suppressed[i];
-                if (renderer != null) renderer.enabled = true;
+                Renderer r = _hidden[i];
+                if (r != null) r.enabled = true;
             }
-            catch { /* Destroyed during a zone or loading transition. */ }
+            catch { }
         }
-        _suppressed.Clear();
+        _hidden.Clear();
+        for (int i = _hiddenCanvas.Count - 1; i >= 0; i--)
+        {
+            try
+            {
+                var item = _hiddenCanvas[i];
+                if (item.canvas == null) continue;
+                MethodInfo? set = item.canvas.GetType().GetMethod("SetAlpha", Flags);
+                set?.Invoke(item.canvas, new object[] { item.alpha });
+            }
+            catch { }
+        }
+        _hiddenCanvas.Clear();
     }
 }
