@@ -65,7 +65,8 @@ jobs:
               "OrbusRebornCamera/CameraDiagnostics.cs",
               "OrbusRebornCamera/CameraDiagnostics.Panel.cs",
               "OrbusRebornCamera/CameraDiagnostics.Spectate.cs",
-              "OrbusRebornCamera/DesktopLevelHudFilter.cs"
+              "OrbusRebornCamera/DesktopLevelHudFilter.cs",
+              "OrbusRebornCamera/CameraDiagnostics.CinematicRender.cs"
           };
           int failures = 0;
           foreach (var path in files)
