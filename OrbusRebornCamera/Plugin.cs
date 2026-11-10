@@ -10,7 +10,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.29"
+    "0.9.30"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -28,6 +28,7 @@ public sealed class Plugin : BasePlugin
 
     internal static ConfigEntry<bool> ShowLocalAvatar = null!;
     internal static ConfigEntry<bool> HideDesktopLevelHud = null!;
+    internal static ConfigEntry<bool> SpectateExtendLoadedDrawDistance = null!;
 
     internal static ConfigEntry<bool> PrototypeVisible = null!;
     internal static ConfigEntry<float> PrototypeSpawnDistance = null!;
@@ -123,9 +124,16 @@ public sealed class Plugin : BasePlugin
             "CreatorPanel",
             "HideDesktopLevelHud",
             false,
-            "Hide Orbus's native TopHud level/XP display ONLY while the " +
-            "separate creator desktop camera renders. The VR headset HUD " +
-            "is left unchanged. Uses the level-HUD fields mapped by QuestHelper."
+            "Hide Orbus's native level text and XP slider ONLY while the " +
+            "separate creator desktop camera renders; player meshes stay visible."
+        );
+        SpectateExtendLoadedDrawDistance = Config.Bind(
+            "Spectate",
+            "ExtendLoadedDrawDistance",
+            true,
+            "Use the extended 1200m creator-camera draw distance while watching " +
+            "a locally loaded remote player. This only affects already loaded " +
+            "scene meshes and actors, NOT server/entity/terrain streaming."
         );
 
         PrototypeVisible = Config.Bind(
@@ -273,7 +281,7 @@ public sealed class Plugin : BasePlugin
             "to 10-50. Does not load unseen areas or reveal remote entities.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.29 - loaded-player spectate and desktop clean level HUD");
+        Log.LogInfo("OrbusRebornCamera v0.9.30 - precise level/XP HUD filter and loaded-player draw boost");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -369,7 +377,8 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("While flying: Z/C bank camera, X level roll, Shift boost, Ctrl slow");
         Log.LogInfo("F2 opens Creator Studio: Camera / Freecam / Keyframes / Recording / Offline / Targets");
         Log.LogInfo("Creator Studio: TARGETS selects already loaded remote players for desktop spectating");
-        Log.LogInfo("Creator Studio: Level HUD button toggles desktop-only TopHud/XP suppression");
+        Log.LogInfo("Creator Studio: Level HUD toggle hides exact label/XP slider, never player avatar");
+        Log.LogInfo("Creator Studio: TARGETS extended draw only affects already loaded actors/meshes");
         Log.LogInfo("Publish a locally compiled BetterMirror.dll using release.ps1 for RM");
         Log.LogWarning(
             "Trickster Goblin visual filtering is not implemented yet. " +
