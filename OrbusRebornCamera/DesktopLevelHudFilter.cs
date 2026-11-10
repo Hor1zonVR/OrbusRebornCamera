@@ -132,7 +132,7 @@ public sealed class DesktopLevelHudFilter : MonoBehaviour
 
             // LevelLabel is a SuperTextMesh renderer. The XP Slider is a
             // canvas UI element and often has no MeshRenderer at all.
-            CollectRenderers(_label, _renderers, true);
+            CollectRenderers(_label, _renderers, false);
             CollectRenderers(_xp, _renderers, false);
 
             if (!_reported && _label != null)
