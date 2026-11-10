@@ -120,9 +120,17 @@ public sealed partial class CameraDiagnostics
 
     private void ApplyCinematicRenderSettings()
     {
-        if (_mode != CameraMode.Drone ||
-            _desktop == null || !_desktop.enabled ||
-            !Plugin.ExtendedRenderEnabled.Value)
+        // The same desktop-only rendering extension is valuable while
+        // following a remote player. It does NOT expand server replication,
+        // the local player's interest area, or the scene's loaded chunks.
+        // Remote actors must already exist on this client.
+        bool spectatingLoadedPlayer = _spectateRoot != null &&
+            IsLoadedRemotePlayer(_spectateRoot);
+        bool requested = (_mode == CameraMode.Drone &&
+                Plugin.ExtendedRenderEnabled.Value) ||
+            (spectatingLoadedPlayer &&
+                Plugin.SpectateExtendLoadedDrawDistance.Value);
+        if (!requested || _desktop == null || !_desktop.enabled)
         {
             if (_cinematicWasApplied)
                 RestoreCinematicRendering();
@@ -150,7 +158,7 @@ public sealed partial class CameraDiagnostics
                 TryZeroCameraLayerCullDistances(_desktop);
 
             CinematicRenderStatus =
-                "Extended draw: " +
+                (spectatingLoadedPlayer ? "Spectate draw: " : "Freecam draw: ") +
                 _desktop.farClipPlane.ToString("0") + "m, occlusion OFF" +
                 (_layerCullOverrideApplied
                     ? ", layer-range override ON"
