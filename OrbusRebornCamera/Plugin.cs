@@ -3,13 +3,14 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
+using Il2CppInterop.Runtime.Injection;
 
 namespace OrbusBetterMirror;
 
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.28"
+    "0.9.29"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -26,6 +27,7 @@ public sealed class Plugin : BasePlugin
     internal static ConfigEntry<float> SelfieDistance = null!;
 
     internal static ConfigEntry<bool> ShowLocalAvatar = null!;
+    internal static ConfigEntry<bool> HideDesktopLevelHud = null!;
 
     internal static ConfigEntry<bool> PrototypeVisible = null!;
     internal static ConfigEntry<float> PrototypeSpawnDistance = null!;
@@ -115,6 +117,15 @@ public sealed class Plugin : BasePlugin
             "ShowLocalAvatar",
             true,
             "Show local avatar meshes in external desktop camera modes."
+        );
+
+        HideDesktopLevelHud = Config.Bind(
+            "CreatorPanel",
+            "HideDesktopLevelHud",
+            false,
+            "Hide Orbus's native TopHud level/XP display ONLY while the " +
+            "separate creator desktop camera renders. The VR headset HUD " +
+            "is left unchanged. Uses the level-HUD fields mapped by QuestHelper."
         );
 
         PrototypeVisible = Config.Bind(
@@ -262,9 +273,13 @@ public sealed class Plugin : BasePlugin
             "to 10-50. Does not load unseen areas or reveal remote entities.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.28 - targeted Highsteppe floors/walls/architecture scene hierarchy capture");
+        Log.LogInfo("OrbusRebornCamera v0.9.29 - loaded-player spectate and desktop clean level HUD");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
+
+        // The desktop HUD filter needs Unity camera callbacks. Register once
+        // before CameraDiagnostics creates its independent recording camera.
+        ClassInjector.RegisterTypeInIl2Cpp<DesktopLevelHudFilter>();
 
         // The real camera, creator panel, freecam and recording modes still work.
         // Avoid loading UI-scanning components just because BepInEx loads RC.
@@ -352,7 +367,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+F11 = Toggle freecam (same controls in VR and desktop sessions)");
         Log.LogInfo("Freecam: RMB+WASD even with F2 open (click outside panel); Q/E up/down");
         Log.LogInfo("While flying: Z/C bank camera, X level roll, Shift boost, Ctrl slow");
-        Log.LogInfo("F2 opens Creator Studio: Camera / Freecam / Keyframes / Recording / Offline");
+        Log.LogInfo("F2 opens Creator Studio: Camera / Freecam / Keyframes / Recording / Offline / Targets");
+        Log.LogInfo("Creator Studio: TARGETS selects already loaded remote players for desktop spectating");
+        Log.LogInfo("Creator Studio: Level HUD button toggles desktop-only TopHud/XP suppression");
         Log.LogInfo("Publish a locally compiled BetterMirror.dll using release.ps1 for RM");
         Log.LogWarning(
             "Trickster Goblin visual filtering is not implemented yet. " +

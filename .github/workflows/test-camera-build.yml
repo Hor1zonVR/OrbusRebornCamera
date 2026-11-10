@@ -1,0 +1,48 @@
+name: Compile Camera Changes (No Release)
+
+on:
+  pull_request:
+    paths:
+      - 'OrbusRebornCamera/**'
+      - '.github/workflows/test-camera-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Get private IL2CPP build references
+        shell: pwsh
+        env:
+          REFS_REPO: ${{ vars.REBORNCAM_BUILD_REFS_REPO }}
+          GH_TOKEN: ${{ secrets.REBORNCAM_BUILD_REFS_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          if ([string]::IsNullOrWhiteSpace($env:REFS_REPO) -or [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            Write-Host "Build references are not configured for GitHub Actions."
+            Write-Host "Run dotnet build locally with -p:GameDir pointing to your RM game instance."
+            exit 1
+          }
+          New-Item -ItemType Directory -Force -Path .build-refs | Out-Null
+          gh release download refs-v1 --repo $env:REFS_REPO --pattern "RebornCamBuildRefs.zip" --dir .build-refs
+          if ($LASTEXITCODE -ne 0) { throw "Could not download private build references." }
+          $game = Join-Path (Resolve-Path .build-refs).Path "game"
+          Expand-Archive .build-refs/RebornCamBuildRefs.zip -DestinationPath $game
+          "RC_GAME_REFS=$game" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Build the complete camera DLL
+        shell: pwsh
+        run: |
+          dotnet build OrbusRebornCamera/BetterMirror.csproj -c Release "-p:GameDir=$env:RC_GAME_REFS"
+          if ($LASTEXITCODE -ne 0) { throw "RebornCamera compile failed." }
+      - name: Run existing smoke tests
+        shell: pwsh
+        run: |
+          dotnet run --project tests/FreecamKeyframes.CompileTest.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw "Freecam tests failed." }

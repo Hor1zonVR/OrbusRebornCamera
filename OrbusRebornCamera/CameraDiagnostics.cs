@@ -43,6 +43,11 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
     private Camera? _source;
     private Camera? _desktop;
     private GameObject? _cameraRoot;
+    private DesktopLevelHudFilter? _levelHudFilter;
+
+    internal bool ShouldSuppressDesktopLevelHud =>
+        IsCameraActive && !_offlineReplayActive &&
+        Plugin.HideDesktopLevelHud.Value;
 
     private CameraMode _mode = CameraMode.POV;
     private CameraMode _lastFollowMode = CameraMode.POV;
@@ -92,7 +97,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         LoadKeyframes();
 
         Plugin.ModLogger.LogInfo(
-            $"RebornCam v0.9.28 ready. " +
+            $"RebornCam v0.9.29 ready. " +
             $"Mode={_mode}, " +
             $"FOV={GetHorizontalFov():0}, " +
             $"AutoStart={Plugin.StartEnabled.Value}"
@@ -313,6 +318,11 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
                 return;
             }
 
+            // Remote targets are live scene objects; never follow an
+            // unloaded player or drag the real avatar/VR rig.
+            if (_spectateRoot != null && !IsLoadedRemotePlayer(_spectateRoot))
+                ReturnSpectateToSelf("Player is no longer loaded.");
+
             // The VR camera may be destroyed or replaced
             // when transitioning between game scenes.
             if (_source == null)
@@ -486,6 +496,10 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         _desktop =
             _cameraRoot.AddComponent<Camera>();
 
+        // Camera-scoped OnPreCull/OnPostRender callbacks avoid changing
+        // the VR eye renderers, unlike SetActive or global UI hides.
+        _levelHudFilter = _cameraRoot.AddComponent<DesktopLevelHudFilter>();
+        _levelHudFilter.Owner = this;
         _desktop.enabled = false;
 
         Plugin.ModLogger.LogInfo(
@@ -763,17 +777,17 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         Transform output =
             _desktop.transform;
 
+        bool remote = TryGetSpectatePose(out Vector3 remoteEye,
+            out Quaternion remoteRotation, out Vector3 remoteForward);
+
         Vector3 targetPosition;
         Quaternion targetRotation;
 
         if (_mode == CameraMode.POV)
         {
             // Same working first-person view as v0.3.
-            targetPosition =
-                head.position;
-
-            targetRotation =
-                head.rotation;
+            targetPosition = remote ? remoteEye : head.position;
+            targetRotation = remote ? remoteRotation : head.rotation;
         }
         else if (_mode == CameraMode.Static)
         {
@@ -784,7 +798,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         {
             // Horizontal direction of the player.
             Vector3 forward =
-                head.forward;
+                remote ? remoteForward : head.forward;
 
             forward.y = 0f;
 
@@ -795,7 +809,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
 
             // Look towards the player's upper body.
             Vector3 lookTarget =
-                head.position +
+                (remote ? remoteEye : head.position) +
                 Vector3.down * 0.45f;
 
             if (_mode == CameraMode.ThirdPerson)
@@ -813,7 +827,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
                 );
 
                 targetPosition =
-                    head.position -
+                    (remote ? remoteEye : head.position) -
                     forward * distance +
                     Vector3.up * height;
             }
@@ -827,7 +841,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
                 );
 
                 targetPosition =
-                    head.position +
+                    (remote ? remoteEye : head.position) +
                     forward * distance +
                     Vector3.up * 0.1f;
             }
@@ -919,6 +933,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         {
             _desktop.enabled = false;
         }
+        _levelHudFilter?.Restore();
 
         Plugin.ModLogger.LogInfo(
             "Creator camera DISABLED. " +
