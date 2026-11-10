@@ -522,12 +522,23 @@ public sealed partial class CameraDiagnostics
                 _studioMuted);
         }
 
+        // Both toggles affect the creator desktop output only.
         bool show = Plugin.ShowLocalAvatar.Value;
-        StudioText(new Rect(x, y + 315f, w - 118f, 30f),
-            "Show my avatar in external views", _studioBody);
-        if (StudioButton(new Rect(x + w - 84f, y + 313f, 84f, 34f),
-            show ? "ON" : "OFF", show))
+        bool cleanHud = Plugin.HideDesktopLevelHud.Value;
+        if (StudioButton(new Rect(x, y + 313f, half, 34f),
+            show ? "My avatar: ON" : "My avatar: OFF", show))
             ToggleLocalAvatar();
+        if (StudioButton(new Rect(x + half + 9f, y + 313f,
+            half, 34f),
+            cleanHud ? "Level HUD: HIDDEN" : "Level HUD: SHOWN",
+            cleanHud))
+        {
+            Plugin.HideDesktopLevelHud.Value = !cleanHud;
+            Plugin.ModLogger.LogInfo(
+                "[CleanHUD] Desktop level HUD: " +
+                (Plugin.HideDesktopLevelHud.Value ? "HIDDEN" : "SHOWN") +
+                ". Headset HUD is unchanged.");
+        }
 
         if (StudioButton(new Rect(x, y + 365f, w, 39f),
             IsCameraActive ? "Disable creator camera" :
