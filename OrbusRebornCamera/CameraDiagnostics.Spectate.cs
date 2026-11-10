@@ -30,6 +30,8 @@ public sealed partial class CameraDiagnostics
     private int _spectatePage;
     private bool _spectateDiscovered;
     private float _spectateNextHeadLookup;
+    private float _spectateLastLoadedDistance;
+    private string _spectateLastStatus = "";
 
     private const int SpectatePageSize = 4;
     private const int SpectateMaxCandidates = 128;
@@ -152,7 +154,13 @@ public sealed partial class CameraDiagnostics
     private void ReturnSpectateToSelf(string reason)
     {
         if (_spectateRoot != null)
-            Plugin.ModLogger.LogInfo("[Spectate] " + reason);
+        {
+            _spectateLastStatus = "Lost at " +
+                _spectateLastLoadedDistance.ToString("0") + "m";
+            Plugin.ModLogger.LogInfo("[Spectate] " + reason +
+                " Last locally observed distance from your player: " +
+                _spectateLastLoadedDistance.ToString("0.0") + "m.");
+        }
         _spectateRoot = null;
         _spectateHead = null;
         _spectateInstanceId = 0;
@@ -186,6 +194,10 @@ public sealed partial class CameraDiagnostics
         else
         {
             _spectateRoot = root;
+            _spectateLastStatus = "";
+            _spectateLastLoadedDistance = _source != null
+                ? Vector3.Distance(root.position, _source.transform.position)
+                : 0f;
             _spectateInstanceId = root.GetInstanceID();
             _spectateHead = FindRemoteHead(root);
             _spectateNextHeadLookup = Time.unscaledTime + 3f;
@@ -223,6 +235,9 @@ public sealed partial class CameraDiagnostics
         }
 
         bodyForward = root.forward;
+        if (_source != null)
+            _spectateLastLoadedDistance = Vector3.Distance(
+                root.position, _source.transform.position);
         Transform? head = _spectateHead;
         if (head == null || head.gameObject == null ||
             !head.gameObject.activeInHierarchy)
@@ -299,7 +314,8 @@ public sealed partial class CameraDiagnostics
                     "ON" : "OFF") +
                 ". Does not change server interest radius.");
         }
-        string rangeText = "Loaded players only";
+        string rangeText = _spectateLastStatus.Length > 0 ?
+            _spectateLastStatus : "Loaded players only";
         if (_spectateRoot != null && _source != null &&
             IsLoadedRemotePlayer(_spectateRoot))
         {
