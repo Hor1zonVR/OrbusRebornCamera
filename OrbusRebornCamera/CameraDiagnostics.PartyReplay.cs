@@ -86,7 +86,7 @@ public sealed partial class CameraDiagnostics
                 if (File.Exists(rigsPath))
                 {
                     using Stream rigFile = File.OpenRead(rigsPath);
-                    WorldRigTimeline rig = WorldRigTimeline.Read(rigFile);
+                    WorldRigTimeline rig = WorldRigCodec.Read(rigFile);
                     if (rig.ClipId == partner.ClipId &&
                         rig.SessionId == partner.SessionId)
                         importedRigs = rig;
