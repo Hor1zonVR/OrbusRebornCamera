@@ -21,6 +21,11 @@ on:
       - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.ReplayViewer.cs'
       - 'OrbusRebornCamera/ReplayClipData.cs'
+      - 'OrbusRebornCamera/ReplayPartyTimeline.cs'
+      - 'OrbusRebornCamera/ReplayPartyArchive.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.PartyReplay.cs'
+      - 'tests/PartyReplay.CompileTest.csproj'
+      - 'tests/party-replay/**'
       - 'OrbusRebornCamera/OfflineWorldInventory.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.OfflineLab.cs'
       - 'tests/OfflineWorldInventory.CompileTest.csproj'
@@ -51,6 +56,11 @@ on:
       - 'OrbusRebornCamera/CameraDiagnostics.Recording.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.ReplayViewer.cs'
       - 'OrbusRebornCamera/ReplayClipData.cs'
+      - 'OrbusRebornCamera/ReplayPartyTimeline.cs'
+      - 'OrbusRebornCamera/ReplayPartyArchive.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.PartyReplay.cs'
+      - 'tests/PartyReplay.CompileTest.csproj'
+      - 'tests/party-replay/**'
       - 'OrbusRebornCamera/OfflineWorldInventory.cs'
       - 'OrbusRebornCamera/CameraDiagnostics.OfflineLab.cs'
       - 'tests/OfflineWorldInventory.CompileTest.csproj'
@@ -76,6 +86,7 @@ jobs:
           dotnet run --project tests/ReplayRingBuffer.CompileTest.csproj -c Release
           dotnet run --project tests/ReplayBuffer.IntegrationCompileTest.csproj -c Release
           dotnet run --project tests/ReplayClipReader.CompileTest.csproj -c Release
+          dotnet run --project tests/PartyReplay.CompileTest.csproj -c Release
           dotnet run --project tests/WorldActorTimeline.CompileTest.csproj -c Release
           dotnet run --project tests/WorldRigTimeline.CompileTest.csproj -c Release
           dotnet run --project tests/OfflineWorldInventory.CompileTest.csproj -c Release
