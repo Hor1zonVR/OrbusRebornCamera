@@ -13,6 +13,8 @@ public sealed partial class CameraDiagnostics
 {
     private ReplayPartyTimeline? _partyTimeline;
     private ReplayClipData? _partyPartner;
+    private WorldActorTimeline? _partyActors;
+    private WorldRigTimeline? _partyRigs;
     private string _partyStatus = "Have both players save their buffer, then exchange .party.zip files.";
     private double _partyOffsetSeconds;
     private int _partyFocus; // 0 = own recording, 1 = imported partner
@@ -73,14 +75,42 @@ public sealed partial class CameraDiagnostics
             ReplayClipData partner = ReplayClipReader.ReadFile(pose);
             ReplayPartyTimeline timeline = new ReplayPartyTimeline(
                 _replayClip, partner, _partyOffsetSeconds);
+            WorldActorTimeline? importedActors = null;
+            WorldRigTimeline? importedRigs = null;
+            try
+            {
+                string actorsPath = Path.ChangeExtension(pose, ".actors.tsv");
+                if (File.Exists(actorsPath))
+                    importedActors = WorldActorTimeline.ReadFile(actorsPath);
+                string rigsPath = Path.ChangeExtension(pose, ".rigs.bin");
+                if (File.Exists(rigsPath))
+                {
+                    using Stream rigFile = File.OpenRead(rigsPath);
+                    WorldRigTimeline rig = WorldRigTimeline.Read(rigFile);
+                    if (rig.ClipId == partner.ClipId &&
+                        rig.SessionId == partner.SessionId)
+                        importedRigs = rig;
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.ModLogger.LogWarning(
+                    "[PartyReplay] Optional partner actor/rig data unavailable: " +
+                    ex.Message);
+            }
+            _partyActors = importedActors;
+            _partyRigs = importedRigs;
             _partyPartner = partner;
             _partyTimeline = timeline;
             _partyFocus = 0;
             _partyFollow = false;
-            _replayElapsed = 0;
+            // Start on the host's recorded time, not before the host arrived
+            // if Jordan began his recording earlier.
+            _replayElapsed = timeline.HostStart;
             _replayPlaying = false;
             _partyStatus = "Imported " + partner.Count +
-                " partner frames (" + ReplayTime(partner.Duration) + ")";
+                " frames / " + (importedActors?.ActorCount ?? 0) +
+                " actor tracks";
             Plugin.ModLogger.LogInfo("[PartyReplay] Loaded pair: host=" +
                 _replayClip.ClipId + ", partner=" + partner.ClipId +
                 ", UTC span=" + ReplayTime(timeline.Duration) +
@@ -103,6 +133,8 @@ public sealed partial class CameraDiagnostics
     {
         _partyTimeline = null;
         _partyPartner = null;
+        _partyActors = null;
+        _partyRigs = null;
         _partyFocus = 0;
         _partyFollow = false;
         _partyOffsetSeconds = 0;
@@ -186,6 +218,79 @@ public sealed partial class CameraDiagnostics
             if (rh.Valid)
                 DrawGuideLine(ReplayPosition(torso),
                     ReplayPosition(rh), right);
+        }
+    }
+
+    private void RenderPartnerActorCoverage()
+    {
+        if (_partyTimeline == null || _partyPartner == null ||
+            !_showObservedActors || _partyActors == null ||
+            !PartyPartnerVisible()) return;
+
+        if (!_partyTimeline.TryEvaluate(1, _replayElapsed,
+            out ReplayClipFrame partnerFrame, out _, out _)) return;
+
+        double partnerTime = _partyPartner.FirstSeconds +
+            _partyTimeline.ClipElapsed(1, _replayElapsed);
+        WorldActorObservation[] actors = _partyActors.VisibleAt(partnerTime);
+        WorldActorObservation[] hostActors = Array.Empty<WorldActorObservation>();
+        if (PrimaryPartyRecordingAvailable && _worldActorTimeline != null &&
+            _replayClip != null)
+            hostActors = _worldActorTimeline.VisibleAt(
+                _replayClip.FirstSeconds + LocalReplayElapsed);
+
+        foreach (WorldActorObservation actor in actors)
+        {
+            if (ReplayPartyTimeline.IsKnownZone(actor.Zone) &&
+                !string.Equals(actor.Zone, partnerFrame.Zone,
+                    StringComparison.Ordinal))
+                continue;
+
+            // The same NPC may be seen by both clients with DIFFERENT
+            // locally generated Unity IDs. Prefer a spatial duplicate
+            // check rather than pretending those IDs are globally stable.
+            bool duplicate = false;
+            foreach (WorldActorObservation own in hostActors)
+            {
+                float dx = own.X - actor.X, dy = own.Y - actor.Y,
+                    dz = own.Z - actor.Z;
+                if (own.Category == actor.Category &&
+                    own.Prefab == actor.Prefab &&
+                    dx * dx + dy * dy + dz * dz < 1.5f * 1.5f)
+                {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (duplicate) continue;
+
+            Vector3 p = new Vector3(actor.X, actor.Y, actor.Z);
+            Color tint = new Color(.96f, .64f, .90f, 1f);
+            float size = actor.Category == "remote_player_candidate"
+                ? .3f : .22f;
+            DrawGuideLine(p - Vector3.right * size,
+                p + Vector3.right * size, tint);
+            DrawGuideLine(p - Vector3.up * size,
+                p + Vector3.up * size, tint);
+            DrawGuideLine(p - Vector3.forward * size,
+                p + Vector3.forward * size, tint);
+
+            if (_showObservedBones && _partyRigs != null &&
+                _partyRigs.TryAt(actor.ActorKey, partnerTime,
+                    out WorldRigDefinition? def,
+                    out WorldRigSample? a,
+                    out WorldRigSample? b,
+                    out float blend) && def != null && a != null)
+            {
+                int count = Math.Min(def.BoneCount, a.Bones.Length);
+                for (int i = 0; i < count; i++)
+                {
+                    int parent = def.ParentIndices[i];
+                    if (parent < 0 || parent >= count) continue;
+                    DrawGuideLine(AnimatedBonePosition(a, b, blend, parent),
+                        AnimatedBonePosition(a, b, blend, i), tint);
+                }
+            }
         }
     }
 
