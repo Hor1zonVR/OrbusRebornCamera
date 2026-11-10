@@ -41,7 +41,9 @@ public sealed partial class CameraDiagnostics
                 ReplayBufferRecorder.SetDurationSeconds(values[i]);
         }
 
-        StudioSection(x, y + 205f, w, "POSE REPLAY VIEWER (DESKTOP)");
+        StudioSection(x, y + 205f, w,
+            _partyTimeline == null ? "POSE REPLAY VIEWER (DESKTOP)" :
+                "TWO-PLAYER REPLAY (PARTY TAB TO EDIT)");
         string info = _replayClip == null ? _replayMessage :
             _replayClip.Count + " frames | " +
             (_worldActorTimeline?.ActorCount ?? 0) +
@@ -76,11 +78,11 @@ public sealed partial class CameraDiagnostics
             CycleActorDisplay();
 
         float length = _replayClip == null ? 1f :
-            (float)System.Math.Max(.01d, _replayClip.Duration);
+            (float)System.Math.Max(.01d, ReplayLength);
         float next = StudioSlider(8, x, y + 355f, w, "Replay time",
             (float)_replayElapsed, 0f, length,
             ReplayTime(_replayElapsed) + " / " +
-            ReplayTime(_replayClip?.Duration ?? 0d));
+            ReplayTime(ReplayLength));
         if (_replayClip != null &&
             UnityEngine.Mathf.Abs(next - (float)_replayElapsed) > .001f)
             SeekReplay(next);
