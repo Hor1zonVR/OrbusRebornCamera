@@ -10,7 +10,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.31"
+    "0.9.32"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -281,7 +281,7 @@ public sealed class Plugin : BasePlugin
             "to 10-50. Does not load unseen areas or reveal remote entities.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.31 - remote head-aligned third-person and camera distance/height sliders");
+        Log.LogInfo("OrbusRebornCamera v0.9.32 - party replay imports, UTC timeline and shareable clip ZIPs");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 
@@ -375,7 +375,9 @@ public sealed class Plugin : BasePlugin
         Log.LogInfo("Ctrl+F11 = Toggle freecam (same controls in VR and desktop sessions)");
         Log.LogInfo("Freecam: RMB+WASD even with F2 open (click outside panel); Q/E up/down");
         Log.LogInfo("While flying: Z/C bank camera, X level roll, Shift boost, Ctrl slow");
-        Log.LogInfo("F2 opens Creator Studio: Camera / Freecam / Keyframes / Recording / Offline / Targets");
+        Log.LogInfo("F2 opens Creator Studio: Camera / Freecam / Keyframes / Recording / Offline / Targets / Party");
+        Log.LogInfo("Party replay: each saved clip also creates a .party.zip, manual copy to PartyImports, UTC alignment");
+        Log.LogInfo("Party replay: portable pose and actor tracks only; geometry/audio/automatic party transfer not implemented");
         Log.LogInfo("Creator Studio: TARGETS selects already loaded remote players for desktop spectating");
         Log.LogInfo("Creator Studio: Level HUD toggle hides exact label/XP slider, never player avatar");
         Log.LogInfo("Creator Studio: TARGETS extended draw only affects already loaded actors/meshes");
