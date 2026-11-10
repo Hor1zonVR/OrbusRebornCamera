@@ -75,9 +75,12 @@ test('private room relay exchanges only consenting party clips and save requests
     r = await fetch(base + '/clips/./' + clip, { method: 'PUT',
       headers: { ...secret, 'content-length': String(bytes.length) }, body: bytes });
     assert.equal(r.status, 404);
+    // Missing length is rejected without allocating the body in memory.
+    const unknownLength = new ReadableStream({
+      start(controller) { controller.enqueue(bytes); controller.close(); }
+    });
     r = await fetch(base + '/clips/' + jordan + '/' + otherClip,
-      { method: 'PUT', headers: { ...secret, 'content-length': String(100 * 1024 * 1024 + 1) },
-      body: bytes });
+      { method: 'PUT', headers: secret, body: unknownLength, duplex: 'half' });
     assert.equal(r.status, 413);
   } finally {
     await new Promise(resolve => server.close(resolve));
