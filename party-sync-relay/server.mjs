@@ -94,6 +94,22 @@ async function listClips(root, room) {
 
 export function makeServer({ root = rootDefault } = {}) {
   const storage = resolve(root);
+  // Two recorders can save simultaneously. Serialize per-room event updates
+  // so concurrent read-modify-write operations never lose a save request.
+  const eventLocks = new Map();
+  async function withEventLock(room, callback) {
+    const previous = eventLocks.get(room) || Promise.resolve();
+    let release;
+    const mine = new Promise(resolve => { release = resolve; });
+    const queued = previous.catch(() => {}).then(() => mine);
+    eventLocks.set(room, queued);
+    await previous.catch(() => {});
+    try { return await callback(); }
+    finally {
+      release();
+      if (eventLocks.get(room) === queued) eventLocks.delete(room);
+    }
+  }
   return http.createServer(async (req, res) => {
     const route = new URL(req.url || '/', 'http://127.0.0.1').pathname.split('/').filter(Boolean);
     if (req.method === 'GET' && route.join('/') === 'health') {
@@ -166,15 +182,24 @@ export function makeServer({ root = rootDefault } = {}) {
           if (!safeId(body.from) || !safeId(body.request_id) ||
               body.action !== 'save-last')
             return response(res, 400, { error: 'Invalid event' });
-          const events = await readEvents(storage, room);
-          if (events.some(x => x.from === body.from && x.request_id === body.request_id))
-            return response(res, 200, { ok: true, duplicate: true });
-          const seq = events.length ? events[events.length - 1].seq + 1 : 1;
-          events.push({ seq, from: body.from, request_id: body.request_id,
-            action: body.action, created_ms: Date.now() });
-          await writeFile(eventsPath(storage, room),
-            JSON.stringify(events.slice(-MAX_EVENTS)), { mode: 0o600 });
-          return response(res, 201, { ok: true, seq });
+          return withEventLock(room, async () => {
+            const events = await readEvents(storage, room);
+            if (events.some(x => x.from === body.from && x.request_id === body.request_id))
+              return response(res, 200, { ok: true, duplicate: true });
+            const seq = events.length ? events[events.length - 1].seq + 1 : 1;
+            events.push({ seq, from: body.from, request_id: body.request_id,
+              action: body.action, created_ms: Date.now() });
+            const destination = eventsPath(storage, room);
+            const partial = destination + '.' + randomBytes(8).toString('hex') + '.partial';
+            try {
+              await writeFile(partial, JSON.stringify(events.slice(-MAX_EVENTS)),
+                { flag: 'wx', mode: 0o600 });
+              await rename(partial, destination);
+            } finally {
+              await unlink(partial).catch(() => {});
+            }
+            return response(res, 201, { ok: true, seq });
+          });
         }
       }
       return response(res, 404, { error: 'Not found' });
