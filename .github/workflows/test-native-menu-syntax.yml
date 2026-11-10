@@ -61,7 +61,11 @@ jobs:
           var files = new[] {
               "OrbusRebornCamera/NativeMenuDiffInspector.cs",
               "OrbusRebornCamera/NativePowerUiSettingsProbe.cs",
-              "OrbusRebornCamera/Plugin.cs"
+              "OrbusRebornCamera/Plugin.cs",
+              "OrbusRebornCamera/CameraDiagnostics.cs",
+              "OrbusRebornCamera/CameraDiagnostics.Panel.cs",
+              "OrbusRebornCamera/CameraDiagnostics.Spectate.cs",
+              "OrbusRebornCamera/DesktopLevelHudFilter.cs"
           };
           int failures = 0;
           foreach (var path in files)
