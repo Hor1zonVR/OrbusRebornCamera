@@ -236,6 +236,7 @@ public sealed partial class CameraDiagnostics
                     RenderWorldActorMarkers();
                     RenderObservedRigBones();
                     RenderPartyMarkers();
+                    RenderPartnerActorCoverage();
                     DrawReplayMarker(EvaluatedPose(0),
                         ReplayHeadRadius, new Color(.32f, .87f, 1f, 1f));
                     DrawReplayMarker(EvaluatedPose(1),
