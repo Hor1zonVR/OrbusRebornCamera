@@ -1,0 +1,28 @@
+name: Validate Private Party Replay Relay
+
+on:
+  pull_request:
+    paths:
+      - 'party-sync-relay/**'
+      - 'OrbusRebornCamera/ReplayPartySync.cs'
+      - '.github/workflows/test-party-sync.yml'
+  push:
+    paths:
+      - 'party-sync-relay/**'
+      - 'OrbusRebornCamera/ReplayPartySync.cs'
+      - '.github/workflows/test-party-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run private relay protocol and security tests
+        run: node --test party-sync-relay/test/*.test.mjs
