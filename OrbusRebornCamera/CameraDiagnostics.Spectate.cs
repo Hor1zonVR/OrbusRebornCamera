@@ -30,6 +30,8 @@ public sealed partial class CameraDiagnostics
     private int _spectatePage;
     private bool _spectateDiscovered;
     private float _spectateNextHeadLookup;
+    private float _spectateLastLoadedDistance;
+    private string _spectateLastStatus = "";
 
     private const int SpectatePageSize = 4;
     private const int SpectateMaxCandidates = 128;
@@ -152,7 +154,13 @@ public sealed partial class CameraDiagnostics
     private void ReturnSpectateToSelf(string reason)
     {
         if (_spectateRoot != null)
-            Plugin.ModLogger.LogInfo("[Spectate] " + reason);
+        {
+            _spectateLastStatus = "Lost at " +
+                _spectateLastLoadedDistance.ToString("0") + "m";
+            Plugin.ModLogger.LogInfo("[Spectate] " + reason +
+                " Last locally observed distance from your player: " +
+                _spectateLastLoadedDistance.ToString("0.0") + "m.");
+        }
         _spectateRoot = null;
         _spectateHead = null;
         _spectateInstanceId = 0;
@@ -186,6 +194,10 @@ public sealed partial class CameraDiagnostics
         else
         {
             _spectateRoot = root;
+            _spectateLastStatus = "";
+            _spectateLastLoadedDistance = _source != null
+                ? Vector3.Distance(root.position, _source.transform.position)
+                : 0f;
             _spectateInstanceId = root.GetInstanceID();
             _spectateHead = FindRemoteHead(root);
             _spectateNextHeadLookup = Time.unscaledTime + 3f;
@@ -223,6 +235,9 @@ public sealed partial class CameraDiagnostics
         }
 
         bodyForward = root.forward;
+        if (_source != null)
+            _spectateLastLoadedDistance = Vector3.Distance(
+                root.position, _source.transform.position);
         Transform? head = _spectateHead;
         if (head == null || head.gameObject == null ||
             !head.gameObject.activeInHierarchy)
@@ -285,9 +300,32 @@ public sealed partial class CameraDiagnostics
             _mode == CameraMode.Selfie))
             SetPanelMode(CameraMode.Selfie);
 
-        StudioText(new Rect(x + 2f, y + 169f, w - 4f, 24f),
-            "Visible client-side player rigs (nearest first)",
-            _studioMuted);
+        // Additional camera draw distance applies to ALREADY LOADED
+        // scenery. It never increases server/player interest replication.
+        bool extendDraw = Plugin.SpectateExtendLoadedDrawDistance.Value;
+        if (StudioButton(new Rect(x, y + 165f, half, 29f),
+            extendDraw ? "Extended draw: ON" : "Extended draw: OFF",
+            extendDraw))
+        {
+            Plugin.SpectateExtendLoadedDrawDistance.Value = !extendDraw;
+            Plugin.ModLogger.LogInfo(
+                "[Spectate] Loaded-object render extension: " +
+                (Plugin.SpectateExtendLoadedDrawDistance.Value ?
+                    "ON" : "OFF") +
+                ". Does not change server interest radius.");
+        }
+        string rangeText = _spectateLastStatus.Length > 0 ?
+            _spectateLastStatus : "Loaded players only";
+        if (_spectateRoot != null && _source != null &&
+            IsLoadedRemotePlayer(_spectateRoot))
+        {
+            float playerDistance = Vector3.Distance(
+                _spectateRoot.position, _source.transform.position);
+            rangeText = playerDistance.ToString("0") +
+                "m from you - loaded";
+        }
+        StudioText(new Rect(x + half + 11f, y + 169f,
+            half - 12f, 24f), rangeText, _studioMuted);
 
         if (!_spectateDiscovered)
         {
