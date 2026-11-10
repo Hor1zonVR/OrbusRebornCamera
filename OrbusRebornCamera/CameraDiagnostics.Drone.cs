@@ -270,6 +270,9 @@ public sealed partial class CameraDiagnostics
         }
 
         bool rightHeld = DroneKeyDown(RightMouseButton);
+        // Taking manual flight control intentionally releases replay follow.
+        if (rightHeld && _partyFollow && !_panelVisible)
+            _partyFollow = false;
         // Mouse and WASD can control freecam while the creator panel remains
         // open, but ONLY after the right button is pressed outside the panel.
         // Once flying, continuing over its bounds doesn't steal the mouse.
@@ -378,6 +381,7 @@ public sealed partial class CameraDiagnostics
                 ConfigureDesktopCamera();
         }
 
+        UpdatePartyFollowCamera();
         _desktop.transform.position = _dronePosition;
         _desktop.transform.rotation = _playingKeyframes
             ? _dronePlaybackRotation

@@ -55,6 +55,7 @@ public sealed partial class CameraDiagnostics
                 .CompareTo(File.GetLastWriteTimeUtc(a)));
             ReplayClipData loaded = ReplayClipReader.ReadFile(files[0]);
             StopKeyframePlayback();
+            ClearPartyReplay();
             _replayClip = loaded;
             LoadWorldActorSidecar(files[0]);
             _replayElapsed = 0d;
@@ -92,6 +93,7 @@ public sealed partial class CameraDiagnostics
 
     private void ClearReplay()
     {
+        ClearPartyReplay();
         ClearOfflineVisuals();
         _replayPlaying = false;
         _replayClip = null;
@@ -105,7 +107,7 @@ public sealed partial class CameraDiagnostics
     private void ToggleReplayPlayback()
     {
         if (_replayClip == null) return;
-        if (_replayElapsed >= _replayClip.Duration)
+        if (_replayElapsed >= ReplayLength)
             _replayElapsed = 0d;
         _replayPlaying = !_replayPlaying;
     }
@@ -113,24 +115,36 @@ public sealed partial class CameraDiagnostics
     private void SeekReplay(float seconds)
     {
         if (_replayClip == null) return;
-        _replayElapsed = Math.Max(0d, Math.Min(_replayClip.Duration, seconds));
+        _replayElapsed = Math.Max(0d, Math.Min(ReplayLength, seconds));
         _replayPlaying = false;
     }
 
     private void UpdateReplayPlayback(float delta)
     {
         if (!_replayPlaying || _replayClip == null) return;
-        _replayElapsed = Math.Min(_replayClip.Duration,
+        _replayElapsed = Math.Min(ReplayLength,
             _replayElapsed + Math.Max(0f, delta));
-        if (_replayElapsed >= _replayClip.Duration)
+        if (_replayElapsed >= ReplayLength)
             _replayPlaying = false;
     }
 
     private ReplayPoseValue EvaluatedPose(int which)
     {
         if (_replayClip == null) return default;
-        _replayClip.Evaluate(_replayElapsed, out ReplayClipFrame a,
-            out ReplayClipFrame b, out float blend);
+        ReplayClipFrame a, b;
+        float blend;
+        if (_partyTimeline != null)
+        {
+            if (!_partyTimeline.TryEvaluate(0, _replayElapsed,
+                    out a, out b, out blend)) return default;
+        }
+        else _replayClip.Evaluate(_replayElapsed, out a, out b, out blend);
+        return InterpolateReplayPose(a, b, blend, which);
+    }
+
+    private static ReplayPoseValue InterpolateReplayPose(
+        ReplayClipFrame a, ReplayClipFrame b, float blend, int which)
+    {
         ReplayPoseValue left = which == 0 ? a.Head :
             which == 1 ? a.Left : which == 2 ? a.Right :
             which == 3 ? a.Avatar : which == 4 ? a.AvatarRigRoot :
@@ -221,6 +235,8 @@ public sealed partial class CameraDiagnostics
                     DrawRecordedRigTracks();
                     RenderWorldActorMarkers();
                     RenderObservedRigBones();
+                    RenderPartyMarkers();
+                    RenderPartnerActorCoverage();
                     DrawReplayMarker(EvaluatedPose(0),
                         ReplayHeadRadius, new Color(.32f, .87f, 1f, 1f));
                     DrawReplayMarker(EvaluatedPose(1),

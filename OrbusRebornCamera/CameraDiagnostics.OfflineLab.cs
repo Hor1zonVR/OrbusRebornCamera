@@ -191,6 +191,9 @@ public sealed partial class CameraDiagnostics
     {
         if (!_offlineReplayActive || _replayClip == null) return;
         ReplayPoseValue head = EvaluatedPose(0);
+        bool partnerOnly = !head.Valid && _partyTimeline != null &&
+            PartyPartnerVisible();
+        if (partnerOnly) head = PartyPose(1, 0);
         if (!head.Valid) return;
 
         // A previous version permanently placed the 20m grid under the
@@ -202,7 +205,10 @@ public sealed partial class CameraDiagnostics
         // playback marker. Grid lines stay on *absolute metre boundaries*:
         // they do NOT slide under the avatar as it walks. We only reveal
         // more tiles when the replay crosses a 10m window boundary.
-        ReplayPoseValue region = _replayClip.GridReferenceAt(_replayElapsed);
+        ReplayPoseValue region = partnerOnly && _partyTimeline != null
+            ? _partyTimeline.Partner.GridReferenceAt(
+                _partyTimeline.ClipElapsed(1, _replayElapsed))
+            : _replayClip.GridReferenceAt(LocalReplayElapsed);
         if (!region.Valid) region = head;
         float y = region.Y - 1.65f;
         float cx = (float)(Math.Floor(head.X / 10d) * 10d);
@@ -223,8 +229,8 @@ public sealed partial class CameraDiagnostics
         }
 
         Color link = new Color(.62f, .8f, .91f, .78f);
-        ReplayPoseValue left = EvaluatedPose(1);
-        ReplayPoseValue right = EvaluatedPose(2);
+        ReplayPoseValue left = partnerOnly ? PartyPose(1, 1) : EvaluatedPose(1);
+        ReplayPoseValue right = partnerOnly ? PartyPose(1, 2) : EvaluatedPose(2);
         Vector3 at = ReplayPosition(head);
         if (left.Valid)
             DrawGuideLine(at + Vector3.down * .22f,

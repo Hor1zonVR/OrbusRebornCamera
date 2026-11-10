@@ -11,6 +11,9 @@ on:
       - 'OrbusRebornCamera/NativePowerUiSettingsProbe.cs'
       - 'OrbusRebornCamera/BetterMirror.csproj'
       - 'OrbusRebornCamera/Plugin.cs'
+      - 'OrbusRebornCamera/CameraDiagnostics.PartyReplay.cs'
+      - 'OrbusRebornCamera/ReplayPartyTimeline.cs'
+      - 'OrbusRebornCamera/ReplayPartyArchive.cs'
       - '.github/workflows/test-native-menu-syntax.yml'
 
 jobs:
@@ -66,7 +69,10 @@ jobs:
               "OrbusRebornCamera/CameraDiagnostics.Panel.cs",
               "OrbusRebornCamera/CameraDiagnostics.Spectate.cs",
               "OrbusRebornCamera/DesktopLevelHudFilter.cs",
-              "OrbusRebornCamera/CameraDiagnostics.CinematicRender.cs"
+              "OrbusRebornCamera/CameraDiagnostics.CinematicRender.cs",
+              "OrbusRebornCamera/CameraDiagnostics.PartyReplay.cs",
+              "OrbusRebornCamera/ReplayPartyTimeline.cs",
+              "OrbusRebornCamera/ReplayPartyArchive.cs"
           };
           int failures = 0;
           foreach (var path in files)
