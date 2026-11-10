@@ -97,7 +97,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         LoadKeyframes();
 
         Plugin.ModLogger.LogInfo(
-            $"RebornCam v0.9.29 ready. " +
+            $"RebornCam v0.9.30 ready. " +
             $"Mode={_mode}, " +
             $"FOV={GetHorizontalFov():0}, " +
             $"AutoStart={Plugin.StartEnabled.Value}"
