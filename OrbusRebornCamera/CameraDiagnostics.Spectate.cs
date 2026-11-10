@@ -285,9 +285,31 @@ public sealed partial class CameraDiagnostics
             _mode == CameraMode.Selfie))
             SetPanelMode(CameraMode.Selfie);
 
-        StudioText(new Rect(x + 2f, y + 169f, w - 4f, 24f),
-            "Visible client-side player rigs (nearest first)",
-            _studioMuted);
+        // Additional camera draw distance applies to ALREADY LOADED
+        // scenery. It never increases server/player interest replication.
+        bool extendDraw = Plugin.SpectateExtendLoadedDrawDistance.Value;
+        if (StudioButton(new Rect(x, y + 165f, half, 29f),
+            extendDraw ? "Extended draw: ON" : "Extended draw: OFF",
+            extendDraw))
+        {
+            Plugin.SpectateExtendLoadedDrawDistance.Value = !extendDraw;
+            Plugin.ModLogger.LogInfo(
+                "[Spectate] Loaded-object render extension: " +
+                (Plugin.SpectateExtendLoadedDrawDistance.Value ?
+                    "ON" : "OFF") +
+                ". Does not change server interest radius.");
+        }
+        string rangeText = "Loaded players only";
+        if (_spectateRoot != null && _source != null &&
+            IsLoadedRemotePlayer(_spectateRoot))
+        {
+            float playerDistance = Vector3.Distance(
+                _spectateRoot.position, _source.transform.position);
+            rangeText = playerDistance.ToString("0") +
+                "m from you - loaded";
+        }
+        StudioText(new Rect(x + half + 11f, y + 169f,
+            half - 12f, 24f), rangeText, _studioMuted);
 
         if (!_spectateDiscovered)
         {
