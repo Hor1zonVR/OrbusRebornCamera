@@ -313,6 +313,11 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
                 return;
             }
 
+            // Remote targets are live scene objects; never follow an
+            // unloaded player or drag the real avatar/VR rig.
+            if (_spectateRoot != null && !IsLoadedRemotePlayer(_spectateRoot))
+                ReturnSpectateToSelf("Player is no longer loaded.");
+
             // The VR camera may be destroyed or replaced
             // when transitioning between game scenes.
             if (_source == null)
@@ -763,17 +768,17 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         Transform output =
             _desktop.transform;
 
+        bool remote = TryGetSpectatePose(out Vector3 remoteEye,
+            out Quaternion remoteRotation, out Vector3 remoteForward);
+
         Vector3 targetPosition;
         Quaternion targetRotation;
 
         if (_mode == CameraMode.POV)
         {
             // Same working first-person view as v0.3.
-            targetPosition =
-                head.position;
-
-            targetRotation =
-                head.rotation;
+            targetPosition = remote ? remoteEye : head.position;
+            targetRotation = remote ? remoteRotation : head.rotation;
         }
         else if (_mode == CameraMode.Static)
         {
@@ -784,7 +789,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         {
             // Horizontal direction of the player.
             Vector3 forward =
-                head.forward;
+                remote ? remoteForward : head.forward;
 
             forward.y = 0f;
 
@@ -795,7 +800,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
 
             // Look towards the player's upper body.
             Vector3 lookTarget =
-                head.position +
+                (remote ? remoteEye : head.position) +
                 Vector3.down * 0.45f;
 
             if (_mode == CameraMode.ThirdPerson)
@@ -813,7 +818,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
                 );
 
                 targetPosition =
-                    head.position -
+                    (remote ? remoteEye : head.position) -
                     forward * distance +
                     Vector3.up * height;
             }
@@ -827,7 +832,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
                 );
 
                 targetPosition =
-                    head.position +
+                    (remote ? remoteEye : head.position) +
                     forward * distance +
                     Vector3.up * 0.1f;
             }
