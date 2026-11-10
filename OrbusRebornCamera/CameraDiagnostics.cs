@@ -97,7 +97,7 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
         LoadKeyframes();
 
         Plugin.ModLogger.LogInfo(
-            $"RebornCam v0.9.30 ready. " +
+            $"RebornCam v0.9.31 ready. " +
             $"Mode={_mode}, " +
             $"FOV={GetHorizontalFov():0}, " +
             $"AutoStart={Plugin.StartEnabled.Value}"
@@ -816,8 +816,8 @@ public sealed partial class CameraDiagnostics : MonoBehaviour
             {
                 float distance = Mathf.Clamp(
                     Plugin.ThirdDistance.Value,
-                    0.75f,
-                    8f
+                    0.5f,
+                    16f
                 );
 
                 float height = Mathf.Clamp(

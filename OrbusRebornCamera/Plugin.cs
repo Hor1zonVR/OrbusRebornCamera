@@ -10,7 +10,7 @@ namespace OrbusBetterMirror;
 [BepInPlugin(
     "com.horizon.orbus.bettermirror",
     "OrbusRebornCamera",
-    "0.9.30"
+    "0.9.31"
 )]
 public sealed class Plugin : BasePlugin
 {
@@ -96,14 +96,14 @@ public sealed class Plugin : BasePlugin
             "ThirdPerson",
             "Distance",
             2.5f,
-            "Distance behind the player in metres."
+            "Distance behind the player's head in metres (0.5 to 16)."
         );
 
         ThirdHeight = Config.Bind(
             "ThirdPerson",
             "Height",
             0.6f,
-            "Height above the headset in metres."
+            "Third-person camera height above tracked head in metres (-2 to +5)."
         );
 
         SelfieDistance = Config.Bind(
@@ -281,7 +281,7 @@ public sealed class Plugin : BasePlugin
             "to 10-50. Does not load unseen areas or reveal remote entities.");
 
         Log.LogInfo("==================================");
-        Log.LogInfo("OrbusRebornCamera v0.9.30 - precise level/XP HUD filter and loaded-player draw boost");
+        Log.LogInfo("OrbusRebornCamera v0.9.31 - remote head-aligned third-person and camera distance/height sliders");
         Log.LogInfo("Physical Camera and Creator Studio");
         Log.LogInfo("==================================");
 

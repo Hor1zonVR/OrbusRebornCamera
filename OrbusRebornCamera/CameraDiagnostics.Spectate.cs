@@ -207,6 +207,8 @@ public sealed partial class CameraDiagnostics
                 _spectateInstanceId + ". View head: " +
                 (_spectateHead == null ? "approximate root + height" :
                     _spectateHead.name) +
+                ". Follow heading: " +
+                (_spectateHead == null ? "body fallback" : "tracked head") +
                 ". Desktop camera only; network/local avatar unchanged.");
         }
 
@@ -219,11 +221,11 @@ public sealed partial class CameraDiagnostics
     // Read only the remote visual rig *after* the game has interpolated it.
     // This is a reconstruction, not the remote headset's exact eye texture.
     private bool TryGetSpectatePose(out Vector3 eyePosition,
-        out Quaternion eyeRotation, out Vector3 bodyForward)
+        out Quaternion eyeRotation, out Vector3 viewForward)
     {
         eyePosition = Vector3.zero;
         eyeRotation = Quaternion.identity;
-        bodyForward = Vector3.forward;
+        viewForward = Vector3.forward;
         Transform? root = _spectateRoot;
         if (root == null) return false;
 
@@ -234,7 +236,10 @@ public sealed partial class CameraDiagnostics
             return false;
         }
 
-        bodyForward = root.forward;
+        // Fallback only. OtherPlayerv2 root points with the body and can
+        // rotate independently of the player's headset. Using this for
+        // third-person caused sideways spectator shots in v0.9.30.
+        viewForward = root.forward;
         if (_source != null)
             _spectateLastLoadedDistance = Vector3.Distance(
                 root.position, _source.transform.position);
@@ -251,14 +256,20 @@ public sealed partial class CameraDiagnostics
         }
 
         // PlayerRoot is commonly at floor/body origin in Orbus, not HMD.
-        // If the head pose isn't exposed, the user still gets a usable
-        // third-person attachment and approximate first-person view.
+        // If head tracking isn't exposed in a particular Orbus build,
+        // retain the root direction as an explicit fallback. This is not
+        // a guaranteed reconstruction of an unavailable headset pose.
         eyePosition = root.position + Vector3.up * 1.55f;
         eyeRotation = root.rotation;
         if (head != null)
         {
             eyePosition = head.position;
             eyeRotation = head.rotation;
+            // Match the LOCAL third-person camera: use the observed HMD/head
+            // orientation rather than the networked root/body rotation.
+            // Flattening to XZ happens in UpdateCameraPose exactly as it
+            // does for the local headset. No real player transforms move.
+            viewForward = head.forward;
         }
         return true;
     }
