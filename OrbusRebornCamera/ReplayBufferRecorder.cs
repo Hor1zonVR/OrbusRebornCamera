@@ -649,6 +649,22 @@ public sealed class ReplayBufferRecorder : MonoBehaviour
                     catch { /* best effort */ }
                 }
             }
+            // Each participant can copy ONE .party.zip to the other.
+            // Clip export remains valid even if optional ZIP packaging fails.
+            try
+            {
+                string package = ReplayPartyArchive.Create(destination);
+                Plugin.ModLogger.LogInfo(
+                    "[PartyReplay] Shareable clip archive created: " + package);
+            }
+            catch (Exception ex) when (ex is IOException ||
+                ex is UnauthorizedAccessException ||
+                ex is InvalidDataException)
+            {
+                Plugin.ModLogger.LogWarning(
+                    "[PartyReplay] Optional ZIP package unavailable: " +
+                    ex.Message + ". The original clip/sidecars are saved.");
+            }
             return destination;
         }
         catch
