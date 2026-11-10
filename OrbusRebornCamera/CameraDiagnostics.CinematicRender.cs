@@ -128,7 +128,7 @@ public sealed partial class CameraDiagnostics
             IsLoadedRemotePlayer(_spectateRoot);
         bool requested = (_mode == CameraMode.Drone &&
                 Plugin.ExtendedRenderEnabled.Value) ||
-            (spectatingLoadedPlayer &&
+            (spectatingLoadedPlayer && _mode != CameraMode.Drone &&
                 Plugin.SpectateExtendLoadedDrawDistance.Value);
         if (!requested || _desktop == null || !_desktop.enabled)
         {
