@@ -318,6 +318,7 @@ namespace OrbusBetterMirror
         private CameraMode _mode = CameraMode.Drone;
         private CameraMode _lastFollowMode = CameraMode.POV;
         private bool _autoStartHandled;
+        private bool _playingKeyframes;
         private bool _droneRecenterPending;
         private bool _droneHasObservedEye;
         private static bool DesktopFreecamActive { get; set; }
