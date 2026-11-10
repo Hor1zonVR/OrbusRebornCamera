@@ -135,7 +135,9 @@ Write-Host "[3/4] Publishing $tag..." -ForegroundColor Yellow
 & git fetch origin --tags
 Check-Result "Fetching release tags"
 
-$existingTag = (& git tag --list $tag).Trim()
+# git tag --list emits NO output when the tag is new. PowerShell returns
+# $null for that case, so never call .Trim() directly on its output.
+$existingTag = (& git tag --list $tag | Out-String).Trim()
 Check-Result "Checking release tag"
 if ([string]::IsNullOrWhiteSpace($existingTag)) {
     & git tag $tag $commit
