@@ -71,6 +71,26 @@ test('private room relay exchanges only consenting party clips and save requests
     });
     assert.equal(r.status, 200, 'idempotent save command');
 
+    // Both participants saving in the same instant must not erase either
+    // other's command through a racing JSON read/modify/write.
+    const send = (from, requestId) => fetch(base + '/events', {
+      method: 'POST',
+      headers: { ...secret, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        from, request_id: requestId, action: 'save-last'
+      })
+    });
+    const [first, second] = await Promise.all([
+      send(alice, otherClip), send(jordan, otherClip)
+    ]);
+    assert.equal(first.status, 201);
+    assert.equal(second.status, 201);
+    r = await fetch(base + '/events?after=' + event.seq, { headers: secret });
+    const simultaneous = (await r.json()).events;
+    assert.equal(simultaneous.length, 2, 'concurrent save requests survive');
+    assert.equal(new Set(simultaneous.map(x => x.seq)).size, 2,
+      'monotonic event sequence');
+
     // Invalid routes are rejected before filesystem access.
     r = await fetch(base + '/clips/./' + clip, { method: 'PUT',
       headers: { ...secret, 'content-length': String(bytes.length) }, body: bytes });
